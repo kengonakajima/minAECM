@@ -383,9 +383,7 @@ extern const int16_t WebRtcAecm_kCosTable[];
 extern const int16_t WebRtcAecm_kSinTable[];
 
 ///////////////////////////////////////////////////////////////////////////////
-// Some function pointers, for internal functions shared by ARM NEON and
-// generic C code.
-//
+// 内部関数への関数ポインタ（単一の C 実装を指す）
 typedef void (*CalcLinearEnergies)(AecmCore* aecm,
                                    const uint16_t* far_spectrum,
                                    int32_t* echoEst,
@@ -402,39 +400,7 @@ extern StoreAdaptiveChannel WebRtcAecm_StoreAdaptiveChannel;
 typedef void (*ResetAdaptiveChannel)(AecmCore* aecm);
 extern ResetAdaptiveChannel WebRtcAecm_ResetAdaptiveChannel;
 
-// For the above function pointers, functions for generic platforms are declared
-// and defined as static in file aecm_core.c, while those for ARM Neon platforms
-// are declared below and defined in file aecm_core_neon.c.
-#if defined(WEBRTC_HAS_NEON)
-void WebRtcAecm_CalcLinearEnergiesNeon(AecmCore* aecm,
-                                       const uint16_t* far_spectrum,
-                                       int32_t* echo_est,
-                                       uint32_t* far_energy,
-                                       uint32_t* echo_energy_adapt,
-                                       uint32_t* echo_energy_stored);
-
-void WebRtcAecm_StoreAdaptiveChannelNeon(AecmCore* aecm,
-                                         const uint16_t* far_spectrum,
-                                         int32_t* echo_est);
-
-void WebRtcAecm_ResetAdaptiveChannelNeon(AecmCore* aecm);
-#endif
-
-#if defined(MIPS32_LE)
-void WebRtcAecm_CalcLinearEnergies_mips(AecmCore* aecm,
-                                        const uint16_t* far_spectrum,
-                                        int32_t* echo_est,
-                                        uint32_t* far_energy,
-                                        uint32_t* echo_energy_adapt,
-                                        uint32_t* echo_energy_stored);
-#if defined(MIPS_DSP_R1_LE)
-void WebRtcAecm_StoreAdaptiveChannel_mips(AecmCore* aecm,
-                                          const uint16_t* far_spectrum,
-                                          int32_t* echo_est);
-
-void WebRtcAecm_ResetAdaptiveChannel_mips(AecmCore* aecm);
-#endif
-#endif
+// NEON/MIPS の最適化実装宣言は削除し、分岐をなくす。
 
 }  // namespace web_rtc
 

@@ -332,25 +332,7 @@ static void ResetAdaptiveChannelC(AecmCore* aecm) {
   aecm->channelAdapt32[i] = (int32_t)aecm->channelStored[i] << 16;
 }
 
-// Initialize function pointers for ARM Neon platform.
-#if defined(WEBRTC_HAS_NEON)
-static void WebRtcAecm_InitNeon(void) {
-  WebRtcAecm_StoreAdaptiveChannel = WebRtcAecm_StoreAdaptiveChannelNeon;
-  WebRtcAecm_ResetAdaptiveChannel = WebRtcAecm_ResetAdaptiveChannelNeon;
-  WebRtcAecm_CalcLinearEnergies = WebRtcAecm_CalcLinearEnergiesNeon;
-}
-#endif
-
-// Initialize function pointers for MIPS platform.
-#if defined(MIPS32_LE)
-static void WebRtcAecm_InitMips(void) {
-#if defined(MIPS_DSP_R1_LE)
-  WebRtcAecm_StoreAdaptiveChannel = WebRtcAecm_StoreAdaptiveChannel_mips;
-  WebRtcAecm_ResetAdaptiveChannel = WebRtcAecm_ResetAdaptiveChannel_mips;
-#endif
-  WebRtcAecm_CalcLinearEnergies = WebRtcAecm_CalcLinearEnergies_mips;
-}
-#endif
+// NEON/MIPS の最適化分岐は削除し、常に C 実装を使用する。
 
 // WebRtcAecm_InitCore(...)
 //
@@ -467,18 +449,10 @@ int WebRtcAecm_InitCore(AecmCore* const aecm, int samplingFreq) {
   // used in assembly code, so check the assembly files before any change.
   static_assert(PART_LEN % 16 == 0, "PART_LEN is not a multiple of 16");
 
-  // Initialize function pointers.
+  // Initialize function pointers (always use plain C versions).
   WebRtcAecm_CalcLinearEnergies = CalcLinearEnergiesC;
   WebRtcAecm_StoreAdaptiveChannel = StoreAdaptiveChannelC;
   WebRtcAecm_ResetAdaptiveChannel = ResetAdaptiveChannelC;
-
-#if defined(WEBRTC_HAS_NEON)
-  WebRtcAecm_InitNeon();
-#endif
-
-#if defined(MIPS32_LE)
-  WebRtcAecm_InitMips();
-#endif
   return 0;
 }
 
