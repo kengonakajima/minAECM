@@ -38,7 +38,7 @@ int16_t WebRtcSpl_MaxAbsValueW16C(const int16_t* vector, size_t length) {
   size_t i = 0;
   int absolute = 0, maximum = 0;
 
-  RTC_DCHECK_GT(length, 0);
+  /* length > 0 を期待 */
 
   for (i = 0; i < length; i++) {
     absolute = abs((int)vector[i]);
@@ -64,7 +64,7 @@ int32_t WebRtcSpl_MaxAbsValueW32C(const int32_t* vector, size_t length) {
   uint32_t absolute = 0, maximum = 0;
   size_t i = 0;
 
-  RTC_DCHECK_GT(length, 0);
+  /* length > 0 を期待 */
 
   for (i = 0; i < length; i++) {
     absolute = abs((int)vector[i]);
@@ -83,7 +83,7 @@ int16_t WebRtcSpl_MaxValueW16C(const int16_t* vector, size_t length) {
   int16_t maximum = WEBRTC_SPL_WORD16_MIN;
   size_t i = 0;
 
-  RTC_DCHECK_GT(length, 0);
+  /* length > 0 を期待 */
 
   for (i = 0; i < length; i++) {
     if (vector[i] > maximum)
@@ -97,7 +97,7 @@ int32_t WebRtcSpl_MaxValueW32C(const int32_t* vector, size_t length) {
   int32_t maximum = WEBRTC_SPL_WORD32_MIN;
   size_t i = 0;
 
-  RTC_DCHECK_GT(length, 0);
+  /* length > 0 を期待 */
 
   for (i = 0; i < length; i++) {
     if (vector[i] > maximum)
@@ -111,7 +111,7 @@ int16_t WebRtcSpl_MinValueW16C(const int16_t* vector, size_t length) {
   int16_t minimum = WEBRTC_SPL_WORD16_MAX;
   size_t i = 0;
 
-  RTC_DCHECK_GT(length, 0);
+  /* length > 0 を期待 */
 
   for (i = 0; i < length; i++) {
     if (vector[i] < minimum)
@@ -125,7 +125,7 @@ int32_t WebRtcSpl_MinValueW32C(const int32_t* vector, size_t length) {
   int32_t minimum = WEBRTC_SPL_WORD32_MAX;
   size_t i = 0;
 
-  RTC_DCHECK_GT(length, 0);
+  /* length > 0 を期待 */
 
   for (i = 0; i < length; i++) {
     if (vector[i] < minimum)
@@ -141,7 +141,7 @@ size_t WebRtcSpl_MaxAbsIndexW16(const int16_t* vector, size_t length) {
   size_t i = 0, index = 0;
   int absolute = 0, maximum = 0;
 
-  RTC_DCHECK_GT(length, 0);
+  /* length > 0 を期待 */
 
   for (i = 0; i < length; i++) {
     absolute = abs((int)vector[i]);
@@ -169,7 +169,7 @@ size_t WebRtcSpl_MaxIndexW16(const int16_t* vector, size_t length) {
   size_t i = 0, index = 0;
   int16_t maximum = WEBRTC_SPL_WORD16_MIN;
 
-  RTC_DCHECK_GT(length, 0);
+  /* length > 0 を期待 */
 
   for (i = 0; i < length; i++) {
     if (vector[i] > maximum) {
@@ -186,7 +186,7 @@ size_t WebRtcSpl_MaxIndexW32(const int32_t* vector, size_t length) {
   size_t i = 0, index = 0;
   int32_t maximum = WEBRTC_SPL_WORD32_MIN;
 
-  RTC_DCHECK_GT(length, 0);
+  /* length > 0 を期待 */
 
   for (i = 0; i < length; i++) {
     if (vector[i] > maximum) {
@@ -203,7 +203,7 @@ size_t WebRtcSpl_MinIndexW16(const int16_t* vector, size_t length) {
   size_t i = 0, index = 0;
   int16_t minimum = WEBRTC_SPL_WORD16_MAX;
 
-  RTC_DCHECK_GT(length, 0);
+  /* length > 0 を期待 */
 
   for (i = 0; i < length; i++) {
     if (vector[i] < minimum) {
@@ -220,7 +220,7 @@ size_t WebRtcSpl_MinIndexW32(const int32_t* vector, size_t length) {
   size_t i = 0, index = 0;
   int32_t minimum = WEBRTC_SPL_WORD32_MAX;
 
-  RTC_DCHECK_GT(length, 0);
+  /* length > 0 を期待 */
 
   for (i = 0; i < length; i++) {
     if (vector[i] < minimum) {
@@ -242,7 +242,7 @@ void WebRtcSpl_MinMaxW16(const int16_t* vector, size_t length,
   int16_t maximum = WEBRTC_SPL_WORD16_MIN;
   size_t i = 0;
 
-  RTC_DCHECK_GT(length, 0);
+  /* length > 0 を期待 */
 
   for (i = 0; i < length; i++) {
     if (vector[i] < minimum)

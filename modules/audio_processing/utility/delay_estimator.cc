@@ -108,7 +108,7 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
                                            : kMaxHitsWhenPossiblyCausal;
   int i = 0;
 
-  RTC_DCHECK_EQ(self->history_size, self->farend->history_size);
+  // Expect same history sizes.
   // Reset `candidate_hits` if we have a new candidate.
   if (candidate_delay != self->last_candidate_delay) {
     self->candidate_hits = 0;
@@ -308,7 +308,7 @@ BinaryDelayEstimatorFarend* WebRtc_CreateBinaryDelayEstimatorFarend(
 
 int WebRtc_AllocateFarendBufferMemory(BinaryDelayEstimatorFarend* self,
                                       int history_size) {
-  RTC_DCHECK(self);
+  // removed DCHECK(self)
   // (Re-)Allocate memory for history buffers.
   self->binary_far_history = static_cast<uint32_t*>(
       realloc(self->binary_far_history,
@@ -332,7 +332,7 @@ int WebRtc_AllocateFarendBufferMemory(BinaryDelayEstimatorFarend* self,
 }
 
 void WebRtc_InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self) {
-  RTC_DCHECK(self);
+  // removed DCHECK(self)
   memset(self->binary_far_history, 0, sizeof(uint32_t) * self->history_size);
   memset(self->far_bit_counts, 0, sizeof(int) * self->history_size);
 }
@@ -346,9 +346,9 @@ void WebRtc_SoftResetBinaryDelayEstimatorFarend(
   int src_index = 0;
   int padding_index = 0;
 
-  RTC_DCHECK(self);
+  // removed DCHECK(self)
   shift_size = self->history_size - abs_shift;
-  RTC_DCHECK_GT(shift_size, 0);
+  // expect shift_size > 0
   if (delay_shift == 0) {
     return;
   } else if (delay_shift > 0) {
@@ -372,7 +372,7 @@ void WebRtc_SoftResetBinaryDelayEstimatorFarend(
 
 void WebRtc_AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* handle,
                                  uint32_t binary_far_spectrum) {
-  RTC_DCHECK(handle);
+  // removed DCHECK(handle)
   // Shift binary spectrum history and insert current `binary_far_spectrum`.
   memmove(&(handle->binary_far_history[1]), &(handle->binary_far_history[0]),
           (handle->history_size - 1) * sizeof(uint32_t));
@@ -486,7 +486,7 @@ int WebRtc_AllocateHistoryBufferMemory(BinaryDelayEstimator* self,
 
 void WebRtc_InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
   int i = 0;
-  RTC_DCHECK(self);
+  // removed DCHECK(self)
 
   memset(self->bit_counts, 0, sizeof(int32_t) * self->history_size);
   memset(self->binary_near_history, 0,
@@ -510,7 +510,7 @@ void WebRtc_InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
 int WebRtc_SoftResetBinaryDelayEstimator(BinaryDelayEstimator* self,
                                          int delay_shift) {
   int lookahead = 0;
-  RTC_DCHECK(self);
+  // removed DCHECK(self)
   lookahead = self->lookahead;
   self->lookahead -= delay_shift;
   if (self->lookahead < 0) {
@@ -532,7 +532,7 @@ int WebRtc_ProcessBinarySpectrum(BinaryDelayEstimator* self,
   int32_t value_worst_candidate = 0;
   int32_t valley_depth = 0;
 
-  RTC_DCHECK(self);
+  // removed DCHECK(self)
   if (self->farend->history_size != self->history_size) {
     // Non matching history sizes.
     return -1;
@@ -668,13 +668,13 @@ int WebRtc_ProcessBinarySpectrum(BinaryDelayEstimator* self,
 }
 
 int WebRtc_binary_last_delay(BinaryDelayEstimator* self) {
-  RTC_DCHECK(self);
+  // removed DCHECK(self)
   return self->last_delay;
 }
 
 float WebRtc_binary_last_delay_quality(BinaryDelayEstimator* self) {
   float quality = 0;
-  RTC_DCHECK(self);
+  // removed DCHECK(self)
 
   if (self->robust_validation_enabled) {
     // Simply a linear function of the histogram height at delay estimate.

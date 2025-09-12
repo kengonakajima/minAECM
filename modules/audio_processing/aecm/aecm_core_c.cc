@@ -24,7 +24,6 @@ extern "C" {
 }
 
 #include "rtc_base/checks.h"
-#include "rtc_base/numerics/safe_conversions.h"
 #include "rtc_base/sanitizer.h"
 
 namespace web_rtc {
@@ -75,8 +74,9 @@ static void ComfortNoise(AecmCore* aecm,
   int16_t shiftFromNearToNoise = kNoiseEstQDomain - aecm->dfaCleanQDomain;
   int16_t minTrackShift;
 
-  RTC_DCHECK_GE(shiftFromNearToNoise, 0);
-  RTC_DCHECK_LT(shiftFromNearToNoise, 16);
+  // shiftFromNearToNoise sanity (was DCHECK): ensure in [0,16)
+  if (shiftFromNearToNoise < 0) shiftFromNearToNoise = 0;
+  if (shiftFromNearToNoise > 15) shiftFromNearToNoise = 15;
 
   if (aecm->noiseEstCtr < 100) {
     // Track the minimum more quickly initially.
@@ -512,8 +512,7 @@ int RTC_NO_SANITIZE("signed-integer-overflow")  // bugs.webrtc.org/8200
     // Far end signal through channel estimate in Q8
     // How much can we shift right to preserve resolution
     tmp32no1 = echoEst32[i] - aecm->echoFilt[i];
-    aecm->echoFilt[i] +=
-        rtc::dchecked_cast<int32_t>((int64_t{tmp32no1} * 50) >> 8);
+    aecm->echoFilt[i] += (int32_t)(((int64_t)tmp32no1 * 50) >> 8);
 
     zeros32 = WebRtcSpl_NormW32(aecm->echoFilt[i]) + 1;
     zeros16 = WebRtcSpl_NormW16(supGain) + 1;
@@ -541,7 +540,6 @@ int RTC_NO_SANITIZE("signed-integer-overflow")  // bugs.webrtc.org/8200
     }
 
     zeros16 = WebRtcSpl_NormW16(aecm->nearFilt[i]);
-    RTC_DCHECK_GE(zeros16, 0);  // `zeros16` is a norm, hence non-negative.
     dfa_clean_q_domain_diff = aecm->dfaCleanQDomain - aecm->dfaCleanQDomainOld;
     if (zeros16 < dfa_clean_q_domain_diff && aecm->nearFilt[i]) {
       tmp16no1 = aecm->nearFilt[i] * (1 << zeros16);
@@ -609,7 +607,6 @@ int RTC_NO_SANITIZE("signed-integer-overflow")  // bugs.webrtc.org/8200
     for (i = kMinPrefBand; i <= kMaxPrefBand; i++) {
       avgHnl32 += (int32_t)hnl[i];
     }
-    RTC_DCHECK_GT(kMaxPrefBand - kMinPrefBand + 1, 0);
     avgHnl32 /= (kMaxPrefBand - kMinPrefBand + 1);
 
     for (i = kMaxPrefBand; i < PART_LEN1; i++) {

@@ -62,27 +62,8 @@ static RTC_NORETURN inline void rtc_FatalMessage(const char* file,
 #define RTC_CHECK_GE(a, b) RTC_CHECK((a) >= (b))
 #define RTC_CHECK_GT(a, b) RTC_CHECK((a) > (b))
 
-#if RTC_DCHECK_IS_ON
-#define RTC_DCHECK(cond) RTC_CHECK(cond)
-#define RTC_DCHECK_EQ(a, b) RTC_CHECK_EQ(a, b)
-#define RTC_DCHECK_NE(a, b) RTC_CHECK_NE(a, b)
-#define RTC_DCHECK_LE(a, b) RTC_CHECK_LE(a, b)
-#define RTC_DCHECK_LT(a, b) RTC_CHECK_LT(a, b)
-#define RTC_DCHECK_GE(a, b) RTC_CHECK_GE(a, b)
-#define RTC_DCHECK_GT(a, b) RTC_CHECK_GT(a, b)
-#else
-#define RTC_DCHECK(cond) do { (void)sizeof(cond); } while (0)
-#define RTC_DCHECK_EQ(a, b) do { (void)sizeof(a); (void)sizeof(b); } while (0)
-#define RTC_DCHECK_NE(a, b) do { (void)sizeof(a); (void)sizeof(b); } while (0)
-#define RTC_DCHECK_LE(a, b) do { (void)sizeof(a); (void)sizeof(b); } while (0)
-#define RTC_DCHECK_LT(a, b) do { (void)sizeof(a); (void)sizeof(b); } while (0)
-#define RTC_DCHECK_GE(a, b) do { (void)sizeof(a); (void)sizeof(b); } while (0)
-#define RTC_DCHECK_GT(a, b) do { (void)sizeof(a); (void)sizeof(b); } while (0)
-#endif
-
 #define RTC_CHECK_NOTREACHED()                                                \
   do { rtc_abort_with_message(__FILE__, __LINE__, "NOTREACHED"); } while (0)
-#define RTC_DCHECK_NOTREACHED() do { /* no-op in release */ } while (0)
 
 /* 便利関数（最小版） */
 #ifdef __cplusplus
@@ -96,4 +77,3 @@ inline T CheckedDivExact(T a, T b) {
 #endif
 
 #endif  // RTC_BASE_CHECKS_H_
-

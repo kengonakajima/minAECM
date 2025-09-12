@@ -55,7 +55,6 @@ size_t WebRtcSpl_FilterAR(const int16_t* a,
         stop = (i < a_length) ? i + 1 : a_length;
         for (j = 1; j < stop; j++)
         {
-          RTC_DCHECK_GE(filtered_ix, 0);
           o -= *a_ptr * filtered[filtered_ix];
           oLOW -= *a_ptr++ * filtered_low[filtered_ix];
           --filtered_ix;

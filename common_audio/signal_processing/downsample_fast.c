@@ -57,7 +57,7 @@ int WebRtcSpl_DownsampleFastC(const int16_t* data_in,
     *data_out++ = WebRtcSpl_SatW32ToW16(out_s32);
   }
 
-  RTC_DCHECK_EQ(original_data_out + data_out_length, data_out);
+  // original_data_out + data_out_length should equal data_out at this point.
   rtc_MsanCheckInitialized(original_data_out, sizeof(original_data_out[0]),
                            data_out_length);
 

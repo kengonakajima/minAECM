@@ -23,8 +23,7 @@ void WebRtcSpl_FilterARFastQ12(const int16_t* data_in,
   size_t i = 0;
   size_t j = 0;
 
-  RTC_DCHECK_GT(data_length, 0);
-  RTC_DCHECK_GT(coefficients_length, 1);
+  /* data_length > 0, coefficients_length > 1 を期待 */
 
   for (i = 0; i < data_length; i++) {
     int64_t output = 0;

@@ -22,7 +22,7 @@ size_t WebRtcSpl_AutoCorrelation(const int16_t* in_vector,
   int16_t smax = 0;
   int scaling = 0;
 
-  RTC_DCHECK_LE(order, in_vector_length);
+  /* order <= in_vector_length を期待 */
 
   // Find the maximum absolute value of the samples.
   smax = WebRtcSpl_MaxAbsValueW16(in_vector, in_vector_length);

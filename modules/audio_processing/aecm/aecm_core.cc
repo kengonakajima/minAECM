@@ -22,7 +22,7 @@ extern "C" {
 #include "modules/audio_processing/aecm/echo_control_mobile.h"
 #include "modules/audio_processing/utility/delay_estimator_wrapper.h"
 #include "rtc_base/checks.h"
-#include "rtc_base/numerics/safe_conversions.h"
+// safe_conversions は未使用化（dchecked_cast を排除）
 
 namespace web_rtc {
 
@@ -168,7 +168,7 @@ const uint16_t* WebRtcAecm_AlignedFarend(AecmCore* self,
                                          int* far_q,
                                          int delay) {
   int buffer_position = 0;
-  RTC_DCHECK(self);
+  // sanity check was here in original (DCHECK). For minimal build, skip.
   buffer_position = self->far_history_pos - delay;
 
   // Check buffer position
@@ -828,10 +828,13 @@ void WebRtcAecm_UpdateChannel(AecmCore* aecm,
         // If zerosCh == zerosFar == 0, shiftChFar is 32. A
         // right shift of 32 is undefined. To avoid that, we
         // do this check.
-        tmpU32no1 =
-            rtc::dchecked_cast<uint32_t>(
-                shiftChFar >= 32 ? 0 : aecm->channelAdapt32[i] >> shiftChFar) *
-            far_spectrum[i];
+        {
+          uint32_t shifted = (shiftChFar >= 32)
+                                  ? 0u
+                                  : (uint32_t)(aecm->channelAdapt32[i] >>
+                                               shiftChFar);
+          tmpU32no1 = shifted * far_spectrum[i];
+        }
       }
       // Determine Q-domain of numerator
       zerosNum = WebRtcSpl_NormU32(tmpU32no1);

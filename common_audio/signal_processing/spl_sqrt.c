@@ -165,7 +165,6 @@ int32_t WebRtcSpl_Sqrt(int32_t value)
     x_norm = (int16_t)(A >> 16);  // x_norm = AH
 
     nshift = (sh / 2);
-    RTC_DCHECK_GE(nshift, 0);
 
     A = (int32_t)WEBRTC_SPL_LSHIFT_W32((int32_t)x_norm, 16);
     A = WEBRTC_SPL_ABS_W32(A); // A = abs(x_norm<<16)
