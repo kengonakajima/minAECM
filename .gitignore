@@ -1,1 +1,6 @@
 processed.wav
+*.o
+cancel_file
+echoback
+*.dSYM
+libaecm.a
