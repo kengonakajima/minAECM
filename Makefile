@@ -36,8 +36,7 @@ AECM_CC_SRCS= \
   modules/audio_processing/aecm/aecm_core.cc \
   modules/audio_processing/aecm/aecm_core_c.cc \
   modules/audio_processing/utility/delay_estimator_wrapper.cc \
-  modules/audio_processing/utility/delay_estimator.cc \
-  rtc_base/checks.cc
+  modules/audio_processing/utility/delay_estimator.cc
 
 AECM_C_SRCS= \
   common_audio/ring_buffer.c \
