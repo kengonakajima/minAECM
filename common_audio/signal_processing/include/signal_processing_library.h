@@ -40,18 +40,12 @@
 #define WEBRTC_SPL_MUL_16_U16(a, b) ((int32_t)(int16_t)(a) * (uint16_t)(b))
 
 // clang-format off
-// clang-format would choose some identation
-// leading to presubmit error (cpplint.py)
-#ifndef WEBRTC_ARCH_ARM_V7
-// For ARMv7 platforms, these are inline functions in spl_inl_armv7.h
-#ifndef MIPS32_LE
-// For MIPS platforms, these are inline functions in spl_inl_mips.h
+// clang-format would choose some indentation leading to presubmit error (cpplint.py)
+// Always use generic C implementations (NEON/MIPS 専用は削除済み)
 #define WEBRTC_SPL_MUL_16_16(a, b) ((int32_t)(((int16_t)(a)) * ((int16_t)(b))))
 #define WEBRTC_SPL_MUL_16_32_RSFT16(a, b) \
         (WEBRTC_SPL_MUL_16_16(a, b >> 16) +     \
         ((WEBRTC_SPL_MUL_16_16(a, (b & 0xffff) >> 1) + 0x4000) >> 15))
-#endif
-#endif
 
 #define WEBRTC_SPL_MUL_16_32_RSFT11(a, b)          \
         (WEBRTC_SPL_MUL_16_16(a, (b) >> 16) * (1 << 5) + \
@@ -136,11 +130,8 @@ void WebRtcSpl_ZerosArrayW32(int32_t* vector, size_t vector_length);
 typedef int16_t (*MaxAbsValueW16)(const int16_t* vector, size_t length);
 extern const MaxAbsValueW16 WebRtcSpl_MaxAbsValueW16;
 int16_t WebRtcSpl_MaxAbsValueW16C(const int16_t* vector, size_t length);
-#if defined(WEBRTC_HAS_NEON)
-int16_t WebRtcSpl_MaxAbsValueW16Neon(const int16_t* vector, size_t length);
-#endif
-#if defined(MIPS32_LE)
-int16_t WebRtcSpl_MaxAbsValueW16_mips(const int16_t* vector, size_t length);
+#if 0
+/* NEON/MIPS 専用実装は削除 */
 #endif
 
 // Returns the largest absolute value in a signed 32-bit vector.
@@ -153,11 +144,8 @@ int16_t WebRtcSpl_MaxAbsValueW16_mips(const int16_t* vector, size_t length);
 typedef int32_t (*MaxAbsValueW32)(const int32_t* vector, size_t length);
 extern const MaxAbsValueW32 WebRtcSpl_MaxAbsValueW32;
 int32_t WebRtcSpl_MaxAbsValueW32C(const int32_t* vector, size_t length);
-#if defined(WEBRTC_HAS_NEON)
-int32_t WebRtcSpl_MaxAbsValueW32Neon(const int32_t* vector, size_t length);
-#endif
-#if defined(MIPS_DSP_R1_LE)
-int32_t WebRtcSpl_MaxAbsValueW32_mips(const int32_t* vector, size_t length);
+#if 0
+/* NEON/MIPS 専用実装は削除 */
 #endif
 
 // Returns the maximum value of a 16-bit vector.
@@ -170,11 +158,8 @@ int32_t WebRtcSpl_MaxAbsValueW32_mips(const int32_t* vector, size_t length);
 typedef int16_t (*MaxValueW16)(const int16_t* vector, size_t length);
 extern const MaxValueW16 WebRtcSpl_MaxValueW16;
 int16_t WebRtcSpl_MaxValueW16C(const int16_t* vector, size_t length);
-#if defined(WEBRTC_HAS_NEON)
-int16_t WebRtcSpl_MaxValueW16Neon(const int16_t* vector, size_t length);
-#endif
-#if defined(MIPS32_LE)
-int16_t WebRtcSpl_MaxValueW16_mips(const int16_t* vector, size_t length);
+#if 0
+/* NEON/MIPS 専用実装は削除 */
 #endif
 
 // Returns the maximum value of a 32-bit vector.
@@ -187,11 +172,8 @@ int16_t WebRtcSpl_MaxValueW16_mips(const int16_t* vector, size_t length);
 typedef int32_t (*MaxValueW32)(const int32_t* vector, size_t length);
 extern const MaxValueW32 WebRtcSpl_MaxValueW32;
 int32_t WebRtcSpl_MaxValueW32C(const int32_t* vector, size_t length);
-#if defined(WEBRTC_HAS_NEON)
-int32_t WebRtcSpl_MaxValueW32Neon(const int32_t* vector, size_t length);
-#endif
-#if defined(MIPS32_LE)
-int32_t WebRtcSpl_MaxValueW32_mips(const int32_t* vector, size_t length);
+#if 0
+/* NEON/MIPS 専用実装は削除 */
 #endif
 
 // Returns the minimum value of a 16-bit vector.
@@ -204,11 +186,8 @@ int32_t WebRtcSpl_MaxValueW32_mips(const int32_t* vector, size_t length);
 typedef int16_t (*MinValueW16)(const int16_t* vector, size_t length);
 extern const MinValueW16 WebRtcSpl_MinValueW16;
 int16_t WebRtcSpl_MinValueW16C(const int16_t* vector, size_t length);
-#if defined(WEBRTC_HAS_NEON)
-int16_t WebRtcSpl_MinValueW16Neon(const int16_t* vector, size_t length);
-#endif
-#if defined(MIPS32_LE)
-int16_t WebRtcSpl_MinValueW16_mips(const int16_t* vector, size_t length);
+#if 0
+/* NEON/MIPS 専用実装は削除 */
 #endif
 
 // Returns the minimum value of a 32-bit vector.
@@ -221,11 +200,8 @@ int16_t WebRtcSpl_MinValueW16_mips(const int16_t* vector, size_t length);
 typedef int32_t (*MinValueW32)(const int32_t* vector, size_t length);
 extern const MinValueW32 WebRtcSpl_MinValueW32;
 int32_t WebRtcSpl_MinValueW32C(const int32_t* vector, size_t length);
-#if defined(WEBRTC_HAS_NEON)
-int32_t WebRtcSpl_MinValueW32Neon(const int32_t* vector, size_t length);
-#endif
-#if defined(MIPS32_LE)
-int32_t WebRtcSpl_MinValueW32_mips(const int32_t* vector, size_t length);
+#if 0
+/* NEON/MIPS 専用実装は削除 */
 #endif
 
 // Returns both the minimum and maximum values of a 16-bit vector.
@@ -240,11 +216,8 @@ void WebRtcSpl_MinMaxW16(const int16_t* vector,
                          size_t length,
                          int16_t* min_val,
                          int16_t* max_val);
-#if defined(WEBRTC_HAS_NEON)
-void WebRtcSpl_MinMaxW16Neon(const int16_t* vector,
-                             size_t length,
-                             int16_t* min_val,
-                             int16_t* max_val);
+#if 0
+/* NEON/MIPS 専用実装は削除 */
 #endif
 
 // Returns the vector index to the largest absolute value of a 16-bit vector.
@@ -378,14 +351,8 @@ int WebRtcSpl_ScaleAndAddVectorsWithRoundC(const int16_t* in_vector1,
                                            int right_shifts,
                                            int16_t* out_vector,
                                            size_t length);
-#if defined(MIPS_DSP_R1_LE)
-int WebRtcSpl_ScaleAndAddVectorsWithRound_mips(const int16_t* in_vector1,
-                                               int16_t in_vector1_scale,
-                                               const int16_t* in_vector2,
-                                               int16_t in_vector2_scale,
-                                               int right_shifts,
-                                               int16_t* out_vector,
-                                               size_t length);
+#if 0
+/* MIPS 専用実装は削除 */
 #endif
 // End: Vector scaling operations.
 
@@ -545,23 +512,8 @@ void WebRtcSpl_CrossCorrelationC(int32_t* cross_correlation,
                                  size_t dim_cross_correlation,
                                  int right_shifts,
                                  int step_seq2);
-#if defined(WEBRTC_HAS_NEON)
-void WebRtcSpl_CrossCorrelationNeon(int32_t* cross_correlation,
-                                    const int16_t* seq1,
-                                    const int16_t* seq2,
-                                    size_t dim_seq,
-                                    size_t dim_cross_correlation,
-                                    int right_shifts,
-                                    int step_seq2);
-#endif
-#if defined(MIPS32_LE)
-void WebRtcSpl_CrossCorrelation_mips(int32_t* cross_correlation,
-                                     const int16_t* seq1,
-                                     const int16_t* seq2,
-                                     size_t dim_seq,
-                                     size_t dim_cross_correlation,
-                                     int right_shifts,
-                                     int step_seq2);
+#if 0
+/* NEON/MIPS 専用実装は削除 */
 #endif
 
 // Creates (the first half of) a Hanning window. Size must be at least 1 and
@@ -695,25 +647,8 @@ int WebRtcSpl_DownsampleFastC(const int16_t* data_in,
                               size_t coefficients_length,
                               int factor,
                               size_t delay);
-#if defined(WEBRTC_HAS_NEON)
-int WebRtcSpl_DownsampleFastNeon(const int16_t* data_in,
-                                 size_t data_in_length,
-                                 int16_t* data_out,
-                                 size_t data_out_length,
-                                 const int16_t* __restrict coefficients,
-                                 size_t coefficients_length,
-                                 int factor,
-                                 size_t delay);
-#endif
-#if defined(MIPS32_LE)
-int WebRtcSpl_DownsampleFast_mips(const int16_t* data_in,
-                                  size_t data_in_length,
-                                  int16_t* data_out,
-                                  size_t data_out_length,
-                                  const int16_t* __restrict coefficients,
-                                  size_t coefficients_length,
-                                  int factor,
-                                  size_t delay);
+#if 0
+/* NEON/MIPS 専用実装は削除 */
 #endif
 
 // End: Filter operations.
