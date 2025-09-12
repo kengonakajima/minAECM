@@ -9,15 +9,14 @@
 #include "modules/audio_processing/aecm/echo_control_mobile.h"
 
 struct Wav {
-  int sr = 0;
-  int ch = 0;
+  // モノラル16kHz固定。sr/chは保持しない。
   std::vector<int16_t> samples;
 };
 
 static uint32_t rd32le(const uint8_t* p){ return p[0] | (p[1]<<8) | (p[2]<<16) | (p[3]<<24); }
 static uint16_t rd16le(const uint8_t* p){ return p[0] | (p[1]<<8); }
 
-static bool read_wav_pcm16(const std::string& path, Wav* out){
+static bool read_wav_pcm16_mono16k(const std::string& path, Wav* out){
   std::ifstream f(path, std::ios::binary);
   if (!f) return false;
   std::vector<uint8_t> buf((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
@@ -35,7 +34,8 @@ static bool read_wav_pcm16(const std::string& path, Wav* out){
     pos = start + sz;
   }
   if (!data_off || !data_size) return false;
-  out->sr = sr; out->ch = ch; size_t ns = data_size/2; out->samples.resize(ns);
+  if (sr != 16000 || ch != 1) return false; // 16k/mono固定
+  size_t ns = data_size/2; out->samples.resize(ns);
   const int16_t* p = reinterpret_cast<const int16_t*>(&buf[data_off]);
   for (size_t i=0;i<ns;i++) out->samples[i] = p[i];
   return true;
@@ -44,8 +44,10 @@ static bool read_wav_pcm16(const std::string& path, Wav* out){
 int main(int argc, char** argv){
   if (argc < 3){ std::fprintf(stderr, "Usage: %s <render.wav> <capture.wav>\n", argv[0]); return 1; }
   Wav x, y;
-  if (!read_wav_pcm16(argv[1], &x) || !read_wav_pcm16(argv[2], &y)){ std::fprintf(stderr, "Failed to read wavs\n"); return 1; }
-  if (x.sr!=16000 || y.sr!=16000 || x.ch!=1 || y.ch!=1){ std::fprintf(stderr, "Expected 16k mono wavs\n"); }
+  if (!read_wav_pcm16_mono16k(argv[1], &x) || !read_wav_pcm16_mono16k(argv[2], &y)){
+    std::fprintf(stderr, "Failed to read 16k-mono wavs\n");
+    return 1;
+  }
   const size_t kBlockSize = 160; // 10ms @16kHz
   size_t N = std::min(x.samples.size(), y.samples.size()) / kBlockSize;
   void* aecm = web_rtc::WebRtcAecm_Create();
