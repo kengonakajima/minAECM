@@ -77,3 +77,16 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
 - common_audio/mocks いる?
 - vad いらない
 - .gnとかいらない
+
+
+- 削除済み: system_wrappers/include/cpu_features_wrapper.h
+- 削除済み: rtc_base/system/arch.h
+- CPUタイプ分岐の削除: resample_by_2.c, complex_fft.c, spl_init.c, spl_inl.h, min_max_operations.c, aecm_core_c.cc を汎用C実装に統一
+
+
+- cpu_features_wrapper.h
+- RTC_BASE_SYSTEM_ARCH_H_
+- rtc_base/checks.h, compile_assert_c.h  なくす
+- rtc_base/numerics 全廃
+- sanitizer.h
+

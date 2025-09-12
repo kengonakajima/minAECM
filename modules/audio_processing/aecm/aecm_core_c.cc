@@ -19,9 +19,6 @@ extern "C" {
 }
 #include "modules/audio_processing/aecm/echo_control_mobile.h"
 #include "modules/audio_processing/utility/delay_estimator_wrapper.h"
-extern "C" {
-#include "system_wrappers/include/cpu_features_wrapper.h"
-}
 
 #include "rtc_base/checks.h"
 #include "rtc_base/sanitizer.h"
@@ -277,9 +274,7 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
   int16_t* fft = (int16_t*)(((uintptr_t)fft_buf + 31) & ~31);
 
   int16_t tmp16no1;
-#ifndef WEBRTC_ARCH_ARM_V7
   int16_t tmp16no2;
-#endif
 #ifdef AECM_WITH_ABS_APPROX
   int16_t max_value = 0;
   int16_t min_value = 0;
@@ -343,19 +338,11 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
       tmp16no2 = (int16_t)((min_value * beta) >> 15);
       freq_signal_abs[i] = (uint16_t)tmp16no1 + (uint16_t)tmp16no2;
 #else
-#ifdef WEBRTC_ARCH_ARM_V7
-      __asm __volatile(
-          "smulbb %[tmp32no1], %[real], %[real]\n\t"
-          "smlabb %[tmp32no2], %[imag], %[imag], %[tmp32no1]\n\t"
-          : [tmp32no1] "+&r"(tmp32no1), [tmp32no2] "=r"(tmp32no2)
-          : [real] "r"(freq_signal[i].real), [imag] "r"(freq_signal[i].imag));
-#else
       tmp16no1 = WEBRTC_SPL_ABS_W16(freq_signal[i].real);
       tmp16no2 = WEBRTC_SPL_ABS_W16(freq_signal[i].imag);
       tmp32no1 = tmp16no1 * tmp16no1;
       tmp32no2 = tmp16no2 * tmp16no2;
       tmp32no2 = WebRtcSpl_AddSatW32(tmp32no1, tmp32no2);
-#endif  // WEBRTC_ARCH_ARM_V7
       tmp32no1 = WebRtcSpl_SqrtFloor(tmp32no2);
 
       freq_signal_abs[i] = (uint16_t)tmp32no1;

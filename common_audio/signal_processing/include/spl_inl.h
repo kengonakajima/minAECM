@@ -62,15 +62,7 @@ static __inline int WebRtcSpl_CountLeadingZeros64(uint64_t n) {
 #endif
 }
 
-#ifdef WEBRTC_ARCH_ARM_V7
-#include "common_audio/signal_processing/include/spl_inl_armv7.h"
-#else
-
-#if defined(MIPS32_LE)
-#include "common_audio/signal_processing/include/spl_inl_mips.h"
-#endif
-
-#if !defined(MIPS_DSP_R1_LE)
+// CPU アーキテクチャ依存の分岐は削除し、以下の汎用C実装のみ提供
 static __inline int16_t WebRtcSpl_SatW32ToW16(int32_t value32) {
   int16_t out16 = (int16_t)value32;
 
@@ -117,9 +109,7 @@ static __inline int16_t WebRtcSpl_AddSatW16(int16_t a, int16_t b) {
 static __inline int16_t WebRtcSpl_SubSatW16(int16_t var1, int16_t var2) {
   return WebRtcSpl_SatW32ToW16((int32_t)var1 - (int32_t)var2);
 }
-#endif  // #if !defined(MIPS_DSP_R1_LE)
 
-#if !defined(MIPS32_LE)
 static __inline int16_t WebRtcSpl_GetSizeInBits(uint32_t n) {
   return 32 - WebRtcSpl_CountLeadingZeros32(n);
 }
@@ -146,8 +136,6 @@ static __inline int16_t WebRtcSpl_NormW16(int16_t a) {
 static __inline int32_t WebRtc_MulAccumW16(int16_t a, int16_t b, int32_t c) {
   return (a * b + c);
 }
-#endif  // #if !defined(MIPS32_LE)
 
-#endif  // WEBRTC_ARCH_ARM_V7
 
 #endif  // COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SPL_INL_H_

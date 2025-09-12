@@ -17,43 +17,7 @@
 
 #include "common_audio/signal_processing/include/signal_processing_library.h"
 
-#ifdef WEBRTC_ARCH_ARM_V7
-
-// allpass filter coefficients.
-static const uint32_t kResampleAllpass1[3] = {3284, 24441, 49528 << 15};
-static const uint32_t kResampleAllpass2[3] =
-  {12199, 37471 << 15, 60255 << 15};
-
-// Multiply two 32-bit values and accumulate to another input value.
-// Return: state + ((diff * tbl_value) >> 16)
-
-static __inline int32_t MUL_ACCUM_1(int32_t tbl_value,
-                                    int32_t diff,
-                                    int32_t state) {
-  int32_t result;
-  __asm __volatile ("smlawb %0, %1, %2, %3": "=r"(result): "r"(diff),
-                                   "r"(tbl_value), "r"(state));
-  return result;
-}
-
-// Multiply two 32-bit values and accumulate to another input value.
-// Return: Return: state + (((diff << 1) * tbl_value) >> 32)
-//
-// The reason to introduce this function is that, in case we can't use smlawb
-// instruction (in MUL_ACCUM_1) due to input value range, we can still use 
-// smmla to save some cycles.
-
-static __inline int32_t MUL_ACCUM_2(int32_t tbl_value,
-                                    int32_t diff,
-                                    int32_t state) {
-  int32_t result;
-  __asm __volatile ("smmla %0, %1, %2, %3": "=r"(result): "r"(diff << 1),
-                                  "r"(tbl_value), "r"(state));
-  return result;
-}
-
-#else
-
+// CPUタイプ分岐は削除し、汎用C実装のみを使用
 // allpass filter coefficients.
 static const uint16_t kResampleAllpass1[3] = {3284, 24441, 49528};
 static const uint16_t kResampleAllpass2[3] = {12199, 37471, 60255};
@@ -62,11 +26,8 @@ static const uint16_t kResampleAllpass2[3] = {12199, 37471, 60255};
 #define MUL_ACCUM_1(a, b, c) WEBRTC_SPL_SCALEDIFF32(a, b, c)
 #define MUL_ACCUM_2(a, b, c) WEBRTC_SPL_SCALEDIFF32(a, b, c)
 
-#endif  // WEBRTC_ARCH_ARM_V7
 
-
-// decimator
-#if !defined(MIPS32_LE)
+// decimator（MIPS等のCPU分岐は削除）
 void WebRtcSpl_DownsampleBy2(const int16_t* in, size_t len,
                              int16_t* out, int32_t* filtState) {
   int32_t tmp1, tmp2, diff, in32, out32;
@@ -122,7 +83,6 @@ void WebRtcSpl_DownsampleBy2(const int16_t* in, size_t len,
   filtState[6] = state6;
   filtState[7] = state7;
 }
-#endif  // #if defined(MIPS32_LE)
 
 
 void WebRtcSpl_UpsampleBy2(const int16_t* in, size_t len,
