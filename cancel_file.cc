@@ -1,4 +1,4 @@
-// Offline comparator: feed two WAVs (render x, capture y) into AEC3 and print metrics per block
+// Offline comparator: feed two WAVs (render x, capture y) into AECM and write processed.wav
 #include <cstdio>
 #include <cstdint>
 #include <vector>
@@ -6,8 +6,7 @@
 #include <fstream>
 #include <cstring>
 
-#include "echo_canceller3.h"
-#include "audio_buffer.h"
+#include "modules/audio_processing/aecm/echo_control_mobile.h"
 
 struct Wav {
   int sr = 0;
@@ -43,30 +42,30 @@ static bool read_wav_pcm16(const std::string& path, Wav* out){
 }
 
 int main(int argc, char** argv){
-  if (argc < 3){ std::fprintf(stderr, "Usage: %s <render.wav> <capture.wav> [--no-linear] [--no-nonlinear]\n", argv[0]); return 1; }
-  bool enable_linear = true, enable_nonlinear = true;
-  for (int i=3;i<argc;i++){ std::string a(argv[i]); if(a=="--no-linear") enable_linear=false; else if(a=="--no-nonlinear") enable_nonlinear=false; }
+  if (argc < 3){ std::fprintf(stderr, "Usage: %s <render.wav> <capture.wav>\n", argv[0]); return 1; }
   Wav x, y;
   if (!read_wav_pcm16(argv[1], &x) || !read_wav_pcm16(argv[2], &y)){ std::fprintf(stderr, "Failed to read wavs\n"); return 1; }
   if (x.sr!=16000 || y.sr!=16000 || x.ch!=1 || y.ch!=1){ std::fprintf(stderr, "Expected 16k mono wavs\n"); }
+  const size_t kBlockSize = 160; // 10ms @16kHz
   size_t N = std::min(x.samples.size(), y.samples.size()) / kBlockSize;
-  EchoCanceller3 aec; aec.SetProcessingModes(enable_linear, enable_nonlinear);
-  AudioBuffer ref, cap;
+  void* aecm = web_rtc::WebRtcAecm_Create();
+  if (!aecm){ std::fprintf(stderr, "AECM create failed\n"); return 1; }
+  if (web_rtc::WebRtcAecm_Init(aecm, 16000) != 0){ std::fprintf(stderr, "AECM init failed\n"); web_rtc::WebRtcAecm_Free(aecm); return 1; }
+  web_rtc::AecmConfig cfg; cfg.cngMode = web_rtc::AecmTrue; cfg.echoMode = 3; web_rtc::WebRtcAecm_set_config(aecm, cfg);
   std::vector<int16_t> processed;
   processed.resize(N * kBlockSize);
   for (size_t n=0;n<N;n++){
-    ref.CopyFrom(&x.samples[n*kBlockSize]);
-    aec.AnalyzeRender(ref);
-    cap.CopyFrom(&y.samples[n*kBlockSize]);
-    aec.ProcessCapture(&cap);
-    cap.CopyTo(&processed[n*kBlockSize]);
-    const auto& erm = aec.block_processor_.echo_remover_.last_metrics_;
-    int dblk = aec.block_processor_.estimated_delay_blocks_;
-    float dms = (dblk >= 0) ? (dblk * (1000.0f * static_cast<float>(kBlockSize) / 16000.0f)) : -1.0f; // 64 samples @16kHz = 4ms per block
-    float ratio = (erm.y2 > 0.f) ? (erm.e2 / erm.y2) : 0.f;
-    std::printf("block=%zu y2=%.6g e2=%.6g e2_over_y2=%.6g erle_avg=%.6g linear_usable=%d est_delay_blocks=%d est_delay_ms=%.6g\n",
-                n, erm.y2, erm.e2, ratio, erm.erle_avg, erm.linear_usable?1:0, dblk, dms);
+    // Farend/render
+    web_rtc::WebRtcAecm_BufferFarend(aecm, &x.samples[n*kBlockSize], kBlockSize);
+    // Nearend/capture -> processed
+    web_rtc::WebRtcAecm_Process(aecm,
+                                &y.samples[n*kBlockSize],
+                                nullptr,
+                                &processed[n*kBlockSize],
+                                kBlockSize,
+                                50 /*msInSndCardBuf*/);
   }
+  web_rtc::WebRtcAecm_Free(aecm);
   // Save processed signal as processed.wav (PCM16 mono 16kHz)
   const uint32_t sr = 16000;
   const uint16_t ch = 1;

@@ -1,17 +1,10 @@
-// Echoback (C++): 最小構成のローカル・エコーバック + AEC3
+// Echoback (C++): 最小構成のローカル・エコーバック + AECM
 // Usage:
-//   ./echoback [--passthrough] [--no-linear] [--no-nonlinear] [latency_ms=200]
-//   体感用のモード:
-//     --passthrough     : AEC無効（素通し）
-//     --no-linear       : 線形フィルタ無効（非線形のみ）
-//     --no-nonlinear    : 非線形抑圧無効（線形のみ）
-//   ショートハンド:
-//     --linear-only     : = --no-nonlinear
-//     --nonlinear-only  : = --no-linear
+//   ./echoback [--passthrough] [latency_ms=200]
 // 前提:
 //   - 16 kHz モノラル固定, 16-bit I/O (PortAudio デフォルトデバイス)
-//   - AEC3 は 64 サンプルのブロック長
-//   - 参照信号は直前に処理した出力ブロック（ループバック相当）
+//   - AECM は 10ms（160サンプル）単位で処理
+//   - 参照信号は直前にスピーカへ出したブロック（ローカル・ループバック相当）
 
 #include <portaudio.h>
 
@@ -24,15 +17,13 @@
 #include <string>
 #include <vector>
 
-#include "echo_canceller3.h"
-#include "audio_buffer.h"
-#include "aec3_common.h"
+#include "modules/audio_processing/aecm/echo_control_mobile.h"
 
  
 
 struct State {
   int dev_sr = 16000;              // 16k固定
-  int block_size = 64;             // ブロック長（PortAudio framesPerBuffer と一致）
+  int block_size = 160;            // 10ms @16kHz （PortAudio framesPerBuffer と一致）
   // 1ch 固定（PortAudioデバイス設定も1ch）
   int latency_ms = 200;             // jitter buffer target (ms) for local echo
   size_t latency_samples = 48000/5; // will be set from dev_sr*latency_ms/1000
@@ -41,34 +32,22 @@ struct State {
   std::deque<int16_t> rec_dev;     // mic captured samples
   std::deque<int16_t> out_dev;     // to speaker
 
-  // AEC3 domain = device domain (same sr). 64-sample blocks
-  std::deque<int16_t> ref_fifo;    // previously processed block (local echo reference)
+  // AECM domain = device domain (same sr). 160-sample blocks
 
   // Jitter buffer (device domain). Local echo path accumulator, mixes into speaker
   std::deque<int16_t> jitter;      // accumulate processed to emulate loopback latency
   bool need_jitter = true;
 
-  // MatchedFilter による推定遅延の前回ログ値（ブロック数）。
-  // -2: 未初期化（最初の非負値でログする） / -1: 未推定（ログしない）
-  int last_logged_delay_blocks = -2;
-
   // --passthrough: AEC を行わず素通し再生
   bool passthrough = false;
-
-  // 1秒平均キャンセル量（ERLE相当）の集計
-  double erle_in_energy_accum = 0.0;
-  double erle_out_energy_accum = 0.0;
-  int erle_blocks_accum = 0;  // 250ブロック ≒ 1秒
-
-  // AEC3 (EchoCanceller3 直結) — 単一インスタンス固定
-  EchoCanceller3 aec;
-  AudioBuffer ref_audio;
-  AudioBuffer cap_audio;
+  
+  // AECM インスタンス
+  void* aecm = nullptr;
 };
 
 static void aec3_init_at_sr(State& s){
-  // 16k固定、64サンプル統一（値メンバはデフォルト構築でOK）
-  s.block_size = 64;
+  // 16k固定、160サンプル
+  s.block_size = 160;
 }
 
 static size_t pop_samples(std::deque<int16_t>& q, int16_t* dst, size_t n){
@@ -82,78 +61,39 @@ static void push_block(std::deque<int16_t>& q, const int16_t* src, size_t n){
 }
 
 static void process_available_blocks(State& s){
-  // Run as many 64-sample blocks as possible
+  // Run as many 160-sample blocks as possible
   while (s.rec_dev.size() >= (size_t)s.block_size) {
-    std::vector<int16_t> rec(s.block_size), ref(s.block_size), out(s.block_size);
-    // pop rec block
-    pop_samples(s.rec_dev, rec.data(), s.block_size);
-    // pop ref block (or zeros if not enough)
-    if (s.ref_fifo.size() >= (size_t)s.block_size) {
-      pop_samples(s.ref_fifo, ref.data(), s.block_size);
+    std::vector<int16_t> near_blk(s.block_size), far_blk(s.block_size), out_blk(s.block_size);
+    // 1) pop near block
+    pop_samples(s.rec_dev, near_blk.data(), s.block_size);
+    // 2) pop far block（スピーカへ送る信号 = 参照）
+    if (!s.need_jitter && s.jitter.size() >= (size_t)s.block_size) {
+      pop_samples(s.jitter, far_blk.data(), s.block_size);
     } else {
-      std::memset(ref.data(), 0, s.block_size*sizeof(int16_t));
+      std::memset(far_blk.data(), 0, s.block_size * sizeof(int16_t));
     }
+
     if (s.passthrough) {
-      // AEC を通さず、そのまま出力へ
-      std::memcpy(out.data(), rec.data(), s.block_size * sizeof(int16_t));
+      std::memcpy(out_blk.data(), near_blk.data(), s.block_size * sizeof(int16_t));
     } else {
-      // AEC3 直結: Render/ Capture を渡して処理
-      s.cap_audio.CopyFrom(rec.data());
-      s.ref_audio.CopyFrom(ref.data());
-      s.aec.AnalyzeRender(s.ref_audio);
-      s.aec.ProcessCapture(&s.cap_audio);
-      s.cap_audio.CopyTo(out.data());
-
-      // MatchedFilter による推定遅延が変化したら1行だけ通知。
-      // BlockProcessor は推定遅延（ブロック数）を public 成員に保持している。
-      int cur = s.aec.block_processor_.estimated_delay_blocks_;
-      if (cur >= 0 && cur != s.last_logged_delay_blocks) {
-        int ms = cur * 1000 / kNumBlocksPerSecond; // 1ブロック=4ms
-        std::fprintf(stderr, "[AEC3] 推定遅延が変化: %d ブロック (約 %d ms)\n", cur, ms);
-        s.last_logged_delay_blocks = cur;
-      }
-
-      // 1秒に1回、キャンセル量（ERLE近似）を出力（dB）。
-      {
-        double ein = 0.0, eout = 0.0;
-        for (int i = 0; i < s.block_size; ++i) {
-          const double x = static_cast<double>(rec[i]);
-          const double y = static_cast<double>(out[i]);
-          ein += x * x;
-          eout += y * y;
-        }
-        s.erle_in_energy_accum += ein;
-        s.erle_out_energy_accum += eout;
-        s.erle_blocks_accum += 1;
-        if (s.erle_blocks_accum >= static_cast<int>(kNumBlocksPerSecond)) {
-          constexpr double kEps = 1e-9;
-          const double ratio = (s.erle_in_energy_accum + kEps) / (s.erle_out_energy_accum + kEps);
-          const double erle_db = 10.0 * std::log10(ratio);
-          std::fprintf(stderr, "[AEC3] 1秒平均キャンセル量: %.1f dB\n", erle_db);
-          s.erle_in_energy_accum = 0.0;
-          s.erle_out_energy_accum = 0.0;
-          s.erle_blocks_accum = 0;
-        }
-      }
+      // AECM: 先に far をバッファリングし、その後 near を処理
+      web_rtc::WebRtcAecm_BufferFarend(s.aecm, far_blk.data(), s.block_size);
+      web_rtc::WebRtcAecm_Process(s.aecm,
+                                  near_blk.data(),
+                                  nullptr,
+                                  out_blk.data(),
+                                  s.block_size,
+                                  static_cast<int16_t>(s.latency_ms));
     }
 
-    // Like echoback.js: 次フレーム以降のrefとして保存（processedを再利用）
-    push_block(s.ref_fifo, out.data(), s.block_size);
-
-    // ネットワークの代わりにローカル蓄積へ積む（エコーバック）
-    push_block(s.jitter, out.data(), s.block_size);
+    // ローカル・ループバック: 処理後の出力を蓄積して、次々回以降の far にする
+    push_block(s.jitter, out_blk.data(), s.block_size);
     if (s.need_jitter && s.jitter.size() > s.latency_samples) {
       s.need_jitter = false; // jitter満了
     }
 
-    // 受信（ローカル蓄積）を混ぜて再生用フレームを生成
-    std::vector<int16_t> mixed(s.block_size);
-    if (!s.need_jitter && s.jitter.size() >= (size_t)s.block_size) {
-      pop_samples(s.jitter, mixed.data(), s.block_size);
-    } else {
-      std::memset(mixed.data(), 0, s.block_size*sizeof(int16_t));
-    }
-    push_block(s.out_dev, mixed.data(), s.block_size);
+    // 今回のスピーカ出力は `far_blk`
+    push_block(s.out_dev, far_blk.data(), s.block_size);
   }
 }
 
@@ -186,26 +126,16 @@ static int pa_callback(const void* inputBuffer,
 int main(int argc, char** argv){
   State s;
   // 16k固定
-  s.dev_sr = 16000; s.block_size = 64;
+  s.dev_sr = 16000; s.block_size = 160;
 
   // 引数パース
-  bool no_linear = false;
-  bool no_nonlinear = false;
   for (int i = 1; i < argc; ++i) {
     std::string arg(argv[i] ? argv[i] : "");
     if (arg == "--passthrough" || arg == "-p") {
       s.passthrough = true;
-    } else if (arg == "--no-linear") {
-      no_linear = true;
-    } else if (arg == "--no-nonlinear") {
-      no_nonlinear = true;
-    } else if (arg == "--linear-only") {
-      no_nonlinear = true; no_linear = false;
-    } else if (arg == "--nonlinear-only") {
-      no_linear = true; no_nonlinear = false;
     } else if (arg == "--help" || arg == "-h") {
       std::fprintf(stderr,
-                   "Usage: %s [--passthrough] [--no-linear] [--no-nonlinear] [latency_ms=200]\n",
+                   "Usage: %s [--passthrough] [latency_ms=200]\n",
                    argv[0]);
       return 0;
     } else {
@@ -219,14 +149,7 @@ int main(int argc, char** argv){
     }
   }
   s.latency_samples = (size_t)((long long)s.dev_sr * s.latency_ms / 1000);
-  // AECモード設定（passthrough時は意味なし）
-  if (!s.passthrough) {
-    s.aec.SetProcessingModes(!no_linear, !no_nonlinear);
-  }
-  const char* mode = s.passthrough ? "passthrough" :
-                     (no_linear && !no_nonlinear) ? "nonlinear-only" :
-                     (!no_linear && no_nonlinear) ? "linear-only" :
-                     "aec3";
+  const char* mode = s.passthrough ? "passthrough" : "aecm";
   std::fprintf(stderr, "echoback (16k mono): mode=%s, latency_ms=%d (samples=%zu)\n",
                 mode, s.latency_ms, s.latency_samples);
   aec3_init_at_sr(s);
@@ -249,10 +172,24 @@ int main(int argc, char** argv){
   if (err!=paNoError){ std::fprintf(stderr, "Pa_StartStream error %s\n", Pa_GetErrorText(err)); Pa_CloseStream(stream); Pa_Terminate(); return 1; }
 
   std::fprintf(stderr, "Running... Ctrl-C to stop.\n");
+  // AECM 初期化
+  if (!s.passthrough) {
+    s.aecm = web_rtc::WebRtcAecm_Create();
+    if (!s.aecm) { std::fprintf(stderr, "AECM create failed\n"); Pa_StopStream(stream); Pa_CloseStream(stream); Pa_Terminate(); return 1; }
+    if (web_rtc::WebRtcAecm_Init(s.aecm, 16000) != 0) {
+      std::fprintf(stderr, "AECM init failed\n");
+      web_rtc::WebRtcAecm_Free(s.aecm); s.aecm=nullptr;
+      Pa_StopStream(stream); Pa_CloseStream(stream); Pa_Terminate(); return 1;
+    }
+    web_rtc::AecmConfig cfg; cfg.cngMode = web_rtc::AecmTrue; cfg.echoMode = 3;
+    web_rtc::WebRtcAecm_set_config(s.aecm, cfg);
+  }
   while (Pa_IsStreamActive(stream)==1) {
     Pa_Sleep(100);
   }
-  Pa_StopStream(stream); Pa_CloseStream(stream); Pa_Terminate();
+  Pa_StopStream(stream); Pa_CloseStream(stream);
+  if (s.aecm) { web_rtc::WebRtcAecm_Free(s.aecm); s.aecm=nullptr; }
+  Pa_Terminate();
   std::fprintf(stderr, "stopped.\n");
   return 0;
 }
