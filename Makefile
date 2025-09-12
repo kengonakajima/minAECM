@@ -63,15 +63,9 @@ AECM_C_SRCS= \
   common_audio/signal_processing/randomization_functions.c \
   common_audio/signal_processing/real_fft.c \
   common_audio/signal_processing/refl_coef_to_lpc.c \
-  common_audio/signal_processing/resample_48khz.c \
-  common_audio/signal_processing/resample_by_2_internal.c \
-  common_audio/signal_processing/resample_by_2.c \
-  common_audio/signal_processing/resample_fractional.c \
-  common_audio/signal_processing/resample.c \
   common_audio/signal_processing/spl_init.c \
   common_audio/signal_processing/spl_inl.c \
   common_audio/signal_processing/spl_sqrt.c \
-  common_audio/signal_processing/splitting_filter_c.c \
   common_audio/signal_processing/sqrt_of_one_minus_x_squared.c \
   common_audio/signal_processing/vector_scaling_operations.c
 
@@ -115,40 +109,4 @@ clean:
 	rm -rf *.dSYM
 	rm -f *.tmp
 
-# Build WASM library for Node.js (outputs dist/aec3_wasm.js + .wasm)
-EMXX?=em++
-WASM_DIST=dist
-WASM_JS=$(WASM_DIST)/aec3_wasm.js
-WASM_SRCS=wasm/aec3_wasm.cc ooura_fft.cc
-
-wasm:
-	mkdir -p $(WASM_DIST)
-	$(EMXX) -O3 -std=c++20 -I. $(WASM_SRCS) -o $(WASM_JS) \
-	  -s MODULARIZE=1 -s EXPORT_NAME=AEC3Module -s ENVIRONMENT=node \
-	  -s ALLOW_MEMORY_GROWTH=1 \
-	  -s EXPORTED_FUNCTIONS='[_aec3_create,_aec3_destroy,_aec3_set_modes,_aec3_analyze,_aec3_process,_aec3_get_estimated_delay_blocks,_malloc,_free]' \
-	  -s EXPORTED_RUNTIME_METHODS='[cwrap,ccall,HEAP16]'
-
-
-# Cシム（demo/aec3.cpp）は撤去
-# wavリーダ/ライタは最小構成では使用しない
-# echo_canceller3_config は撤去
- 
-
- 
-## ooura 関連は AECM 版では不要
- 
- 
- 
-
- 
- 
-
-
- 
-
-
-
-# added webrtc 2022sep
- 
- 
+## wasm/emscripten ビルドは最小構成から削除

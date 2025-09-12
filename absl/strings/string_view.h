@@ -1,4 +1,4 @@
-// Minimal Abseil string_view shim
+// Minimal stub for Abseil string_view used by WebRTC checks.
 #ifndef ABSL_STRINGS_STRING_VIEW_H_
 #define ABSL_STRINGS_STRING_VIEW_H_
 
@@ -6,7 +6,7 @@
 
 namespace absl {
 using string_view = std::string_view;
-}
+}  // namespace absl
 
 #endif  // ABSL_STRINGS_STRING_VIEW_H_
 

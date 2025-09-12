@@ -1,4 +1,4 @@
-// Minimal stub for rtc::scoped_refptr used by rtc_base/checks.h
+// Minimal stub for rtc::scoped_refptr to satisfy checks.h template.
 #ifndef API_SCOPED_REFPTR_H_
 #define API_SCOPED_REFPTR_H_
 
@@ -7,11 +7,13 @@ namespace rtc {
 template <typename T>
 class scoped_refptr {
  public:
-  scoped_refptr() : p_(nullptr) {}
-  explicit scoped_refptr(T* p) : p_(p) {}
-  T* get() const { return p_; }
+  scoped_refptr() : ptr_(nullptr) {}
+  explicit scoped_refptr(T* p) : ptr_(p) {}
+  T* get() const { return ptr_; }
+  T* operator->() const { return ptr_; }
+  T& operator*() const { return *ptr_; }
  private:
-  T* p_;
+  T* ptr_;
 };
 
 }  // namespace rtc
