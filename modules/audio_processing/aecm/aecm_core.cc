@@ -21,7 +21,6 @@ extern "C" {
 #include "common_audio/signal_processing/include/signal_processing_library.h"
 #include "modules/audio_processing/aecm/echo_control_mobile.h"
 #include "modules/audio_processing/utility/delay_estimator_wrapper.h"
-#include "rtc_base/checks.h"
 // safe_conversions は未使用化（dchecked_cast を排除）
 
 namespace web_rtc {

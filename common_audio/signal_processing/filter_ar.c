@@ -17,7 +17,6 @@
 
 #include "common_audio/signal_processing/include/signal_processing_library.h"
 
-#include "rtc_base/checks.h"
 
 size_t WebRtcSpl_FilterAR(const int16_t* a,
                           size_t a_length,

@@ -16,11 +16,10 @@
  */
 
 #include "common_audio/signal_processing/include/signal_processing_library.h"
-#include "rtc_base/sanitizer.h"
 
 #define SPL_LEVINSON_MAXORDER 20
 
-int16_t RTC_NO_SANITIZE("signed-integer-overflow")  // bugs.webrtc.org/5486
+int16_t
 WebRtcSpl_LevinsonDurbin(const int32_t* R, int16_t* A, int16_t* K,
                          size_t order)
 {

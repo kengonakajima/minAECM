@@ -20,9 +20,6 @@ extern "C" {
 #include "modules/audio_processing/aecm/echo_control_mobile.h"
 #include "modules/audio_processing/utility/delay_estimator_wrapper.h"
 
-#include "rtc_base/checks.h"
-#include "rtc_base/sanitizer.h"
-
 namespace web_rtc {
 
 namespace {
@@ -356,8 +353,7 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
 
 }  // namespace
 
-int RTC_NO_SANITIZE("signed-integer-overflow")  // bugs.webrtc.org/8200
-    WebRtcAecm_ProcessBlock(AecmCore* aecm,
+int WebRtcAecm_ProcessBlock(AecmCore* aecm,
                             const int16_t* farend,
                             const int16_t* nearendNoisy,
                             const int16_t* nearendClean,

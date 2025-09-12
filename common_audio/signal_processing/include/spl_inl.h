@@ -14,7 +14,7 @@
 #ifndef COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SPL_INL_H_
 #define COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SPL_INL_H_
 
-#include "rtc_base/compile_assert_c.h"
+// compile-time型サイズ検査や専用マクロは教育用最小化のため削除
 
 extern const int8_t kWebRtcSpl_CountLeadingZeros32_Table[64];
 
@@ -45,7 +45,6 @@ static __inline int WebRtcSpl_CountLeadingZeros64_NotBuiltin(uint64_t n) {
 // Returns the number of leading zero bits in the argument.
 static __inline int WebRtcSpl_CountLeadingZeros32(uint32_t n) {
 #ifdef __GNUC__
-  RTC_COMPILE_ASSERT(sizeof(unsigned int) == sizeof(uint32_t));
   return n == 0 ? 32 : __builtin_clz(n);
 #else
   return WebRtcSpl_CountLeadingZeros32_NotBuiltin(n);
@@ -55,7 +54,6 @@ static __inline int WebRtcSpl_CountLeadingZeros32(uint32_t n) {
 // Returns the number of leading zero bits in the argument.
 static __inline int WebRtcSpl_CountLeadingZeros64(uint64_t n) {
 #ifdef __GNUC__
-  RTC_COMPILE_ASSERT(sizeof(unsigned long long) == sizeof(uint64_t));  // NOLINT
   return n == 0 ? 64 : __builtin_clzll(n);
 #else
   return WebRtcSpl_CountLeadingZeros64_NotBuiltin(n);

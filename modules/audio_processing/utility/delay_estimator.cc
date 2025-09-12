@@ -15,8 +15,6 @@
 
 #include <algorithm>
 
-#include "rtc_base/checks.h"
-
 namespace web_rtc {
 
 namespace {

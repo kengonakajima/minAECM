@@ -86,7 +86,11 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
 
 - cpu_features_wrapper.h
 - RTC_BASE_SYSTEM_ARCH_H_
-- rtc_base/checks.h, compile_assert_c.h  なくす
-- rtc_base/numerics 全廃
+- 削除済み: rtc_base/checks.h, rtc_base/compile_assert_c.h
+- 削除済み: rtc_base/sanitizer.h
+- 削除済み: rtc_base/numerics ディレクトリ（safe_conversions*, safe_compare）
 - sanitizer.h
 
+- inline.h rtc_export.h
+
+- api/scoped_refptr.h
