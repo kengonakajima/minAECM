@@ -29,15 +29,6 @@ namespace {
 
 // Debug用のファイル入出力は最小構成から削除
 
-// Initialization table for echo channel in 8 kHz
-static const int16_t kChannelStored8kHz[PART_LEN1] = {
-    2040, 1815, 1590, 1498, 1405, 1395, 1385, 1418, 1451, 1506, 1562,
-    1644, 1726, 1804, 1882, 1918, 1953, 1982, 2010, 2025, 2040, 2034,
-    2027, 2021, 2014, 1997, 1980, 1925, 1869, 1800, 1732, 1683, 1635,
-    1604, 1572, 1545, 1517, 1481, 1444, 1405, 1367, 1331, 1294, 1270,
-    1245, 1239, 1233, 1247, 1260, 1282, 1303, 1338, 1373, 1407, 1441,
-    1470, 1499, 1524, 1549, 1565, 1582, 1601, 1621, 1649, 1676};
-
 // Initialization table for echo channel in 16 kHz
 static const int16_t kChannelStored16kHz[PART_LEN1] = {
     2040, 1590, 1405, 1385, 1451, 1562, 1726, 1882, 1953, 2010, 2040,
@@ -348,8 +339,7 @@ int WebRtcAecm_InitCore(AecmCore* const aecm, int samplingFreq) {
   int32_t tmp32 = PART_LEN1 * PART_LEN1;
   int16_t tmp16 = PART_LEN1;
 
-  if (samplingFreq != 8000 && samplingFreq != 16000) {
-    samplingFreq = 8000;
+  if (samplingFreq != 16000) {
     return -1;
   }
   // sanity check of sampling frequency
@@ -397,12 +387,8 @@ int WebRtcAecm_InitCore(AecmCore* const aecm, int samplingFreq) {
   memset(aecm->echoAdaptLogEnergy, 0, sizeof(aecm->echoAdaptLogEnergy));
   memset(aecm->echoStoredLogEnergy, 0, sizeof(aecm->echoStoredLogEnergy));
 
-  // Initialize the echo channels with a stored shape.
-  if (samplingFreq == 8000) {
-    WebRtcAecm_InitEchoPathCore(aecm, kChannelStored8kHz);
-  } else {
-    WebRtcAecm_InitEchoPathCore(aecm, kChannelStored16kHz);
-  }
+  // Initialize the echo channels with a stored shape (16 kHz 固定)。
+  WebRtcAecm_InitEchoPathCore(aecm, kChannelStored16kHz);
 
   memset(aecm->echoFilt, 0, sizeof(aecm->echoFilt));
   memset(aecm->nearFilt, 0, sizeof(aecm->nearFilt));

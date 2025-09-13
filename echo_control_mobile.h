@@ -59,7 +59,7 @@ void WebRtcAecm_Free(void* aecmInst);
  * Inputs                       Description
  * -------------------------------------------------------------------
  * void*          aecmInst      Pointer to the AECM instance
- * int32_t        sampFreq      Sampling frequency of data
+ * int32_t        sampFreq      Sampling frequency of data (must be 16000)
  *
  * Outputs                      Description
  * -------------------------------------------------------------------
@@ -69,14 +69,14 @@ void WebRtcAecm_Free(void* aecmInst);
 int32_t WebRtcAecm_Init(void* aecmInst, int32_t sampFreq);
 
 /*
- * Inserts an 80 or 160 sample block of data into the farend buffer.
+ * Inserts a 160 sample block of data into the farend buffer (16 kHz mono).
  *
  * Inputs                       Description
  * -------------------------------------------------------------------
  * void*          aecmInst      Pointer to the AECM instance
  * int16_t*       farend        In buffer containing one frame of
  *                              farend signal
- * int16_t        nrOfSamples   Number of samples in farend buffer
+ * int16_t        nrOfSamples   Number of samples in farend buffer (must be 160)
  *
  * Outputs                      Description
  * -------------------------------------------------------------------
@@ -107,7 +107,7 @@ int32_t WebRtcAecm_GetBufferFarendError(void* aecmInst,
                                         size_t nrOfSamples);
 
 /*
- * Runs the AECM on an 80 or 160 sample blocks of data.
+ * Runs the AECM on a 160 sample block of data (16 kHz mono).
  *
  * Inputs                        Description
  * -------------------------------------------------------------------
@@ -121,7 +121,7 @@ int32_t WebRtcAecm_GetBufferFarendError(void* aecmInst,
  *                               reduction is active, provide the
  *                               clean signal here. Otherwise pass a
  *                               NULL pointer.
- * int16_t        nrOfSamples    Number of samples in nearend buffer
+ * int16_t        nrOfSamples    Number of samples in nearend buffer (must be 160)
  * int16_t        msInSndCardBuf Delay estimate for sound card and
  *                               system buffers
  *

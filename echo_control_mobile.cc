@@ -124,10 +124,11 @@ int32_t WebRtcAecm_Init(void* aecmInst, int32_t sampFreq) {
     return -1;
   }
 
-  if (sampFreq != 8000 && sampFreq != 16000) {
+  // 16 kHz 固定
+  if (sampFreq != 16000) {
     return AECM_BAD_PARAMETER_ERROR;
   }
-  aecm->sampFreq = sampFreq;
+  aecm->sampFreq = 16000;
 
   // Initialize AECM core
   if (WebRtcAecm_InitCore(aecm->aecmCore, aecm->sampFreq) == -1) {
@@ -183,7 +184,8 @@ int32_t WebRtcAecm_GetBufferFarendError(void* aecmInst,
   if (aecm->initFlag != kInitCheck)
     return AECM_UNINITIALIZED_ERROR;
 
-  if (nrOfSamples != 80 && nrOfSamples != 160)
+  // 16kHz固定のため、160サンプルのみ受け付け
+  if (nrOfSamples != 160)
     return AECM_BAD_PARAMETER_ERROR;
 
   return 0;
@@ -240,7 +242,8 @@ int32_t WebRtcAecm_Process(void* aecmInst,
     return AECM_UNINITIALIZED_ERROR;
   }
 
-  if (nrOfSamples != 80 && nrOfSamples != 160) {
+  // 16kHz固定のため、160サンプルのみ受け付け
+  if (nrOfSamples != 160) {
     return AECM_BAD_PARAMETER_ERROR;
   }
 
@@ -356,8 +359,8 @@ int32_t WebRtcAecm_Process(void* aecmInst,
 
       // Call buffer delay estimator when all data is extracted,
       // i,e. i = 0 for NB and i = 1 for WB
-      if ((i == 0 && aecm->sampFreq == 8000) ||
-          (i == 1 && aecm->sampFreq == 16000)) {
+      // 16 kHz 固定: 2フレーム目（i==1）でバッファ遅延推定
+      if (i == 1) {
         WebRtcAecm_EstBufDelay(aecm, aecm->msInSndCardBuf);
       }
 
