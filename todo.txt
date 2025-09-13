@@ -91,6 +91,6 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
 - 削除済み: rtc_base/numerics ディレクトリ（safe_conversions*, safe_compare）
 - sanitizer.h
 
-- inline.h rtc_export.h
+- 削除済み: rtc_base/system/inline.h, rtc_base/system/rtc_export.h
 
 - 削除済み: api/scoped_refptr.h
