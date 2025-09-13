@@ -47,7 +47,6 @@ AECM_C_SRCS= \
   real_fft.c \
   min_max_operations.c \
   division_operations.c \
-  spl_inl.c \
   spl_init.c \
   spl_sqrt_floor.c \
   vector_scaling_operations.c \
