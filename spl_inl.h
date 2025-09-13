@@ -19,7 +19,7 @@
 extern const int8_t kWebRtcSpl_CountLeadingZeros32_Table[64];
 
 // Don't call this directly except in tests!
-static __inline int Spl_CountLeadingZeros32_NotBuiltin(uint32_t n) {
+static __inline int CountLeadingZeros32_NotBuiltin(uint32_t n) {
   // Normalize n by rounding up to the nearest number that is a sequence of 0
   // bits followed by a sequence of 1 bits. This number has the same number of
   // leading zeros as the original n. There are exactly 33 such values.
@@ -36,32 +36,32 @@ static __inline int Spl_CountLeadingZeros32_NotBuiltin(uint32_t n) {
 }
 
 // Don't call this directly except in tests!
-static __inline int Spl_CountLeadingZeros64_NotBuiltin(uint64_t n) {
+static __inline int CountLeadingZeros64_NotBuiltin(uint64_t n) {
   const int leading_zeros = n >> 32 == 0 ? 32 : 0;
-  return leading_zeros + Spl_CountLeadingZeros32_NotBuiltin(
+  return leading_zeros + CountLeadingZeros32_NotBuiltin(
                              (uint32_t)(n >> (32 - leading_zeros)));
 }
 
 // Returns the number of leading zero bits in the argument.
-static __inline int Spl_CountLeadingZeros32(uint32_t n) {
+static __inline int CountLeadingZeros32(uint32_t n) {
 #ifdef __GNUC__
   return n == 0 ? 32 : __builtin_clz(n);
 #else
-  return Spl_CountLeadingZeros32_NotBuiltin(n);
+  return CountLeadingZeros32_NotBuiltin(n);
 #endif
 }
 
 // Returns the number of leading zero bits in the argument.
-static __inline int Spl_CountLeadingZeros64(uint64_t n) {
+static __inline int CountLeadingZeros64(uint64_t n) {
 #ifdef __GNUC__
   return n == 0 ? 64 : __builtin_clzll(n);
 #else
-  return Spl_CountLeadingZeros64_NotBuiltin(n);
+  return CountLeadingZeros64_NotBuiltin(n);
 #endif
 }
 
 // CPU アーキテクチャ依存の分岐は削除し、以下の汎用C実装のみ提供
-static __inline int16_t Spl_SatW32ToW16(int32_t value32) {
+static __inline int16_t SatW32ToW16(int32_t value32) {
   int16_t out16 = (int16_t)value32;
 
   if (value32 > 32767)
@@ -72,7 +72,7 @@ static __inline int16_t Spl_SatW32ToW16(int32_t value32) {
   return out16;
 }
 
-static __inline int32_t Spl_AddSatW32(int32_t a, int32_t b) {
+static __inline int32_t AddSatW32(int32_t a, int32_t b) {
   // Do the addition in unsigned numbers, since signed overflow is undefined
   // behavior.
   const int32_t sum = (int32_t)((uint32_t)a + (uint32_t)b);
@@ -86,7 +86,7 @@ static __inline int32_t Spl_AddSatW32(int32_t a, int32_t b) {
   return sum;
 }
 
-static __inline int32_t Spl_SubSatW32(int32_t a, int32_t b) {
+static __inline int32_t SubSatW32(int32_t a, int32_t b) {
   // Do the subtraction in unsigned numbers, since signed overflow is undefined
   // behavior.
   const int32_t diff = (int32_t)((uint32_t)a - (uint32_t)b);
@@ -100,35 +100,35 @@ static __inline int32_t Spl_SubSatW32(int32_t a, int32_t b) {
   return diff;
 }
 
-static __inline int16_t Spl_AddSatW16(int16_t a, int16_t b) {
-  return Spl_SatW32ToW16((int32_t)a + (int32_t)b);
+static __inline int16_t AddSatW16(int16_t a, int16_t b) {
+  return SatW32ToW16((int32_t)a + (int32_t)b);
 }
 
-static __inline int16_t Spl_SubSatW16(int16_t var1, int16_t var2) {
-  return Spl_SatW32ToW16((int32_t)var1 - (int32_t)var2);
+static __inline int16_t SubSatW16(int16_t var1, int16_t var2) {
+  return SatW32ToW16((int32_t)var1 - (int32_t)var2);
 }
 
-static __inline int16_t Spl_GetSizeInBits(uint32_t n) {
-  return 32 - Spl_CountLeadingZeros32(n);
-}
-
-// Return the number of steps a can be left-shifted without overflow,
-// or 0 if a == 0.
-static __inline int16_t Spl_NormW32(int32_t a) {
-  return a == 0 ? 0 : Spl_CountLeadingZeros32(a < 0 ? ~a : a) - 1;
+static __inline int16_t GetSizeInBits(uint32_t n) {
+  return 32 - CountLeadingZeros32(n);
 }
 
 // Return the number of steps a can be left-shifted without overflow,
 // or 0 if a == 0.
-static __inline int16_t Spl_NormU32(uint32_t a) {
-  return a == 0 ? 0 : Spl_CountLeadingZeros32(a);
+static __inline int16_t NormW32(int32_t a) {
+  return a == 0 ? 0 : CountLeadingZeros32(a < 0 ? ~a : a) - 1;
 }
 
 // Return the number of steps a can be left-shifted without overflow,
 // or 0 if a == 0.
-static __inline int16_t Spl_NormW16(int16_t a) {
+static __inline int16_t NormU32(uint32_t a) {
+  return a == 0 ? 0 : CountLeadingZeros32(a);
+}
+
+// Return the number of steps a can be left-shifted without overflow,
+// or 0 if a == 0.
+static __inline int16_t NormW16(int16_t a) {
   const int32_t a32 = a;
-  return a == 0 ? 0 : Spl_CountLeadingZeros32(a < 0 ? ~a32 : a32) - 17;
+  return a == 0 ? 0 : CountLeadingZeros32(a < 0 ? ~a32 : a32) - 17;
 }
 
 static __inline int32_t MulAccumW16(int16_t a, int16_t b, int32_t c) {

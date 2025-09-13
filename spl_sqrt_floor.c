@@ -44,7 +44,7 @@
  * If the input value is negative, it returns 0.
  */
 
-#define SPL_SQRT_ITER(N)                 \
+#define SQRT_ITER(N)                 \
   try1 = root + (1 << (N));                     \
   if (value >= try1 << (N))                     \
   {                                             \
@@ -52,26 +52,26 @@
     root |= 2 << (N);                           \
   }
 
-int32_t Spl_SqrtFloor(int32_t value)
+int32_t SqrtFloor(int32_t value)
 {
   int32_t root = 0, try1;
 
-  SPL_SQRT_ITER (15);
-  SPL_SQRT_ITER (14);
-  SPL_SQRT_ITER (13);
-  SPL_SQRT_ITER (12);
-  SPL_SQRT_ITER (11);
-  SPL_SQRT_ITER (10);
-  SPL_SQRT_ITER ( 9);
-  SPL_SQRT_ITER ( 8);
-  SPL_SQRT_ITER ( 7);
-  SPL_SQRT_ITER ( 6);
-  SPL_SQRT_ITER ( 5);
-  SPL_SQRT_ITER ( 4);
-  SPL_SQRT_ITER ( 3);
-  SPL_SQRT_ITER ( 2);
-  SPL_SQRT_ITER ( 1);
-  SPL_SQRT_ITER ( 0);
+  SQRT_ITER (15);
+  SQRT_ITER (14);
+  SQRT_ITER (13);
+  SQRT_ITER (12);
+  SQRT_ITER (11);
+  SQRT_ITER (10);
+  SQRT_ITER ( 9);
+  SQRT_ITER ( 8);
+  SQRT_ITER ( 7);
+  SQRT_ITER ( 6);
+  SQRT_ITER ( 5);
+  SQRT_ITER ( 4);
+  SQRT_ITER ( 3);
+  SQRT_ITER ( 2);
+  SQRT_ITER ( 1);
+  SQRT_ITER ( 0);
 
   return root >> 1;
 }

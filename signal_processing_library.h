@@ -24,62 +24,62 @@
 // 教材用の最小構成: 依存は最小限にする
 
 // Macros specific for the fixed point implementation
-#define SPL_WORD16_MAX 32767
-#define SPL_WORD16_MIN -32768
-#define SPL_WORD32_MAX (int32_t)0x7fffffff
-#define SPL_WORD32_MIN (int32_t)0x80000000
-#define SPL_MAX_LPC_ORDER 14
-#define SPL_MIN(A, B) (A < B ? A : B)  // Get min value
-#define SPL_MAX(A, B) (A > B ? A : B)  // Get max value
+#define WORD16_MAX 32767
+#define WORD16_MIN -32768
+#define WORD32_MAX (int32_t)0x7fffffff
+#define WORD32_MIN (int32_t)0x80000000
+#define MAX_LPC_ORDER 14
+#define MIN(A, B) (A < B ? A : B)  // Get min value
+#define MAX(A, B) (A > B ? A : B)  // Get max value
 // TODO(kma/bjorn): For the next two macros, investigate how to correct the code
-// for inputs of a = SPL_WORD16_MIN or SPL_WORD32_MIN.
-#define SPL_ABS_W16(a) (((int16_t)a >= 0) ? ((int16_t)a) : -((int16_t)a))
-#define SPL_ABS_W32(a) (((int32_t)a >= 0) ? ((int32_t)a) : -((int32_t)a))
+// for inputs of a = WORD16_MIN or WORD32_MIN.
+#define ABS_W16(a) (((int16_t)a >= 0) ? ((int16_t)a) : -((int16_t)a))
+#define ABS_W32(a) (((int32_t)a >= 0) ? ((int32_t)a) : -((int32_t)a))
 
-#define SPL_MUL(a, b) ((int32_t)((int32_t)(a) * (int32_t)(b)))
-#define SPL_UMUL(a, b) ((uint32_t)((uint32_t)(a) * (uint32_t)(b)))
-#define SPL_UMUL_32_16(a, b) ((uint32_t)((uint32_t)(a) * (uint16_t)(b)))
-#define SPL_MUL_16_U16(a, b) ((int32_t)(int16_t)(a) * (uint16_t)(b))
+#define MUL(a, b) ((int32_t)((int32_t)(a) * (int32_t)(b)))
+#define UMUL(a, b) ((uint32_t)((uint32_t)(a) * (uint32_t)(b)))
+#define UMUL_32_16(a, b) ((uint32_t)((uint32_t)(a) * (uint16_t)(b)))
+#define MUL_16_U16(a, b) ((int32_t)(int16_t)(a) * (uint16_t)(b))
 
 // clang-format off
 // clang-format would choose some indentation leading to presubmit error (cpplint.py)
 // Always use generic C implementations (NEON/MIPS 専用は削除済み)
-#define SPL_MUL_16_16(a, b) ((int32_t)(((int16_t)(a)) * ((int16_t)(b))))
-#define SPL_MUL_16_32_RSFT16(a, b) \
-        (SPL_MUL_16_16(a, b >> 16) +     \
-        ((SPL_MUL_16_16(a, (b & 0xffff) >> 1) + 0x4000) >> 15))
+#define MUL_16_16(a, b) ((int32_t)(((int16_t)(a)) * ((int16_t)(b))))
+#define MUL_16_32_RSFT16(a, b) \
+        (MUL_16_16(a, b >> 16) +     \
+        ((MUL_16_16(a, (b & 0xffff) >> 1) + 0x4000) >> 15))
 
-#define SPL_MUL_16_32_RSFT11(a, b)          \
-        (SPL_MUL_16_16(a, (b) >> 16) * (1 << 5) + \
-        (((SPL_MUL_16_U16(a, (uint16_t)(b)) >> 1) + 0x0200) >> 10))
-#define SPL_MUL_16_32_RSFT14(a, b)          \
-        (SPL_MUL_16_16(a, (b) >> 16) * (1 << 2) + \
-        (((SPL_MUL_16_U16(a, (uint16_t)(b)) >> 1) + 0x1000) >> 13))
-#define SPL_MUL_16_32_RSFT15(a, b)            \
-        ((SPL_MUL_16_16(a, (b) >> 16) * (1 << 1)) + \
-        (((SPL_MUL_16_U16(a, (uint16_t)(b)) >> 1) + 0x2000) >> 14))
+#define MUL_16_32_RSFT11(a, b)          \
+        (MUL_16_16(a, (b) >> 16) * (1 << 5) + \
+        (((MUL_16_U16(a, (uint16_t)(b)) >> 1) + 0x0200) >> 10))
+#define MUL_16_32_RSFT14(a, b)          \
+        (MUL_16_16(a, (b) >> 16) * (1 << 2) + \
+        (((MUL_16_U16(a, (uint16_t)(b)) >> 1) + 0x1000) >> 13))
+#define MUL_16_32_RSFT15(a, b)            \
+        ((MUL_16_16(a, (b) >> 16) * (1 << 1)) + \
+        (((MUL_16_U16(a, (uint16_t)(b)) >> 1) + 0x2000) >> 14))
 // clang-format on
 
-#define SPL_MUL_16_16_RSFT(a, b, c) (SPL_MUL_16_16(a, b) >> (c))
+#define MUL_16_16_RSFT(a, b, c) (MUL_16_16(a, b) >> (c))
 
-#define SPL_MUL_16_16_RSFT_WITH_ROUND(a, b, c) \
-  ((SPL_MUL_16_16(a, b) + ((int32_t)(((int32_t)1) << ((c)-1)))) >> (c))
+#define MUL_16_16_RSFT_WITH_ROUND(a, b, c) \
+  ((MUL_16_16(a, b) + ((int32_t)(((int32_t)1) << ((c)-1)))) >> (c))
 
 // C + the 32 most significant bits of A * B
-#define SPL_SCALEDIFF32(A, B, C) \
+#define SCALEDIFF32(A, B, C) \
   (C + (B >> 16) * A + (((uint32_t)(B & 0x0000FFFF) * A) >> 16))
 
-#define SPL_SAT(a, b, c) (b > a ? a : b < c ? c : b)
+#define SAT(a, b, c) (b > a ? a : b < c ? c : b)
 
 // Shifting with negative numbers allowed
 // Positive means left shift
-#define SPL_SHIFT_W32(x, c) ((c) >= 0 ? (x) * (1 << (c)) : (x) >> -(c))
+#define SHIFT_W32(x, c) ((c) >= 0 ? (x) * (1 << (c)) : (x) >> -(c))
 
 // Shifting with negative numbers not allowed
 // We cannot do casting here due to signed/unsigned problem
-#define SPL_LSHIFT_W32(x, c) ((x) << (c))
+#define LSHIFT_W32(x, c) ((x) << (c))
 
-#define SPL_RSHIFT_U32(x, c) ((uint32_t)(x) >> (c))
+#define RSHIFT_U32(x, c) ((uint32_t)(x) >> (c))
 
 // 乱数生成マクロは最小構成では未使用のため削除
 
@@ -87,7 +87,7 @@
 extern "C" {
 #endif
 
-#define SPL_MEMCPY_W16(v1, v2, length) \
+#define MEMCPY_W16(v1, v2, length) \
   memcpy(v1, v2, (length) * sizeof(int16_t))
 
 // inline functions:
@@ -102,8 +102,8 @@ extern "C" {
 // Implementation in min_max_operations.c.
 
 // Returns the largest absolute value in a signed 16-bit vector.
-int16_t Spl_MaxAbsValueW16C(const int16_t* vector, size_t length);
-#define Spl_MaxAbsValueW16 Spl_MaxAbsValueW16C
+int16_t MaxAbsValueW16C(const int16_t* vector, size_t length);
+#define MaxAbsValueW16 MaxAbsValueW16C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -114,8 +114,8 @@ int16_t Spl_MaxAbsValueW16C(const int16_t* vector, size_t length);
 //      - vector : 32-bit input vector.
 //      - length : Number of samples in vector.
 //
-int32_t Spl_MaxAbsValueW32C(const int32_t* vector, size_t length);
-#define Spl_MaxAbsValueW32 Spl_MaxAbsValueW32C
+int32_t MaxAbsValueW32C(const int32_t* vector, size_t length);
+#define MaxAbsValueW32 MaxAbsValueW32C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -126,8 +126,8 @@ int32_t Spl_MaxAbsValueW32C(const int32_t* vector, size_t length);
 //      - vector : 16-bit input vector.
 //      - length : Number of samples in vector.
 //
-int16_t Spl_MaxValueW16C(const int16_t* vector, size_t length);
-#define Spl_MaxValueW16 Spl_MaxValueW16C
+int16_t MaxValueW16C(const int16_t* vector, size_t length);
+#define MaxValueW16 MaxValueW16C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -138,8 +138,8 @@ int16_t Spl_MaxValueW16C(const int16_t* vector, size_t length);
 //      - vector : 32-bit input vector.
 //      - length : Number of samples in vector.
 //
-int32_t Spl_MaxValueW32C(const int32_t* vector, size_t length);
-#define Spl_MaxValueW32 Spl_MaxValueW32C
+int32_t MaxValueW32C(const int32_t* vector, size_t length);
+#define MaxValueW32 MaxValueW32C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -150,8 +150,8 @@ int32_t Spl_MaxValueW32C(const int32_t* vector, size_t length);
 //      - vector : 16-bit input vector.
 //      - length : Number of samples in vector.
 //
-int16_t Spl_MinValueW16C(const int16_t* vector, size_t length);
-#define Spl_MinValueW16 Spl_MinValueW16C
+int16_t MinValueW16C(const int16_t* vector, size_t length);
+#define MinValueW16 MinValueW16C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -162,8 +162,8 @@ int16_t Spl_MinValueW16C(const int16_t* vector, size_t length);
 //      - vector : 32-bit input vector.
 //      - length : Number of samples in vector.
 //
-int32_t Spl_MinValueW32C(const int32_t* vector, size_t length);
-#define Spl_MinValueW32 Spl_MinValueW32C
+int32_t MinValueW32C(const int32_t* vector, size_t length);
+#define MinValueW32 MinValueW32C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -256,8 +256,8 @@ typedef int (*ScaleAndAddVectorsWithRound)(const int16_t* in_vector1,
                                            int right_shifts,
                                            int16_t* out_vector,
                                            size_t length);
-extern const ScaleAndAddVectorsWithRound Spl_ScaleAndAddVectorsWithRound;
-int Spl_ScaleAndAddVectorsWithRoundC(const int16_t* in_vector1,
+// extern const テーブルは最小構成では未使用のため削除
+int ScaleAndAddVectorsWithRoundC(const int16_t* in_vector1,
                                            int16_t in_vector1_scale,
                                            const int16_t* in_vector2,
                                            int16_t in_vector2_scale,
@@ -366,8 +366,8 @@ typedef void (*CrossCorrelation)(int32_t* cross_correlation,
                                  size_t dim_cross_correlation,
                                  int right_shifts,
                                  int step_seq2);
-extern const CrossCorrelation Spl_CrossCorrelation;
-void Spl_CrossCorrelationC(int32_t* cross_correlation,
+// extern const テーブルは最小構成では未使用のため削除
+void CrossCorrelationC(int32_t* cross_correlation,
                                  const int16_t* seq1,
                                  const int16_t* seq2,
                                  size_t dim_seq,
@@ -409,11 +409,11 @@ void Spl_CrossCorrelationC(int32_t* cross_correlation,
 
 // Divisions. Implementations collected in division_operations.c and
 // descriptions at bottom of this file.
-uint32_t Spl_DivU32U16(uint32_t num, uint16_t den);
-int32_t Spl_DivW32W16(int32_t num, int16_t den);
-int16_t Spl_DivW32W16ResW16(int32_t num, int16_t den);
-int32_t Spl_DivResultInQ31(int32_t num, int32_t den);
-int32_t Spl_DivW32HiLow(int32_t num, int16_t den_hi, int16_t den_low);
+uint32_t DivU32U16(uint32_t num, uint16_t den);
+int32_t DivW32W16(int32_t num, int16_t den);
+int16_t DivW32W16ResW16(int32_t num, int16_t den);
+int32_t DivResultInQ31(int32_t num, int32_t den);
+int32_t DivW32HiLow(int32_t num, int16_t den_hi, int16_t den_low);
 // End: Divisions.
 
 // エネルギー計算（未使用）
@@ -421,7 +421,7 @@ int32_t Spl_DivW32HiLow(int32_t num, int16_t den_hi, int16_t den_low);
 // Filter operations.
 // AR/MA フィルタは未使用
 
-// Spl_FilterMAFastQ12(...)
+// FilterMAFastQ12(...)
 //
 // Performs a MA filtering on a vector in Q12
 //
@@ -473,8 +473,8 @@ typedef int (*DownsampleFast)(const int16_t* data_in,
                               size_t coefficients_length,
                               int factor,
                               size_t delay);
-extern const DownsampleFast Spl_DownsampleFast;
-int Spl_DownsampleFastC(const int16_t* data_in,
+// extern const テーブルは最小構成では未使用のため削除
+int DownsampleFastC(const int16_t* data_in,
                               size_t data_in_length,
                               int16_t* data_out,
                               size_t data_out_length,
@@ -490,12 +490,12 @@ int Spl_DownsampleFastC(const int16_t* data_in,
 
 // FFT operations（最小限の宣言）
 
-int Spl_ComplexFFT(int16_t vector[], int stages, int mode);
-int Spl_ComplexIFFT(int16_t vector[], int stages, int mode);
+int ComplexFFT(int16_t vector[], int stages, int mode);
+int ComplexIFFT(int16_t vector[], int stages, int mode);
 
 // ビットリバース（説明簡略化）
 
-void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
+void ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 
 // End: FFT operations
 
@@ -508,8 +508,8 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 #endif  // COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SIGNAL_PROCESSING_LIBRARY_H_
 
 //
-// Spl_AddSatW16(...)
-// Spl_AddSatW32(...)
+// AddSatW16(...)
+// AddSatW32(...)
 //
 // Returns the result of a saturated 16-bit, respectively 32-bit, addition of
 // the numbers specified by the `var1` and `var2` parameters.
@@ -522,8 +522,8 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// Spl_SubSatW16(...)
-// Spl_SubSatW32(...)
+// SubSatW16(...)
+// SubSatW32(...)
 //
 // Returns the result of a saturated 16-bit, respectively 32-bit, subtraction
 // of the numbers specified by the `var1` and `var2` parameters.
@@ -536,7 +536,7 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// Spl_GetSizeInBits(...)
+// GetSizeInBits(...)
 //
 // Returns the # of bits that are needed at the most to represent the number
 // specified by the `value` parameter.
@@ -548,7 +548,7 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// Spl_NormW32(...)
+// NormW32(...)
 //
 // Norm returns the # of left shifts required to 32-bit normalize the 32-bit
 // signed number specified by the `value` parameter.
@@ -560,7 +560,7 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// Spl_NormW16(...)
+// NormW16(...)
 //
 // Norm returns the # of left shifts required to 16-bit normalize the 16-bit
 // signed number specified by the `value` parameter.
@@ -572,7 +572,7 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// Spl_NormU32(...)
+// NormU32(...)
 //
 // Norm returns the # of left shifts required to 32-bit normalize the unsigned
 // 32-bit number specified by the `value` parameter.
@@ -584,7 +584,7 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// Spl_GetScalingSquare(...)
+// GetScalingSquare(...)
 //
 // Returns the # of bits required to scale the samples specified in the
 // `in_vector` parameter so that, if the squares of the samples are added the
@@ -601,7 +601,7 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// Spl_MemSetW16(...)
+// MemSetW16(...)
 //
 // Sets all the values in the int16_t vector `vector` of length
 // `vector_length` to the specified value `set_value`
@@ -613,7 +613,7 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// Spl_MemSetW32(...)
+// MemSetW32(...)
 //
 // Sets all the values in the int32_t vector `vector` of length
 // `vector_length` to the specified value `set_value`
@@ -625,7 +625,7 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// Spl_MemCpyReversedOrder(...)
+// MemCpyReversedOrder(...)
 //
 // Copies all the values from the source int16_t vector `in_vector` to a
 // destination int16_t vector `out_vector`. It is done in reversed order,
@@ -645,7 +645,7 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// Spl_CopyFromEndW16(...)
+// CopyFromEndW16(...)
 //
 // Copies the rightmost `samples` of `in_vector` (of length `in_vector_length`)
 // to the vector `out_vector`.
@@ -661,8 +661,8 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// Spl_ZerosArrayW16(...)
-// Spl_ZerosArrayW32(...)
+// ZerosArrayW16(...)
+// ZerosArrayW32(...)
 //
 // Inserts the value "zero" in all positions of a w16 and a w32 vector
 // respectively.
@@ -675,8 +675,8 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// Spl_VectorBitShiftW16(...)
-// Spl_VectorBitShiftW32(...)
+// VectorBitShiftW16(...)
+// VectorBitShiftW32(...)
 //
 // Bit shifts all the values in a vector up or downwards. Different calls for
 // int16_t and int32_t vectors respectively.
@@ -691,17 +691,17 @@ void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //      - out_vector    : Pointer to the result vector (can be the same as
 //                        `in_vector`)
 //
-void Spl_VectorBitShiftW16(int16_t* res,
+void VectorBitShiftW16(int16_t* res,
                                  size_t length,
                                  const int16_t* in,
                                  int16_t right_shifts);
-void Spl_VectorBitShiftW32(int32_t* out_vector,
+void VectorBitShiftW32(int32_t* out_vector,
                                  size_t vector_length,
                                  const int32_t* in_vector,
                                  int16_t right_shifts);
 
 //
-// Spl_VectorBitShiftW32ToW16(...)
+// VectorBitShiftW32ToW16(...)
 //
 // Bit shifts all the values in a int32_t vector up or downwards and
 // stores the result as an int16_t vector. The function will saturate the
@@ -717,13 +717,13 @@ void Spl_VectorBitShiftW32(int32_t* out_vector,
 //      - out_vector    : Pointer to the result vector (can be the same as
 //                        `in_vector`)
 //
-void Spl_VectorBitShiftW32ToW16(int16_t* out,
+void VectorBitShiftW32ToW16(int16_t* out,
                                       size_t length,
                                       const int32_t* in,
                                       int right_shifts);
 
 //
-// Spl_ScaleVector(...)
+// ScaleVector(...)
 //
 // Performs the vector operation:
 //  out_vector[k] = (gain*in_vector[k])>>right_shifts
@@ -737,14 +737,14 @@ void Spl_VectorBitShiftW32ToW16(int16_t* out,
 // Output:
 //      - out_vector    : Output vector (can be the same as `in_vector`)
 //
-void Spl_ScaleVector(const int16_t* in_vector,
+void ScaleVector(const int16_t* in_vector,
                            int16_t* out_vector,
                            int16_t gain,
                            size_t in_vector_length,
                            int16_t right_shifts);
 
 //
-// Spl_ScaleVectorWithSat(...)
+// ScaleVectorWithSat(...)
 //
 // Performs the vector operation:
 //  out_vector[k] = SATURATE( (gain*in_vector[k])>>right_shifts )
@@ -758,14 +758,14 @@ void Spl_ScaleVector(const int16_t* in_vector,
 // Output:
 //      - out_vector    : Output vector (can be the same as `in_vector`)
 //
-void Spl_ScaleVectorWithSat(const int16_t* in_vector,
+void ScaleVectorWithSat(const int16_t* in_vector,
                                   int16_t* out_vector,
                                   int16_t gain,
                                   size_t in_vector_length,
                                   int16_t right_shifts);
 
 //
-// Spl_ScaleAndAddVectors(...)
+// ScaleAndAddVectors(...)
 //
 // Performs the vector operation:
 //  out_vector[k] = (gain1*in_vector1[k])>>right_shifts1
@@ -783,7 +783,7 @@ void Spl_ScaleVectorWithSat(const int16_t* in_vector,
 // Output:
 //      - out_vector    : Output vector
 //
-void Spl_ScaleAndAddVectors(const int16_t* in1,
+void ScaleAndAddVectors(const int16_t* in1,
                                   int16_t gain1,
                                   int shift1,
                                   const int16_t* in2,
@@ -793,7 +793,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
                                   size_t vector_length);
 
 //
-// Spl_ReverseOrderMultArrayElements(...)
+// ReverseOrderMultArrayElements(...)
 //
 // Performs the vector operation:
 //  out_vector[n] = (in_vector[n]*window[-n])>>right_shifts
@@ -811,7 +811,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_ElementwiseVectorMult(...)
+// ElementwiseVectorMult(...)
 //
 // Performs the vector operation:
 //  out_vector[n] = (in_vector[n]*window[n])>>right_shifts
@@ -828,7 +828,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_AddVectorsAndShift(...)
+// AddVectorsAndShift(...)
 //
 // Performs the vector operation:
 //  out_vector[k] = (in_vector1[k] + in_vector2[k])>>right_shifts
@@ -845,7 +845,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_AddAffineVectorToVector(...)
+// AddAffineVectorToVector(...)
 //
 // Adds an affine transformed vector to another vector `out_vector`, i.e,
 // performs
@@ -864,7 +864,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_AffineTransformVector(...)
+// AffineTransformVector(...)
 //
 // Affine transforms a vector, i.e, performs
 //  out_vector[k] = (in_vector[k]*gain+add_constant)>>right_shifts
@@ -882,7 +882,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_IncreaseSeed(...)
+// IncreaseSeed(...)
 //
 // Increases the seed (and returns the new value)
 //
@@ -896,7 +896,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_RandU(...)
+// RandU(...)
 //
 // Produces a uniformly distributed value in the int16_t range
 //
@@ -911,7 +911,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_RandN(...)
+// RandN(...)
 //
 // Produces a normal distributed value in the int16_t range
 //
@@ -925,7 +925,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_RandUArray(...)
+// RandUArray(...)
 //
 // Produces a uniformly distributed vector with elements in the int16_t
 // range
@@ -942,7 +942,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_Sqrt(...)
+// Sqrt(...)
 //
 // Returns the square root of the input value `value`. The precision of this
 // function is integer precision, i.e., sqrt(8) gives 2 as answer.
@@ -964,7 +964,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_DivU32U16(...)
+// DivU32U16(...)
 //
 // Divides a uint32_t `num` by a uint16_t `den`.
 //
@@ -979,7 +979,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_DivW32W16(...)
+// DivW32W16(...)
 //
 // Divides a int32_t `num` by a int16_t `den`.
 //
@@ -994,7 +994,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_DivW32W16ResW16(...)
+// DivW32W16ResW16(...)
 //
 // Divides a int32_t `num` by a int16_t `den`, assuming that the
 // result is less than 32768, otherwise an unpredictable result will occur.
@@ -1010,7 +1010,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_DivResultInQ31(...)
+// DivResultInQ31(...)
 //
 // Divides a int32_t `num` by a int16_t `den`, assuming that the
 // absolute value of the denominator is larger than the numerator, otherwise
@@ -1024,7 +1024,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_DivW32HiLow(...)
+// DivW32HiLow(...)
 //
 // Divides a int32_t `num` by a denominator in hi, low format. The
 // absolute value of the denominator has to be larger (or equal to) the
@@ -1039,7 +1039,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_Energy(...)
+// Energy(...)
 //
 // Calculates the energy of a vector
 //
@@ -1055,7 +1055,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_FilterAR(...)
+// FilterAR(...)
 //
 // Performs a 32-bit AR filtering on a vector in Q12
 //
@@ -1084,7 +1084,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_ComplexIFFT(...)
+// ComplexIFFT(...)
 //
 // Complex Inverse FFT
 //
@@ -1110,7 +1110,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //                    Value below.
 //
 //      - stages    : Number of FFT stages. Must be at least 3 and at most 10,
-//                    since the table Spl_kSinTable1024[] is 1024
+//                    since the table kSinTable1024[] is 1024
 //                    elements long.
 //
 //      - mode      : This parameter gives the user to choose how the FFT
@@ -1130,7 +1130,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_ComplexFFT(...)
+// ComplexFFT(...)
 //
 // Complex FFT
 //
@@ -1159,7 +1159,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //                    The output is in the Q0 domain.
 //
 //      - stages    : Number of FFT stages. Must be at least 3 and at most 10,
-//                    since the table Spl_kSinTable1024[] is 1024
+//                    since the table kSinTable1024[] is 1024
 //                    elements long.
 //
 //      - mode      : This parameter gives the user to choose how the FFT
@@ -1175,7 +1175,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_AnalysisQMF(...)
+// AnalysisQMF(...)
 //
 // Splits a 0-2*F Hz signal into two sub bands: 0-F Hz and F-2*F Hz. The
 // current version has F = 8000, therefore, a super-wideband audio signal is
@@ -1195,7 +1195,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// Spl_SynthesisQMF(...)
+// SynthesisQMF(...)
 //
 // Combines the two sub bands (0-F and F-2*F Hz) into a signal of 0-2*F
 // Hz, (current version has F = 8000 Hz). So the filter combines lower-band
@@ -1214,7 +1214,7 @@ void Spl_ScaleAndAddVectors(const int16_t* in1,
 //      - out_data      : Super-wideband speech signal, 0-16 kHz
 //
 
-// int16_t Spl_SatW32ToW16(...)
+// int16_t SatW32ToW16(...)
 //
 // This function saturates a 32-bit word into a 16-bit word.
 //

@@ -11,7 +11,7 @@
 #include <stdint.h>
 
 //
-// Spl_SqrtFloor(...)
+// SqrtFloor(...)
 //
 // Returns the square root of the input value `value`. The precision of this
 // function is rounding down integer precision, i.e., sqrt(8) gives 2 as answer.
@@ -26,4 +26,4 @@
 //
 // Return value     : Result of the sqrt calculation
 //
-int32_t Spl_SqrtFloor(int32_t value);
+int32_t SqrtFloor(int32_t value);

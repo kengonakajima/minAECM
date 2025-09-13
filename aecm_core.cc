@@ -146,7 +146,7 @@ AecmCore* Aecm_CreateCore() {
   }
   // robust validation はデフォルト無効のため明示設定を省略
 
-  aecm->real_fft = Spl_CreateRealFFT(PART_LEN_SHIFT);
+  aecm->real_fft = CreateRealFFT(PART_LEN_SHIFT);
   if (aecm->real_fft == NULL) {
     Aecm_FreeCore(aecm);
     return NULL;
@@ -182,7 +182,7 @@ void Aecm_InitEchoPathCore(AecmCore* aecm, const int16_t* echo_path) {
   // Reset channel storing variables
   aecm->mseAdaptOld = 1000;
   aecm->mseStoredOld = 1000;
-  aecm->mseThreshold = SPL_WORD32_MAX;
+  aecm->mseThreshold = WORD32_MAX;
   aecm->mseChannelCount = 0;
 }
 
@@ -198,7 +198,7 @@ static void CalcLinearEnergiesC(AecmCore* aecm,
   // echo using both stored and adapted channels.
   for (i = 0; i < PART_LEN1; i++) {
     echo_est[i] =
-        SPL_MUL_16_U16(aecm->channelStored[i], far_spectrum[i]);
+        MUL_16_U16(aecm->channelStored[i], far_spectrum[i]);
     (*far_energy) += (uint32_t)(far_spectrum[i]);
     *echo_energy_adapt += aecm->channelAdapt16[i] * far_spectrum[i];
     (*echo_energy_stored) += (uint32_t)echo_est[i];
@@ -216,15 +216,15 @@ static void StoreAdaptiveChannelC(AecmCore* aecm,
   // Recalculate echo estimate
   for (i = 0; i < PART_LEN; i += 4) {
     echo_est[i] =
-        SPL_MUL_16_U16(aecm->channelStored[i], far_spectrum[i]);
+        MUL_16_U16(aecm->channelStored[i], far_spectrum[i]);
     echo_est[i + 1] =
-        SPL_MUL_16_U16(aecm->channelStored[i + 1], far_spectrum[i + 1]);
+        MUL_16_U16(aecm->channelStored[i + 1], far_spectrum[i + 1]);
     echo_est[i + 2] =
-        SPL_MUL_16_U16(aecm->channelStored[i + 2], far_spectrum[i + 2]);
+        MUL_16_U16(aecm->channelStored[i + 2], far_spectrum[i + 2]);
     echo_est[i + 3] =
-        SPL_MUL_16_U16(aecm->channelStored[i + 3], far_spectrum[i + 3]);
+        MUL_16_U16(aecm->channelStored[i + 3], far_spectrum[i + 3]);
   }
-  echo_est[i] = SPL_MUL_16_U16(aecm->channelStored[i], far_spectrum[i]);
+  echo_est[i] = MUL_16_U16(aecm->channelStored[i], far_spectrum[i]);
 }
 
 static void ResetAdaptiveChannelC(AecmCore* aecm) {
@@ -310,8 +310,8 @@ int Aecm_InitCore(AecmCore* const aecm) {
   memset(aecm->echoFilt, 0, sizeof(aecm->echoFilt));
   memset(aecm->nearFilt, 0, sizeof(aecm->nearFilt));
 
-  aecm->farEnergyMin = SPL_WORD16_MAX;
-  aecm->farEnergyMax = SPL_WORD16_MIN;
+  aecm->farEnergyMin = WORD16_MAX;
+  aecm->farEnergyMax = WORD16_MIN;
   aecm->farEnergyMaxMin = 0;
   aecm->farEnergyVAD = FAR_ENERGY_MIN;  // This prevents false speech detection
                                         // at the beginning.
@@ -352,7 +352,7 @@ void Aecm_FreeCore(AecmCore* aecm) {
 
   FreeDelayEstimator(aecm->delay_estimator);
   FreeDelayEstimatorFarend(aecm->delay_estimator_farend);
-  Spl_FreeRealFFT(aecm->real_fft);
+  FreeRealFFT(aecm->real_fft);
 
   free(aecm);
 }
@@ -450,7 +450,7 @@ int16_t Aecm_AsymFilt(const int16_t filtOld,
                             const int16_t stepSizeNeg) {
   int16_t retVal;
 
-  if ((filtOld == SPL_WORD16_MAX) | (filtOld == SPL_WORD16_MIN)) {
+  if ((filtOld == WORD16_MAX) | (filtOld == WORD16_MIN)) {
     return inVal;
   }
   retVal = filtOld;
@@ -478,7 +478,7 @@ static int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain) {
   static const int16_t kLogLowValue = PART_LEN_SHIFT << 7;
   int16_t log_energy_q8 = kLogLowValue;
   if (energy > 0) {
-    int zeros = Spl_NormU32(energy);
+    int zeros = NormU32(energy);
     int16_t frac = ExtractFractionPart(energy, zeros);
     // log2 of `energy` in Q8.
     log_energy_q8 += ((31 - zeros) << 8) + frac - (q_domain << 8);
@@ -639,7 +639,7 @@ int16_t Aecm_CalcStepSize(AecmCore* const aecm) {
     } else {
       tmp16 = (aecm->farLogEnergy - aecm->farEnergyMin);
       tmp32 = tmp16 * MU_DIFF;
-      tmp32 = Spl_DivW32W16(tmp32, aecm->farEnergyMaxMin);
+      tmp32 = DivW32W16(tmp32, aecm->farEnergyMaxMin);
       mu = MU_MIN - 1 - (int16_t)(tmp32);
       // The -1 is an alternative to rounding. This way we get a larger
       // stepsize, so we in some sense compensate for truncation in NLMS
@@ -690,12 +690,12 @@ void Aecm_UpdateChannel(AecmCore* aecm,
     for (i = 0; i < PART_LEN1; i++) {
       // Determine norm of channel and farend to make sure we don't get overflow
       // in multiplication
-      zerosCh = Spl_NormU32(aecm->channelAdapt32[i]);
-      zerosFar = Spl_NormU32((uint32_t)far_spectrum[i]);
+      zerosCh = NormU32(aecm->channelAdapt32[i]);
+      zerosFar = NormU32((uint32_t)far_spectrum[i]);
       if (zerosCh + zerosFar > 31) {
         // Multiplication is safe
         tmpU32no1 =
-            SPL_UMUL_32_16(aecm->channelAdapt32[i], far_spectrum[i]);
+            UMUL_32_16(aecm->channelAdapt32[i], far_spectrum[i]);
         shiftChFar = 0;
       } else {
         // We need to shift down before multiplication
@@ -712,9 +712,9 @@ void Aecm_UpdateChannel(AecmCore* aecm,
         }
       }
       // Determine Q-domain of numerator
-      zerosNum = Spl_NormU32(tmpU32no1);
+      zerosNum = NormU32(tmpU32no1);
       if (dfa[i]) {
-        zerosDfa = Spl_NormU32((uint32_t)dfa[i]);
+        zerosDfa = NormU32((uint32_t)dfa[i]);
       } else {
         zerosDfa = 32;
       }
@@ -729,10 +729,10 @@ void Aecm_UpdateChannel(AecmCore* aecm,
                shiftChFar + xfaQ;
       }
       // Add in the same Q-domain
-      tmpU32no1 = SPL_SHIFT_W32(tmpU32no1, xfaQ);
-      tmpU32no2 = SPL_SHIFT_W32((uint32_t)dfa[i], dfaQ);
+      tmpU32no1 = SHIFT_W32(tmpU32no1, xfaQ);
+      tmpU32no2 = SHIFT_W32((uint32_t)dfa[i], dfaQ);
       tmp32no1 = (int32_t)tmpU32no2 - (int32_t)tmpU32no1;
-      zerosNum = Spl_NormW32(tmp32no1);
+      zerosNum = NormW32(tmp32no1);
       if ((tmp32no1) && (far_spectrum[i] > (CHANNEL_VAD << far_q))) {
         //
         // Update is needed
@@ -749,10 +749,10 @@ void Aecm_UpdateChannel(AecmCore* aecm,
         if (zerosNum + zerosFar > 31) {
           if (tmp32no1 > 0) {
             tmp32no2 =
-                (int32_t)SPL_UMUL_32_16(tmp32no1, far_spectrum[i]);
+                (int32_t)UMUL_32_16(tmp32no1, far_spectrum[i]);
           } else {
             tmp32no2 =
-                -(int32_t)SPL_UMUL_32_16(-tmp32no1, far_spectrum[i]);
+                -(int32_t)UMUL_32_16(-tmp32no1, far_spectrum[i]);
           }
           shiftNum = 0;
         } else {
@@ -764,17 +764,17 @@ void Aecm_UpdateChannel(AecmCore* aecm,
           }
         }
         // Normalize with respect to frequency bin
-        tmp32no2 = Spl_DivW32W16(tmp32no2, i + 1);
+        tmp32no2 = DivW32W16(tmp32no2, i + 1);
         // Make sure we are in the right Q-domain
         shift2ResChan =
             shiftNum + shiftChFar - xfaQ - mu - ((30 - zerosFar) << 1);
-        if (Spl_NormW32(tmp32no2) < shift2ResChan) {
-          tmp32no2 = SPL_WORD32_MAX;
+        if (NormW32(tmp32no2) < shift2ResChan) {
+          tmp32no2 = WORD32_MAX;
         } else {
-          tmp32no2 = SPL_SHIFT_W32(tmp32no2, shift2ResChan);
+          tmp32no2 = SHIFT_W32(tmp32no2, shift2ResChan);
         }
         aecm->channelAdapt32[i] =
-            Spl_AddSatW32(aecm->channelAdapt32[i], tmp32no2);
+            AddSatW32(aecm->channelAdapt32[i], tmp32no2);
         if (aecm->channelAdapt32[i] < 0) {
           // We can never have negative channel gain
           aecm->channelAdapt32[i] = 0;
@@ -806,12 +806,12 @@ void Aecm_UpdateChannel(AecmCore* aecm,
       for (i = 0; i < MIN_MSE_COUNT; i++) {
         tmp32no1 = ((int32_t)aecm->echoStoredLogEnergy[i] -
                     (int32_t)aecm->nearLogEnergy[i]);
-        tmp32no2 = SPL_ABS_W32(tmp32no1);
+        tmp32no2 = ABS_W32(tmp32no1);
         mseStored += tmp32no2;
 
         tmp32no1 = ((int32_t)aecm->echoAdaptLogEnergy[i] -
                     (int32_t)aecm->nearLogEnergy[i]);
-        tmp32no2 = SPL_ABS_W32(tmp32no1);
+        tmp32no2 = ABS_W32(tmp32no1);
         mseAdapt += tmp32no2;
       }
       if (((mseStored << MSE_RESOLUTION) < (MIN_MSE_DIFF * mseAdapt)) &
@@ -829,7 +829,7 @@ void Aecm_UpdateChannel(AecmCore* aecm,
         StoreAdaptiveChannelC(aecm, far_spectrum, echoEst);
 
         // Update threshold
-        if (aecm->mseThreshold == SPL_WORD32_MAX) {
+        if (aecm->mseThreshold == WORD32_MAX) {
           aecm->mseThreshold = (mseAdapt + aecm->mseAdaptOld);
         } else {
           int scaled_threshold = aecm->mseThreshold * 5 / 8;
@@ -878,7 +878,7 @@ int16_t Aecm_CalcSuppressionGain(AecmCore* const aecm) {
     // estimation error we likely have double talk (or poor channel).
     tmp16no1 = (aecm->nearLogEnergy[0] - aecm->echoStoredLogEnergy[0] -
                 ENERGY_DEV_OFFSET);
-    dE = SPL_ABS_W16(tmp16no1);
+    dE = ABS_W16(tmp16no1);
 
     if (dE < ENERGY_DEV_TOL) {
       // Likely no double talk. The better estimation, the more we can suppress
@@ -886,12 +886,12 @@ int16_t Aecm_CalcSuppressionGain(AecmCore* const aecm) {
       if (dE < SUPGAIN_EPC_DT) {
         tmp32no1 = aecm->supGainErrParamDiffAB * dE;
         tmp32no1 += (SUPGAIN_EPC_DT >> 1);
-        tmp16no1 = (int16_t)Spl_DivW32W16(tmp32no1, SUPGAIN_EPC_DT);
+        tmp16no1 = (int16_t)DivW32W16(tmp32no1, SUPGAIN_EPC_DT);
         supGain = aecm->supGainErrParamA - tmp16no1;
       } else {
         tmp32no1 = aecm->supGainErrParamDiffBD * (ENERGY_DEV_TOL - dE);
         tmp32no1 += ((ENERGY_DEV_TOL - SUPGAIN_EPC_DT) >> 1);
-        tmp16no1 = (int16_t)Spl_DivW32W16(
+        tmp16no1 = (int16_t)DivW32W16(
             tmp32no1, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
         supGain = aecm->supGainErrParamD + tmp16no1;
       }

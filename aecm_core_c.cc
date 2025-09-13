@@ -69,7 +69,7 @@ static void WindowAndFFT(AecmCore* aecm,
 
   // Do forward FFT, then take only the first PART_LEN complex samples,
   // and change signs of the imaginary parts.
-  Spl_RealForwardFFT(aecm->real_fft, fft, (int16_t*)freq_signal);
+  RealForwardFFT(aecm->real_fft, fft, (int16_t*)freq_signal);
   for (i = 0; i < PART_LEN; i++) {
     freq_signal[i].imag = -freq_signal[i].imag;
   }
@@ -98,21 +98,21 @@ static void InverseFFTAndWindow(AecmCore* aecm,
   fft[PART_LEN2 + 1] = -efw[PART_LEN].imag;
 
   // Inverse FFT. Keep outCFFT to scale the samples in the next block.
-  outCFFT = Spl_RealInverseFFT(aecm->real_fft, fft, ifft_out);
+  outCFFT = RealInverseFFT(aecm->real_fft, fft, ifft_out);
   for (i = 0; i < PART_LEN; i++) {
-    ifft_out[i] = (int16_t)SPL_MUL_16_16_RSFT_WITH_ROUND(
+    ifft_out[i] = (int16_t)MUL_16_16_RSFT_WITH_ROUND(
         ifft_out[i], Aecm_kSqrtHanning[i], 14);
-    tmp32no1 = SPL_SHIFT_W32((int32_t)ifft_out[i],
+    tmp32no1 = SHIFT_W32((int32_t)ifft_out[i],
                                     outCFFT - aecm->dfaCleanQDomain);
-    output[i] = (int16_t)SPL_SAT(SPL_WORD16_MAX,
+    output[i] = (int16_t)SAT(WORD16_MAX,
                                         tmp32no1 + aecm->outBuf[i],
-                                        SPL_WORD16_MIN);
+                                        WORD16_MIN);
 
     tmp32no1 =
         (ifft_out[PART_LEN + i] * Aecm_kSqrtHanning[PART_LEN - i]) >> 14;
-    tmp32no1 = SPL_SHIFT_W32(tmp32no1, outCFFT - aecm->dfaCleanQDomain);
-    aecm->outBuf[i] = (int16_t)SPL_SAT(SPL_WORD16_MAX, tmp32no1,
-                                              SPL_WORD16_MIN);
+    tmp32no1 = SHIFT_W32(tmp32no1, outCFFT - aecm->dfaCleanQDomain);
+    aecm->outBuf[i] = (int16_t)SAT(WORD16_MAX, tmp32no1,
+                                              WORD16_MIN);
   }
 
   // Copy the current block to the old position
@@ -164,8 +164,8 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
 #endif
 
 #ifdef AECM_DYNAMIC_Q
-  tmp16no1 = Spl_MaxAbsValueW16(time_signal, PART_LEN2);
-  time_signal_scaling = Spl_NormW16(tmp16no1);
+  tmp16no1 = MaxAbsValueW16(time_signal, PART_LEN2);
+  time_signal_scaling = NormW16(tmp16no1);
 #endif
 
   WindowAndFFT(aecm, fft, time_signal, freq_signal, time_signal_scaling);
@@ -174,17 +174,17 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
   // all frequency bins
   freq_signal[0].imag = 0;
   freq_signal[PART_LEN].imag = 0;
-  freq_signal_abs[0] = (uint16_t)SPL_ABS_W16(freq_signal[0].real);
+  freq_signal_abs[0] = (uint16_t)ABS_W16(freq_signal[0].real);
   freq_signal_abs[PART_LEN] =
-      (uint16_t)SPL_ABS_W16(freq_signal[PART_LEN].real);
+      (uint16_t)ABS_W16(freq_signal[PART_LEN].real);
   (*freq_signal_sum_abs) =
       (uint32_t)(freq_signal_abs[0]) + (uint32_t)(freq_signal_abs[PART_LEN]);
 
   for (i = 1; i < PART_LEN; i++) {
     if (freq_signal[i].real == 0) {
-      freq_signal_abs[i] = (uint16_t)SPL_ABS_W16(freq_signal[i].imag);
+      freq_signal_abs[i] = (uint16_t)ABS_W16(freq_signal[i].imag);
     } else if (freq_signal[i].imag == 0) {
-      freq_signal_abs[i] = (uint16_t)SPL_ABS_W16(freq_signal[i].real);
+      freq_signal_abs[i] = (uint16_t)ABS_W16(freq_signal[i].real);
     } else {
       // Approximation for magnitude of complex fft output
       // magn = sqrt(real^2 + imag^2)
@@ -193,8 +193,8 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
       // The parameters alpha and beta are stored in Q15
 
 #ifdef AECM_WITH_ABS_APPROX
-      tmp16no1 = SPL_ABS_W16(freq_signal[i].real);
-      tmp16no2 = SPL_ABS_W16(freq_signal[i].imag);
+      tmp16no1 = ABS_W16(freq_signal[i].real);
+      tmp16no2 = ABS_W16(freq_signal[i].imag);
 
       if (tmp16no1 > tmp16no2) {
         max_value = tmp16no1;
@@ -219,12 +219,12 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
       tmp16no2 = (int16_t)((min_value * beta) >> 15);
       freq_signal_abs[i] = (uint16_t)tmp16no1 + (uint16_t)tmp16no2;
 #else
-      tmp16no1 = SPL_ABS_W16(freq_signal[i].real);
-      tmp16no2 = SPL_ABS_W16(freq_signal[i].imag);
+      tmp16no1 = ABS_W16(freq_signal[i].real);
+      tmp16no2 = ABS_W16(freq_signal[i].imag);
       tmp32no1 = tmp16no1 * tmp16no1;
       tmp32no2 = tmp16no2 * tmp16no2;
-      tmp32no2 = Spl_AddSatW32(tmp32no1, tmp32no2);
-      tmp32no1 = Spl_SqrtFloor(tmp32no2);
+      tmp32no2 = AddSatW32(tmp32no1, tmp32no2);
+      tmp32no1 = SqrtFloor(tmp32no2);
 
       freq_signal_abs[i] = (uint16_t)tmp32no1;
 #endif  // AECM_WITH_ABS_APPROX
@@ -381,15 +381,15 @@ int Aecm_ProcessBlock(AecmCore* aecm,
     tmp32no1 = echoEst32[i] - aecm->echoFilt[i];
     aecm->echoFilt[i] += (int32_t)(((int64_t)tmp32no1 * 50) >> 8);
 
-    zeros32 = Spl_NormW32(aecm->echoFilt[i]) + 1;
-    zeros16 = Spl_NormW16(supGain) + 1;
+    zeros32 = NormW32(aecm->echoFilt[i]) + 1;
+    zeros16 = NormW16(supGain) + 1;
     if (zeros32 + zeros16 > 16) {
       // Multiplication is safe
       // Result in
       // Q(RESOLUTION_CHANNEL+RESOLUTION_SUPGAIN+
       //   aecm->xfaQDomainBuf[diff])
       echoEst32Gained =
-          SPL_UMUL_32_16((uint32_t)aecm->echoFilt[i], (uint16_t)supGain);
+          UMUL_32_16((uint32_t)aecm->echoFilt[i], (uint16_t)supGain);
       resolutionDiff = 14 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
       resolutionDiff += (aecm->dfaCleanQDomain - zerosXBuf);
     } else {
@@ -398,7 +398,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
           14 + tmp16no1 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
       resolutionDiff += (aecm->dfaCleanQDomain - zerosXBuf);
       if (zeros32 > tmp16no1) {
-        echoEst32Gained = SPL_UMUL_32_16((uint32_t)aecm->echoFilt[i],
+        echoEst32Gained = UMUL_32_16((uint32_t)aecm->echoFilt[i],
                                                 supGain >> tmp16no1);
       } else {
         // Result in Q-(RESOLUTION_CHANNEL+RESOLUTION_SUPGAIN-16)
@@ -406,7 +406,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
       }
     }
 
-    zeros16 = Spl_NormW16(aecm->nearFilt[i]);
+    zeros16 = NormW16(aecm->nearFilt[i]);
     dfa_clean_q_domain_diff = aecm->dfaCleanQDomain - aecm->dfaCleanQDomainOld;
     if (zeros16 < dfa_clean_q_domain_diff && aecm->nearFilt[i]) {
       tmp16no1 = aecm->nearFilt[i] * (1 << zeros16);
@@ -422,9 +422,9 @@ int Aecm_ProcessBlock(AecmCore* aecm,
     tmp32no1 = (int32_t)(tmp16no2 - tmp16no1);
     tmp16no2 = (int16_t)(tmp32no1 >> 4);
     tmp16no2 += tmp16no1;
-    zeros16 = Spl_NormW16(tmp16no2);
+    zeros16 = NormW16(tmp16no2);
     if ((tmp16no2) & (-qDomainDiff > zeros16)) {
-      aecm->nearFilt[i] = SPL_WORD16_MAX;
+      aecm->nearFilt[i] = WORD16_MAX;
     } else {
       aecm->nearFilt[i] = qDomainDiff < 0 ? tmp16no2 * (1 << -qDomainDiff)
                                           : tmp16no2 >> qDomainDiff;
@@ -440,12 +440,12 @@ int Aecm_ProcessBlock(AecmCore* aecm,
       // Rounding
       echoEst32Gained += (uint32_t)(aecm->nearFilt[i] >> 1);
       tmpU32 =
-          Spl_DivU32U16(echoEst32Gained, (uint16_t)aecm->nearFilt[i]);
+          DivU32U16(echoEst32Gained, (uint16_t)aecm->nearFilt[i]);
 
       // Current resolution is
       // Q-(RESOLUTION_CHANNEL+RESOLUTION_SUPGAIN- max(0,17-zeros16- zeros32))
       // Make sure we are in Q14
-      tmp32no1 = (int32_t)SPL_SHIFT_W32(tmpU32, resolutionDiff);
+      tmp32no1 = (int32_t)SHIFT_W32(tmpU32, resolutionDiff);
       if (tmp32no1 > ONE_Q14) {
         hnl[i] = 0;
       } else if (tmp32no1 < 0) {
@@ -509,17 +509,17 @@ int Aecm_ProcessBlock(AecmCore* aecm,
 
       // multiply with Wiener coefficients
       efw[i].real = (int16_t)(
-          SPL_MUL_16_16_RSFT_WITH_ROUND(dfw[i].real, hnl[i], 14));
+          MUL_16_16_RSFT_WITH_ROUND(dfw[i].real, hnl[i], 14));
       efw[i].imag = (int16_t)(
-          SPL_MUL_16_16_RSFT_WITH_ROUND(dfw[i].imag, hnl[i], 14));
+          MUL_16_16_RSFT_WITH_ROUND(dfw[i].imag, hnl[i], 14));
     }
   } else {
     // multiply with Wiener coefficients
     for (i = 0; i < PART_LEN1; i++) {
       efw[i].real = (int16_t)(
-          SPL_MUL_16_16_RSFT_WITH_ROUND(dfw[i].real, hnl[i], 14));
+          MUL_16_16_RSFT_WITH_ROUND(dfw[i].real, hnl[i], 14));
       efw[i].imag = (int16_t)(
-          SPL_MUL_16_16_RSFT_WITH_ROUND(dfw[i].imag, hnl[i], 14));
+          MUL_16_16_RSFT_WITH_ROUND(dfw[i].imag, hnl[i], 14));
     }
   }
 

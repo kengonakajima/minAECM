@@ -67,12 +67,18 @@ def compile_patterns():
     id_prev = r"(?<![A-Za-z0-9_])"
     id_next = r"(?=[A-Za-z0-9_])"
     patterns = [
-        # まず WebRtc_ を優先的に除去（例: WebRtc_CreateFoo -> CreateFoo）
+        # 複合プレフィックスを優先的に除去（例: WebRtcSpl_RealFFT -> RealFFT）
+        (re.compile(id_prev + r"WebRtcSpl_" + id_next), ""),
+        (re.compile(id_prev + r"WebRtcSpl" + id_next), ""),
+        # 次に単独の WebRtc_ 系
         (re.compile(id_prev + r"WebRtc_" + id_next), ""),
         # 次に他のバリエーション
         (re.compile(id_prev + r"WEBRTC_" + id_next), ""),
         (re.compile(id_prev + r"webrtc_" + id_next), ""),
         (re.compile(id_prev + r"WebRtc" + id_next), ""),
+        # SPL/Spl 系（マクロ・関数の短縮）
+        (re.compile(id_prev + r"SPL_" + id_next), ""),
+        (re.compile(id_prev + r"Spl_" + id_next), ""),
         # 最後に、トークン先頭に残った単一の '_' を落とす（__ は対象外）
         (re.compile(id_prev + r"_(?=[A-Za-z])"), ""),
     ]

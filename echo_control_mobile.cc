@@ -256,7 +256,7 @@ int32_t Aecm_Process(void* aecmInst,
       }
 
       if (abs(aecm->firstVal - aecm->msInSndCardBuf) <
-          SPL_MAX(0.2 * aecm->msInSndCardBuf, kSampMsNb)) {
+          MAX(0.2 * aecm->msInSndCardBuf, kSampMsNb)) {
         aecm->sum += aecm->msInSndCardBuf;
         aecm->counter++;
       } else {
@@ -266,7 +266,7 @@ int32_t Aecm_Process(void* aecmInst,
       if (aecm->counter * nBlocks10ms >= 6) {
         // The farend buffer size is determined in blocks of 80 samples
         // Use 75% of the average value of the soundcard buffer
-        aecm->bufSizeStart = SPL_MIN(
+        aecm->bufSizeStart = MIN(
             (3 * aecm->sum * aecm->aecmCore->mult) / (aecm->counter * 40),
             BUF_SIZE_FRAMES);
         // buffersize has now been determined
@@ -276,7 +276,7 @@ int32_t Aecm_Process(void* aecmInst,
       if (aecm->checkBufSizeCtr * nBlocks10ms > 50) {
         // for really bad sound cards, don't disable echocanceller for more than
         // 0.5 sec
-        aecm->bufSizeStart = SPL_MIN(
+        aecm->bufSizeStart = MIN(
             (3 * aecm->msInSndCardBuf * aecm->aecmCore->mult) / 40,
             BUF_SIZE_FRAMES);
         aecm->checkBuffSize = 0;
@@ -433,7 +433,7 @@ static int Aecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf) {
   }
 
   aecm->filtDelay =
-      SPL_MAX(0, (8 * aecm->filtDelay + 2 * delayNew) / 10);
+      MAX(0, (8 * aecm->filtDelay + 2 * delayNew) / 10);
 
   diff = aecm->filtDelay - aecm->knownDelay;
   if (diff > 224) {
@@ -454,7 +454,7 @@ static int Aecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf) {
   aecm->lastDelayDiff = diff;
 
   if (aecm->timeForDelayChange > 25) {
-    aecm->knownDelay = SPL_MAX((int)aecm->filtDelay - 160, 0);
+    aecm->knownDelay = MAX((int)aecm->filtDelay - 160, 0);
   }
   return 0;
 }
@@ -471,8 +471,8 @@ static int Aecm_DelayComp(AecMobile* aecm) {
     // The difference of the buffer sizes is larger than the maximum
     // allowed known delay. Compensate by stuffing the buffer.
     nSampAdd =
-        (int)(SPL_MAX(((nSampSndCard >> 1) - nSampFar), FRAME_LEN));
-    nSampAdd = SPL_MIN(nSampAdd, maxStuffSamp);
+        (int)(MAX(((nSampSndCard >> 1) - nSampFar), FRAME_LEN));
+    nSampAdd = MIN(nSampAdd, maxStuffSamp);
 
     MoveReadPtr(aecm->farendBuf, -nSampAdd);
     aecm->delayChange = 1;  // the delay needs to be updated

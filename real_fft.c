@@ -18,7 +18,7 @@ struct RealFFT {
   int order;
 };
 
-struct RealFFT* Spl_CreateRealFFT(int order) {
+struct RealFFT* CreateRealFFT(int order) {
   struct RealFFT* self = NULL;
 
   if (order > kMaxFFTOrder || order < 0) {
@@ -34,17 +34,17 @@ struct RealFFT* Spl_CreateRealFFT(int order) {
   return self;
 }
 
-void Spl_FreeRealFFT(struct RealFFT* self) {
+void FreeRealFFT(struct RealFFT* self) {
   if (self != NULL) {
     free(self);
   }
 }
 
-// The C version FFT functions (i.e. Spl_RealForwardFFT and
-// Spl_RealInverseFFT) are real-valued FFT wrappers for complex-valued
+// The C version FFT functions (i.e. RealForwardFFT and
+// RealInverseFFT) are real-valued FFT wrappers for complex-valued
 // FFT implementation in SPL.
 
-int Spl_RealForwardFFT(struct RealFFT* self,
+int RealForwardFFT(struct RealFFT* self,
                              const int16_t* real_data_in,
                              int16_t* complex_data_out) {
   int i = 0;
@@ -61,8 +61,8 @@ int Spl_RealForwardFFT(struct RealFFT* self,
     complex_buffer[j + 1] = 0;
   };
 
-  Spl_ComplexBitReverse(complex_buffer, self->order);
-  result = Spl_ComplexFFT(complex_buffer, self->order, 1);
+  ComplexBitReverse(complex_buffer, self->order);
+  result = ComplexFFT(complex_buffer, self->order, 1);
 
   // For real FFT output, use only the first N + 2 elements from
   // complex forward FFT.
@@ -71,7 +71,7 @@ int Spl_RealForwardFFT(struct RealFFT* self,
   return result;
 }
 
-int Spl_RealInverseFFT(struct RealFFT* self,
+int RealInverseFFT(struct RealFFT* self,
                              const int16_t* complex_data_in,
                              int16_t* real_data_out) {
   int i = 0;
@@ -90,8 +90,8 @@ int Spl_RealInverseFFT(struct RealFFT* self,
     complex_buffer[i + 1] = -complex_data_in[2 * n - i + 1];
   }
 
-  Spl_ComplexBitReverse(complex_buffer, self->order);
-  result = Spl_ComplexIFFT(complex_buffer, self->order, 1);
+  ComplexBitReverse(complex_buffer, self->order);
+  result = ComplexIFFT(complex_buffer, self->order, 1);
 
   // Strip out the imaginary parts of the complex inverse FFT output.
   for (i = 0, j = 0; i < n; i += 1, j += 2) {

@@ -29,7 +29,7 @@ extern "C" {
 //                        output will be in Q(-`scaling`)
 //
 // Return value         : The dot product in Q(-scaling)
-int32_t Spl_DotProductWithScale(const int16_t* vector1,
+int32_t DotProductWithScale(const int16_t* vector1,
                                       const int16_t* vector2,
                                       size_t length,
                                       int scaling);

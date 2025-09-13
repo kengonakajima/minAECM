@@ -23,13 +23,13 @@ struct RealFFT;
 extern "C" {
 #endif
 
-struct RealFFT* Spl_CreateRealFFT(int order);
-void Spl_FreeRealFFT(struct RealFFT* self);
+struct RealFFT* CreateRealFFT(int order);
+void FreeRealFFT(struct RealFFT* self);
 
 // Compute an FFT for a real-valued signal of length of 2^order,
 // where 1 < order <= MAX_FFT_ORDER. Transform length is determined by the
 // specification structure, which must be initialized prior to calling the FFT
-// function with Spl_CreateRealFFT().
+// function with CreateRealFFT().
 // The relationship between the input and output sequences can
 // be expressed in terms of the DFT, i.e.:
 //     x[n] = (2^(-scalefactor)/N)  . SUM[k=0,...,N-1] X[k].e^(jnk.2.pi/N)
@@ -57,17 +57,17 @@ void Spl_FreeRealFFT(struct RealFFT* self);
 // Return Value:
 //   0  - FFT calculation is successful.
 //   -1 - Error with bad arguments (null pointers).
-int Spl_RealForwardFFT(struct RealFFT* self,
+int RealForwardFFT(struct RealFFT* self,
                              const int16_t* real_data_in,
                              int16_t* complex_data_out);
 
 // Compute the inverse FFT for a conjugate-symmetric input sequence of length of
 // 2^order, where 1 < order <= MAX_FFT_ORDER. Transform length is determined by
 // the specification structure, which must be initialized prior to calling the
-// FFT function with Spl_CreateRealFFT().
+// FFT function with CreateRealFFT().
 // For a transform of length M, the input sequence is represented using a packed
 // CCS vector of length M+2, which is explained in the comments for
-// Spl_RealForwardFFTC above.
+// RealForwardFFTC above.
 //
 // Input Arguments:
 //   self - pointer to preallocated and initialized FFT specification structure.
@@ -85,7 +85,7 @@ int Spl_RealForwardFFT(struct RealFFT* self,
 //                            should be shifted left with in order to get
 //                            correct physical values.
 //   -1 - Error with bad arguments (null pointers).
-int Spl_RealInverseFFT(struct RealFFT* self,
+int RealInverseFFT(struct RealFFT* self,
                              const int16_t* complex_data_in,
                              int16_t* real_data_out);
 
