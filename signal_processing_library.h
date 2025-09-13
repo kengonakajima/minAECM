@@ -428,7 +428,9 @@ void WebRtcSpl_CrossCorrelationC(int32_t* cross_correlation,
 // descriptions at bottom of this file.
 uint32_t WebRtcSpl_DivU32U16(uint32_t num, uint16_t den);
 int32_t WebRtcSpl_DivW32W16(int32_t num, int16_t den);
-// 未使用: 外部から参照されないため宣言を削除（ResW16/Q31/HiLow）
+int16_t WebRtcSpl_DivW32W16ResW16(int32_t num, int16_t den);
+int32_t WebRtcSpl_DivResultInQ31(int32_t num, int32_t den);
+int32_t WebRtcSpl_DivW32HiLow(int32_t num, int16_t den_hi, int16_t den_low);
 // End: Divisions.
 
 // エネルギー計算（未使用）
@@ -706,6 +708,14 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //      - out_vector    : Pointer to the result vector (can be the same as
 //                        `in_vector`)
 //
+void WebRtcSpl_VectorBitShiftW16(int16_t* res,
+                                 size_t length,
+                                 const int16_t* in,
+                                 int16_t right_shifts);
+void WebRtcSpl_VectorBitShiftW32(int32_t* out_vector,
+                                 size_t vector_length,
+                                 const int32_t* in_vector,
+                                 int16_t right_shifts);
 
 //
 // WebRtcSpl_VectorBitShiftW32ToW16(...)
@@ -724,6 +734,10 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //      - out_vector    : Pointer to the result vector (can be the same as
 //                        `in_vector`)
 //
+void WebRtcSpl_VectorBitShiftW32ToW16(int16_t* out,
+                                      size_t length,
+                                      const int32_t* in,
+                                      int right_shifts);
 
 //
 // WebRtcSpl_ScaleVector(...)
@@ -740,6 +754,11 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 // Output:
 //      - out_vector    : Output vector (can be the same as `in_vector`)
 //
+void WebRtcSpl_ScaleVector(const int16_t* in_vector,
+                           int16_t* out_vector,
+                           int16_t gain,
+                           size_t in_vector_length,
+                           int16_t right_shifts);
 
 //
 // WebRtcSpl_ScaleVectorWithSat(...)
@@ -756,6 +775,11 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 // Output:
 //      - out_vector    : Output vector (can be the same as `in_vector`)
 //
+void WebRtcSpl_ScaleVectorWithSat(const int16_t* in_vector,
+                                  int16_t* out_vector,
+                                  int16_t gain,
+                                  size_t in_vector_length,
+                                  int16_t right_shifts);
 
 //
 // WebRtcSpl_ScaleAndAddVectors(...)
@@ -776,6 +800,14 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 // Output:
 //      - out_vector    : Output vector
 //
+void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
+                                  int16_t gain1,
+                                  int shift1,
+                                  const int16_t* in2,
+                                  int16_t gain2,
+                                  int shift2,
+                                  int16_t* out,
+                                  size_t vector_length);
 
 //
 // WebRtcSpl_ReverseOrderMultArrayElements(...)
