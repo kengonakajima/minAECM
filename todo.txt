@@ -96,3 +96,9 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
 - フラット化: ビルドに必要な common_audio/ および modules/ 配下のソース/ヘッダをレポジトリ直下へ移動し、各 #include をローカル参照に統一
 
 - 削除済み: api/scoped_refptr.h
+
+
+- アラインメント関連のためのコード。NEON用の? こういうコメントがある  // The extra 16 or 32 bytes in the following buffers are for alignment based Neon code.
+- channelという概念自体が不要。
+
+- aecm_defines.hの未使用のマクロありそう

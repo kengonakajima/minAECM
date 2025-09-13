@@ -32,6 +32,18 @@
 //   WebRtcSpl_MaxAbsValueW16C and WebRtcSpl_MaxAbsIndexW16 into a single one.)
 // TODO(kma): Move the next six functions into min_max_operations_c.c.
 
+// signal_processing_library.h から未使用宣言を削除したため、
+// この翻訳単位内でのみ使用する関数は static にする。
+static size_t WebRtcSpl_MaxAbsIndexW16(const int16_t* vector, size_t length);
+static int16_t WebRtcSpl_MaxAbsElementW16(const int16_t* vector,
+                                          size_t length);
+static size_t WebRtcSpl_MaxIndexW16(const int16_t* vector, size_t length);
+static size_t WebRtcSpl_MaxIndexW32(const int32_t* vector, size_t length);
+static size_t WebRtcSpl_MinIndexW16(const int16_t* vector, size_t length);
+static size_t WebRtcSpl_MinIndexW32(const int32_t* vector, size_t length);
+static void WebRtcSpl_MinMaxW16(const int16_t* vector, size_t length,
+                                int16_t* min_val, int16_t* max_val);
+
 // Maximum absolute value of word16 vector. C version for generic platforms.
 int16_t WebRtcSpl_MaxAbsValueW16C(const int16_t* vector, size_t length) {
   size_t i = 0;
@@ -134,7 +146,7 @@ int32_t WebRtcSpl_MinValueW32C(const int32_t* vector, size_t length) {
 }
 
 // Index of maximum absolute value in a word16 vector.
-size_t WebRtcSpl_MaxAbsIndexW16(const int16_t* vector, size_t length) {
+static size_t WebRtcSpl_MaxAbsIndexW16(const int16_t* vector, size_t length) {
   // Use type int for local variables, to accomodate the value of abs(-32768).
 
   size_t i = 0, index = 0;
@@ -154,7 +166,8 @@ size_t WebRtcSpl_MaxAbsIndexW16(const int16_t* vector, size_t length) {
   return index;
 }
 
-int16_t WebRtcSpl_MaxAbsElementW16(const int16_t* vector, size_t length) {
+static int16_t WebRtcSpl_MaxAbsElementW16(const int16_t* vector,
+                                          size_t length) {
   int16_t min_val, max_val;
   WebRtcSpl_MinMaxW16(vector, length, &min_val, &max_val);
   if (min_val == max_val || min_val < -max_val) {
@@ -164,7 +177,7 @@ int16_t WebRtcSpl_MaxAbsElementW16(const int16_t* vector, size_t length) {
 }
 
 // Index of maximum value in a word16 vector.
-size_t WebRtcSpl_MaxIndexW16(const int16_t* vector, size_t length) {
+static size_t WebRtcSpl_MaxIndexW16(const int16_t* vector, size_t length) {
   size_t i = 0, index = 0;
   int16_t maximum = WEBRTC_SPL_WORD16_MIN;
 
@@ -181,7 +194,7 @@ size_t WebRtcSpl_MaxIndexW16(const int16_t* vector, size_t length) {
 }
 
 // Index of maximum value in a word32 vector.
-size_t WebRtcSpl_MaxIndexW32(const int32_t* vector, size_t length) {
+static size_t WebRtcSpl_MaxIndexW32(const int32_t* vector, size_t length) {
   size_t i = 0, index = 0;
   int32_t maximum = WEBRTC_SPL_WORD32_MIN;
 
@@ -198,7 +211,7 @@ size_t WebRtcSpl_MaxIndexW32(const int32_t* vector, size_t length) {
 }
 
 // Index of minimum value in a word16 vector.
-size_t WebRtcSpl_MinIndexW16(const int16_t* vector, size_t length) {
+static size_t WebRtcSpl_MinIndexW16(const int16_t* vector, size_t length) {
   size_t i = 0, index = 0;
   int16_t minimum = WEBRTC_SPL_WORD16_MAX;
 
@@ -215,7 +228,7 @@ size_t WebRtcSpl_MinIndexW16(const int16_t* vector, size_t length) {
 }
 
 // Index of minimum value in a word32 vector.
-size_t WebRtcSpl_MinIndexW32(const int32_t* vector, size_t length) {
+static size_t WebRtcSpl_MinIndexW32(const int32_t* vector, size_t length) {
   size_t i = 0, index = 0;
   int32_t minimum = WEBRTC_SPL_WORD32_MAX;
 
@@ -232,8 +245,8 @@ size_t WebRtcSpl_MinIndexW32(const int32_t* vector, size_t length) {
 }
 
 // Finds both the minimum and maximum elements in an array of 16-bit integers.
-void WebRtcSpl_MinMaxW16(const int16_t* vector, size_t length,
-                         int16_t* min_val, int16_t* max_val) {
+static void WebRtcSpl_MinMaxW16(const int16_t* vector, size_t length,
+                                int16_t* min_val, int16_t* max_val) {
   int16_t minimum = WEBRTC_SPL_WORD16_MAX;
   int16_t maximum = WEBRTC_SPL_WORD16_MIN;
   size_t i = 0;

@@ -193,10 +193,7 @@ int32_t WebRtcSpl_MinValueW32C(const int32_t* vector, size_t length);
 // Ouput:
 //      - max_val : Maximum sample value in `vector`.
 //      - min_val : Minimum sample value in `vector`.
-void WebRtcSpl_MinMaxW16(const int16_t* vector,
-                         size_t length,
-                         int16_t* min_val,
-                         int16_t* max_val);
+// 未使用: 外部から参照されないため宣言を削除
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -211,7 +208,7 @@ void WebRtcSpl_MinMaxW16(const int16_t* vector,
 //                 If there are multiple equal maxima, return the index of the
 //                 first. -32768 will always have precedence over 32767 (despite
 //                 -32768 presenting an int16 absolute value of 32767).
-size_t WebRtcSpl_MaxAbsIndexW16(const int16_t* vector, size_t length);
+// 未使用: 外部から参照されないため宣言を削除
 
 // Returns the element with the largest absolute value of a 16-bit vector. Note
 // that this function can return a negative value.
@@ -222,7 +219,7 @@ size_t WebRtcSpl_MaxAbsIndexW16(const int16_t* vector, size_t length);
 //
 // Return value  : The element with the largest absolute value. Note that this
 //                 may be a negative value.
-int16_t WebRtcSpl_MaxAbsElementW16(const int16_t* vector, size_t length);
+// 未使用: 外部から参照されないため宣言を削除
 
 // Returns the vector index to the maximum sample value of a 16-bit vector.
 //
@@ -232,7 +229,7 @@ int16_t WebRtcSpl_MaxAbsElementW16(const int16_t* vector, size_t length);
 //
 // Return value  : Index to the maximum value in vector (if multiple
 //                 indexes have the maximum, return the first).
-size_t WebRtcSpl_MaxIndexW16(const int16_t* vector, size_t length);
+// 未使用: 外部から参照されないため宣言を削除
 
 // Returns the vector index to the maximum sample value of a 32-bit vector.
 //
@@ -242,7 +239,7 @@ size_t WebRtcSpl_MaxIndexW16(const int16_t* vector, size_t length);
 //
 // Return value  : Index to the maximum value in vector (if multiple
 //                 indexes have the maximum, return the first).
-size_t WebRtcSpl_MaxIndexW32(const int32_t* vector, size_t length);
+// 未使用: 外部から参照されないため宣言を削除
 
 // Returns the vector index to the minimum sample value of a 16-bit vector.
 //
@@ -252,7 +249,7 @@ size_t WebRtcSpl_MaxIndexW32(const int32_t* vector, size_t length);
 //
 // Return value  : Index to the mimimum value in vector  (if multiple
 //                 indexes have the minimum, return the first).
-size_t WebRtcSpl_MinIndexW16(const int16_t* vector, size_t length);
+// 未使用: 外部から参照されないため宣言を削除
 
 // Returns the vector index to the minimum sample value of a 32-bit vector.
 //
@@ -262,42 +259,11 @@ size_t WebRtcSpl_MinIndexW16(const int16_t* vector, size_t length);
 //
 // Return value  : Index to the mimimum value in vector  (if multiple
 //                 indexes have the minimum, return the first).
-size_t WebRtcSpl_MinIndexW32(const int32_t* vector, size_t length);
+// 未使用: 外部から参照されないため宣言を削除
 
 // End: Minimum and maximum operations.
 
-// Vector scaling operations. Implementation in vector_scaling_operations.c.
-// Description at bottom of file.
-void WebRtcSpl_VectorBitShiftW16(int16_t* out_vector,
-                                 size_t vector_length,
-                                 const int16_t* in_vector,
-                                 int16_t right_shifts);
-void WebRtcSpl_VectorBitShiftW32(int32_t* out_vector,
-                                 size_t vector_length,
-                                 const int32_t* in_vector,
-                                 int16_t right_shifts);
-void WebRtcSpl_VectorBitShiftW32ToW16(int16_t* out_vector,
-                                      size_t vector_length,
-                                      const int32_t* in_vector,
-                                      int right_shifts);
-void WebRtcSpl_ScaleVector(const int16_t* in_vector,
-                           int16_t* out_vector,
-                           int16_t gain,
-                           size_t vector_length,
-                           int16_t right_shifts);
-void WebRtcSpl_ScaleVectorWithSat(const int16_t* in_vector,
-                                  int16_t* out_vector,
-                                  int16_t gain,
-                                  size_t vector_length,
-                                  int16_t right_shifts);
-void WebRtcSpl_ScaleAndAddVectors(const int16_t* in_vector1,
-                                  int16_t gain1,
-                                  int right_shifts1,
-                                  const int16_t* in_vector2,
-                                  int16_t gain2,
-                                  int right_shifts2,
-                                  int16_t* out_vector,
-                                  size_t vector_length);
+// Vector scaling のうち、他翻訳単位から未使用の関数宣言は削除
 
 // 丸め付きスケール加算
 typedef int (*ScaleAndAddVectorsWithRound)(const int16_t* in_vector1,
@@ -332,11 +298,7 @@ int WebRtcSpl_ScaleAndAddVectorsWithRoundC(const int16_t* in_vector1,
 //                           auto-correlation in Q0
 //
 // Return value            : Number of samples in `result`, i.e. (order+1)
-size_t WebRtcSpl_AutoCorrelation(const int16_t* in_vector,
-                                 size_t in_vector_length,
-                                 size_t order,
-                                 int32_t* result,
-                                 int* scale);
+// 未使用: 外部から参照されないため宣言を削除
 
 // A 32-bit fix-point implementation of the Levinson-Durbin algorithm that
 // does NOT use the 64 bit class
@@ -350,10 +312,7 @@ size_t WebRtcSpl_AutoCorrelation(const int16_t* in_vector,
 //      - refl_coef : refl_coef[0...order-1]| Reflection coefficients in Q15
 //
 // Return value     : 1 for stable 0 for unstable
-int16_t WebRtcSpl_LevinsonDurbin(const int32_t* auto_corr,
-                                 int16_t* lpc_coef,
-                                 int16_t* refl_coef,
-                                 size_t order);
+// 未使用: 外部から参照されないため宣言を削除
 
 // Converts reflection coefficients `refl_coef` to LPC coefficients `lpc_coef`.
 // This version is a 16 bit operation.
@@ -369,9 +328,7 @@ int16_t WebRtcSpl_LevinsonDurbin(const int32_t* auto_corr,
 //
 // Output:
 //      - lpc_coef  : LPC coefficients in Q12
-void WebRtcSpl_ReflCoefToLpc(const int16_t* refl_coef,
-                             int use_order,
-                             int16_t* lpc_coef);
+// 未使用: 外部から参照されないため宣言を削除
 
 // Converts LPC coefficients `lpc_coef` to reflection coefficients `refl_coef`.
 // This version is a 16 bit operation.
@@ -384,9 +341,7 @@ void WebRtcSpl_ReflCoefToLpc(const int16_t* refl_coef,
 //
 // Output:
 //      - refl_coef : Reflection coefficients in Q15.
-void WebRtcSpl_LpcToReflCoef(int16_t* lpc_coef,
-                             int use_order,
-                             int16_t* refl_coef);
+// 未使用: 外部から参照されないため宣言を削除
 
 // Calculates reflection coefficients (16 bit) from auto-correlation values
 //
@@ -396,9 +351,7 @@ void WebRtcSpl_LpcToReflCoef(int16_t* lpc_coef,
 //
 // Output:
 //      - refl_coef : Reflection coefficients in Q15.
-void WebRtcSpl_AutoCorrToReflCoef(const int32_t* auto_corr,
-                                  int use_order,
-                                  int16_t* refl_coef);
+// 未使用: 外部から参照されないため宣言を削除
 
 // The functions (with related pointer) calculate the cross-correlation between
 // two sequences `seq1` and `seq2`.
@@ -465,11 +418,7 @@ void WebRtcSpl_CrossCorrelationC(int32_t* cross_correlation,
 // End: Signal processing operations.
 
 // 乱数（AECMのCNG等で使用）
-int16_t WebRtcSpl_RandU(uint32_t* seed);
-int16_t WebRtcSpl_RandN(uint32_t* seed);
-int16_t WebRtcSpl_RandUArray(int16_t* vector,
-                             int16_t vector_length,
-                             uint32_t* seed);
+// 未使用: 乱数関連の関数宣言を削除
 // End: Randomization functions.
 
 // Math functions
@@ -479,9 +428,7 @@ int16_t WebRtcSpl_RandUArray(int16_t* vector,
 // descriptions at bottom of this file.
 uint32_t WebRtcSpl_DivU32U16(uint32_t num, uint16_t den);
 int32_t WebRtcSpl_DivW32W16(int32_t num, int16_t den);
-int16_t WebRtcSpl_DivW32W16ResW16(int32_t num, int16_t den);
-int32_t WebRtcSpl_DivResultInQ31(int32_t num, int32_t den);
-int32_t WebRtcSpl_DivW32HiLow(int32_t num, int16_t den_hi, int16_t den_low);
+// 未使用: 外部から参照されないため宣言を削除（ResW16/Q31/HiLow）
 // End: Divisions.
 
 // エネルギー計算（未使用）
