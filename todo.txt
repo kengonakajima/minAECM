@@ -92,5 +92,6 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
 - sanitizer.h
 
 - 削除済み: rtc_base/system/inline.h, rtc_base/system/rtc_export.h
+- 削除済み: rtc_base/type_traits.h（<type_traits> も未参照）
 
 - 削除済み: api/scoped_refptr.h
