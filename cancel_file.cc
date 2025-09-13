@@ -6,7 +6,7 @@
 #include <fstream>
 #include <cstring>
 
-#include "modules/audio_processing/aecm/echo_control_mobile.h"
+#include "echo_control_mobile.h"
 
 struct Wav {
   // モノラル16kHz固定。sr/chは保持しない。

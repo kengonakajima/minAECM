@@ -32,41 +32,41 @@ all: libaecm.a echoback cancel_file
 
 # AECM に必要な最小ソース群（MIPS/NEON/テスト類は除外）
 AECM_CC_SRCS= \
-  modules/audio_processing/aecm/echo_control_mobile.cc \
-  modules/audio_processing/aecm/aecm_core.cc \
-  modules/audio_processing/aecm/aecm_core_c.cc \
-  modules/audio_processing/utility/delay_estimator_wrapper.cc \
-  modules/audio_processing/utility/delay_estimator.cc
+  echo_control_mobile.cc \
+  aecm_core.cc \
+  aecm_core_c.cc \
+  delay_estimator_wrapper.cc \
+  delay_estimator.cc
 
 AECM_C_SRCS= \
-  common_audio/ring_buffer.c \
-  common_audio/third_party/spl_sqrt_floor/spl_sqrt_floor.c \
-  common_audio/signal_processing/auto_corr_to_refl_coef.c \
-  common_audio/signal_processing/auto_correlation.c \
-  common_audio/signal_processing/complex_bit_reverse.c \
-  common_audio/signal_processing/complex_fft.c \
-  common_audio/signal_processing/copy_set_operations.c \
-  common_audio/signal_processing/cross_correlation.c \
-  common_audio/signal_processing/division_operations.c \
-  common_audio/signal_processing/downsample_fast.c \
-  common_audio/signal_processing/energy.c \
-  common_audio/signal_processing/filter_ar_fast_q12.c \
-  common_audio/signal_processing/filter_ar.c \
-  common_audio/signal_processing/filter_ma_fast_q12.c \
-  common_audio/signal_processing/get_hanning_window.c \
-  common_audio/signal_processing/get_scaling_square.c \
-  common_audio/signal_processing/ilbc_specific_functions.c \
-  common_audio/signal_processing/levinson_durbin.c \
-  common_audio/signal_processing/lpc_to_refl_coef.c \
-  common_audio/signal_processing/min_max_operations.c \
-  common_audio/signal_processing/randomization_functions.c \
-  common_audio/signal_processing/real_fft.c \
-  common_audio/signal_processing/refl_coef_to_lpc.c \
-  common_audio/signal_processing/spl_init.c \
-  common_audio/signal_processing/spl_inl.c \
-  common_audio/signal_processing/spl_sqrt.c \
-  common_audio/signal_processing/sqrt_of_one_minus_x_squared.c \
-  common_audio/signal_processing/vector_scaling_operations.c
+  ring_buffer.c \
+  spl_sqrt_floor.c \
+  auto_corr_to_refl_coef.c \
+  auto_correlation.c \
+  complex_bit_reverse.c \
+  complex_fft.c \
+  copy_set_operations.c \
+  cross_correlation.c \
+  division_operations.c \
+  downsample_fast.c \
+  energy.c \
+  filter_ar_fast_q12.c \
+  filter_ar.c \
+  filter_ma_fast_q12.c \
+  get_hanning_window.c \
+  get_scaling_square.c \
+  ilbc_specific_functions.c \
+  levinson_durbin.c \
+  lpc_to_refl_coef.c \
+  min_max_operations.c \
+  randomization_functions.c \
+  real_fft.c \
+  refl_coef_to_lpc.c \
+  spl_init.c \
+  spl_inl.c \
+  spl_sqrt.c \
+  sqrt_of_one_minus_x_squared.c \
+  vector_scaling_operations.c
 
 AECM_OBJS=$(AECM_CC_SRCS:.cc=.o) $(AECM_C_SRCS:.c=.o)
 

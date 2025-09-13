@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include "modules/audio_processing/aecm/echo_control_mobile.h"
+#include "echo_control_mobile.h"
 
  
 
