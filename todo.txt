@@ -93,4 +93,4 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
 
 - inline.h rtc_export.h
 
-- api/scoped_refptr.h
+- 削除済み: api/scoped_refptr.h
