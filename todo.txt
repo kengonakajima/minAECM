@@ -96,5 +96,4 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
   ど）だけを抽出し、ヘッダ内の未使用宣言と関連C実装（min_max_operations.c, division_operations.c, spl_sqrt_floor.c
   など）の未使用部分を削る。
   - ComplexBitReverse の固定オーダ最適化
-      - 本プロジェクトは order=7（PART_LEN=64）固定なので、complex_bit_reverse.c を order固定のテーブル1つに縮約
-  可能。
+      - 本プロジェクトは order=7（PART_LEN=64）固定なので、complex_bit_reverse.c を order固定のテーブル1つに縮約可能。
