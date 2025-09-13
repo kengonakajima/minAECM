@@ -32,20 +32,7 @@ static const ALIGN8_BEG int16_t Aecm_kSqrtHanning[] ALIGN8_END = {
     14384, 14571, 14749, 14918, 15079, 15231, 15373, 15506, 15631, 15746, 15851,
     15947, 16034, 16111, 16179, 16237, 16286, 16325, 16354, 16373, 16384};
 
-#ifdef AECM_WITH_ABS_APPROX
-// Q15 alpha = 0.99439986968132  const Factor for magnitude approximation
-static const uint16_t kAlpha1 = 32584;
-// Q15 beta = 0.12967166976970   const Factor for magnitude approximation
-static const uint16_t kBeta1 = 4249;
-// Q15 alpha = 0.94234827210087  const Factor for magnitude approximation
-static const uint16_t kAlpha2 = 30879;
-// Q15 beta = 0.33787806009150   const Factor for magnitude approximation
-static const uint16_t kBeta2 = 11072;
-// Q15 alpha = 0.82247698684306  const Factor for magnitude approximation
-static const uint16_t kAlpha3 = 26951;
-// Q15 beta = 0.57762063060713   const Factor for magnitude approximation
-static const uint16_t kBeta3 = 18927;
-#endif
+// 近似版の振幅計算は使わず、sqrtベースのみを使用
 
 // CNG (Comfort Noise) は教育用最小構成から削除
 
@@ -149,12 +136,6 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
 
   int16_t tmp16no1;
   int16_t tmp16no2;
-#ifdef AECM_WITH_ABS_APPROX
-  int16_t max_value = 0;
-  int16_t min_value = 0;
-  uint16_t alpha = 0;
-  uint16_t beta = 0;
-#endif
 
 #ifdef AECM_DYNAMIC_Q
   tmp16no1 = MaxAbsValueW16(time_signal, PART_LEN2);
@@ -179,39 +160,6 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
     } else if (freq_signal[i].imag == 0) {
       freq_signal_abs[i] = (uint16_t)ABS_W16(freq_signal[i].real);
     } else {
-      // Approximation for magnitude of complex fft output
-      // magn = sqrt(real^2 + imag^2)
-      // magn ~= alpha * max(`imag`,`real`) + beta * min(`imag`,`real`)
-      //
-      // The parameters alpha and beta are stored in Q15
-
-#ifdef AECM_WITH_ABS_APPROX
-      tmp16no1 = ABS_W16(freq_signal[i].real);
-      tmp16no2 = ABS_W16(freq_signal[i].imag);
-
-      if (tmp16no1 > tmp16no2) {
-        max_value = tmp16no1;
-        min_value = tmp16no2;
-      } else {
-        max_value = tmp16no2;
-        min_value = tmp16no1;
-      }
-
-      // Magnitude in Q(-6)
-      if ((max_value >> 2) > min_value) {
-        alpha = kAlpha1;
-        beta = kBeta1;
-      } else if ((max_value >> 1) > min_value) {
-        alpha = kAlpha2;
-        beta = kBeta2;
-      } else {
-        alpha = kAlpha3;
-        beta = kBeta3;
-      }
-      tmp16no1 = (int16_t)((max_value * alpha) >> 15);
-      tmp16no2 = (int16_t)((min_value * beta) >> 15);
-      freq_signal_abs[i] = (uint16_t)tmp16no1 + (uint16_t)tmp16no2;
-#else
       tmp16no1 = ABS_W16(freq_signal[i].real);
       tmp16no2 = ABS_W16(freq_signal[i].imag);
       tmp32no1 = tmp16no1 * tmp16no1;
@@ -220,7 +168,6 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
       tmp32no1 = SqrtFloor(tmp32no2);
 
       freq_signal_abs[i] = (uint16_t)tmp32no1;
-#endif  // AECM_WITH_ABS_APPROX
     }
     (*freq_signal_sum_abs) += (uint32_t)freq_signal_abs[i];
   }
