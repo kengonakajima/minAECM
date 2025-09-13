@@ -12,7 +12,6 @@ RANLIB=$(shell xcrun --sdk $(PLATFORM) --find ranlib)
 
 
 INCFLAGS=-I. -isysroot $(SDKROOT)
-# 不要なコンパイル時マクロは削除（ヘッダ側で必要定義は保持）
 PFFLAGS=-DWEBRTC_POSIX
 # サードパーティコードのビルド安定化のため、unused関連のWerrorは外す
 WARN_CXX=-Wall -Wextra -Wunreachable-code -Wunused-function -Wunused-const-variable -Wunused-private-field -Wunused-variable -Wno-unused-parameter
@@ -95,4 +94,3 @@ clean:
 	rm -rf *.dSYM
 	rm -f *.tmp
 
-## wasm/emscripten ビルドは最小構成から削除

@@ -30,7 +30,6 @@ extern "C" {
 // Maximum length of resampled signal. Must be an integer multiple of frames
 // (ceil(1/(1 + MIN_SKEW)*2) + 1)*FRAME_LEN
 // The factor of 2 handles wb, and the + 1 is as a safety margin
-// MAX_RESAMP_LEN は未使用のため削除
 
 static const size_t kBufSizeSamp =
     BUF_SIZE_FRAMES * FRAME_LEN;  // buffer size (samples)
@@ -66,7 +65,6 @@ typedef struct {
 
   int16_t echoMode;
 
-// デバッグ用のファイル出力は最小構成から削除
   // Structures
   RingBuffer* farendBuf;
 
@@ -98,7 +96,6 @@ void* Aecm_Create() {
     return NULL;
   }
 
-  // デバッグファイルオープンは削除
   return aecm;
 }
 
@@ -109,7 +106,6 @@ void Aecm_Free(void* aecmInst) {
     return;
   }
 
-  // デバッグファイルクローズは削除
   Aecm_FreeCore(aecm->aecmCore);
   FreeBuffer(aecm->farendBuf);
   free(aecm);
@@ -153,7 +149,7 @@ int32_t Aecm_Init(void* aecmInst) {
 
   memset(&aecm->farendOld, 0, sizeof(aecm->farendOld));
 
-  // Default settings (CNGは削除、echoModeのみ設定)。
+  // Default settings
   aecConfig.echoMode = 3;
 
   if (Aecm_set_config(aecm, aecConfig) == -1) {
@@ -192,7 +188,7 @@ int32_t Aecm_Process(void* aecmInst,
   size_t i;
   short nmbrOfFilledBuffers;
   size_t nFrames;
-  // デバッグ出力用の変数は削除
+  
 
   if (aecm == NULL) {
     return -1;
@@ -334,7 +330,7 @@ int32_t Aecm_Process(void* aecmInst,
     }
   }
 
-  // デバッグファイルへの書き出しは削除
+  
 
   return retVal;
 }
@@ -350,7 +346,6 @@ int32_t Aecm_set_config(void* aecmInst, AecmConfig config) {
     return AECM_UNINITIALIZED_ERROR;
   }
 
-  // CNGは削除。
 
   if (config.echoMode < 0 || config.echoMode > 4) {
     return AECM_BAD_PARAMETER_ERROR;
@@ -407,7 +402,7 @@ int32_t Aecm_set_config(void* aecmInst, AecmConfig config) {
   return 0;
 }
 
-// Echo path 保存/復元 API は最小構成では未実装（削除）。
+
 
 static int Aecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf) {
   short delayNew, nSampSndCard;

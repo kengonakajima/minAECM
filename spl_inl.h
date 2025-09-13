@@ -14,7 +14,7 @@
 #ifndef COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SPL_INL_H_
 #define COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SPL_INL_H_
 
-// compile-time型サイズ検査や専用マクロは教育用最小化のため削除
+
 
 extern const int8_t kWebRtcSpl_CountLeadingZeros32_Table[64];
 
@@ -60,7 +60,7 @@ static __inline int CountLeadingZeros64(uint64_t n) {
 #endif
 }
 
-// CPU アーキテクチャ依存の分岐は削除し、以下の汎用C実装のみ提供
+// Generic C implementation
 static __inline int16_t SatW32ToW16(int32_t value32) {
   int16_t out16 = (int16_t)value32;
 

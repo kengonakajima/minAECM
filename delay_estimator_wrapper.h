@@ -48,7 +48,6 @@ int InitDelayEstimatorFarend(void* handle);
 // CreateDelayEstimatorFarend(...).
 // Input:
 //      - delay_shift   : The amount of blocks to shift history buffers.
-// Soft reset は教育用最小構成では未使用のため削除
 
 // Adds the far-end spectrum to the far-end history buffer. This spectrum is
 // used as reference when calculating the delay using
@@ -68,7 +67,6 @@ int AddFarSpectrumFix(void* handle,
                              int far_q);
 
 // See AddFarSpectrumFix() for description.
-// Float 版の API は削除（固定小数点のみ）
 
 // Releases the memory allocated by CreateDelayEstimator(...)
 void FreeDelayEstimator(void* handle);
@@ -124,7 +122,6 @@ int InitDelayEstimator(void* handle);
 //
 // Return value:
 //      - actual_shifts : The actual number of shifts performed.
-// Soft reset は教育用最小構成では未使用のため削除
 
 // Sets the effective `history_size` used. Valid values from 2. We simply need
 // at least two delays to compare to perform an estimate. If `history_size` is
@@ -138,7 +135,7 @@ int InitDelayEstimator(void* handle);
 // Return value:
 //  - new_history_size  : The new history size used. If the memory was not able
 //                        to be allocated 0 is returned.
-// 履歴サイズ/ルックアヘッド/allowed_offset の設定 API は削除
+
 
 // Enables/Disables a robust validation functionality in the delay estimation.
 // This is by default set to disabled at create time.  The state is preserved
@@ -146,7 +143,7 @@ int InitDelayEstimator(void* handle);
 // Inputs:
 //      - handle        : Pointer to the delay estimation instance.
 //      - enable        : Enable (1) or disable (0) this feature.
-// robust validation 関連のAPIは最小構成では未使用のため削除。
+
 
 // Estimates and returns the delay between the far-end and near-end blocks. The
 // value will be offset by the lookahead (i.e. the lookahead should be
@@ -171,7 +168,6 @@ int DelayEstimatorProcessFix(void* handle,
                                     int near_q);
 
 // See DelayEstimatorProcessFix() for description.
-// Float 版の推定 API は削除
 
 // Returns the last calculated delay updated by the function
 // DelayEstimatorProcess(...).
@@ -183,7 +179,7 @@ int DelayEstimatorProcessFix(void* handle,
 //      - delay         : >= 0  - Last calculated delay value.
 //                        -1    - Error.
 //                        -2    - Insufficient data for estimation.
-// 最終遅延の直接取得APIは最小構成では未使用のため削除。
+
 
 // Returns the estimation quality/probability of the last calculated delay
 // updated by the function DelayEstimatorProcess(...). The estimation
@@ -192,7 +188,7 @@ int DelayEstimatorProcessFix(void* handle,
 //
 // Return value:
 //      - delay_quality : >= 0  - Estimation quality of last calculated delay.
-// 品質スコアの API は削除
+
 
  
 

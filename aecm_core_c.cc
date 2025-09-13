@@ -34,7 +34,7 @@ static const ALIGN8_BEG int16_t Aecm_kSqrtHanning[] ALIGN8_END = {
 
 // 近似版の振幅計算は使わず、sqrtベースのみを使用
 
-// CNG (Comfort Noise) は教育用最小構成から削除
+
 
 static void WindowAndFFT(AecmCore* aecm,
                          int16_t* fft,
@@ -242,7 +242,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   aecm->dfaNoisyQDomainOld = aecm->dfaNoisyQDomain;
   aecm->dfaNoisyQDomain = (int16_t)zerosDBufNoisy;
 
-  // 近端クリーン経路は削除。クリーンQドメインはノイジーと等価に扱う。
+  
   aecm->dfaCleanQDomainOld = aecm->dfaNoisyQDomainOld;
   aecm->dfaCleanQDomain = aecm->dfaNoisyQDomain;
 
@@ -441,7 +441,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
     }
   }
 
-  // CNG 削除につき快適雑音の付加は行わない
+  
 
   InverseFFTAndWindow(aecm, fft, efw, output);
 

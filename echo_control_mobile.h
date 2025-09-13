@@ -29,7 +29,6 @@ enum { AecmFalse = 0, AecmTrue };
 #define AECM_BAD_PARAMETER_WARNING 12100
 
 typedef struct {
-  // CNG(快適雑音)は削除。残すのはエコーモードのみ。
   int16_t echoMode;  // 0, 1, 2, 3 (default), 4
 } AecmConfig;
 
@@ -84,10 +83,7 @@ int32_t Aecm_Init(void* aecmInst);
 int32_t Aecm_BufferFarend(void* aecmInst,
                                 const int16_t* farend);
 
-/*
- * （最小構成）BufferFarend 内で簡単な検証のみ行うため、
- * 事前検証 API は削除。
- */
+
 
 /*
  * Runs the AECM on a 160 sample block of data (16 kHz mono)。
@@ -134,7 +130,7 @@ int32_t Aecm_Process(void* aecmInst,
  */
 int32_t Aecm_set_config(void* aecmInst, AecmConfig config);
 
-/* Echo path の保存/復元 API は教育用最小構成では未使用のため削除。 */
+
 
 #ifdef __cplusplus
 }

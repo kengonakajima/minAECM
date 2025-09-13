@@ -87,7 +87,7 @@ static uint32_t BinarySpectrumFix(const uint16_t* spectrum,
   return out;
 }
 
-// Float 版の補助関数は削除（固定小数点のみを使用）
+
 
 void FreeDelayEstimatorFarend(void* handle) {
   DelayEstimatorFarend* self = (DelayEstimatorFarend*)handle;
@@ -157,7 +157,7 @@ int InitDelayEstimatorFarend(void* handle) {
   return 0;
 }
 
-// Soft reset は最小構成では未使用のため削除
+
 
 int AddFarSpectrumFix(void* handle,
                              const uint16_t* far_spectrum,
@@ -185,7 +185,7 @@ int AddFarSpectrumFix(void* handle,
   return 0;
 }
 
-// Float 版の AddFarSpectrum は削除
+
 
 void FreeDelayEstimator(void* handle) {
   DelayEstimator* self = (DelayEstimator*)handle;
@@ -254,15 +254,11 @@ int InitDelayEstimator(void* handle) {
   return 0;
 }
 
-// Soft reset は最小構成では未使用のため削除
 
-// 履歴サイズまわりのAPIは削除
 
-// ルックアヘッドのAPIは削除
 
-// allowed_offset のAPIは削除
 
-// robust validation 関連APIは削除
+
 
 int DelayEstimatorProcessFix(void* handle,
                                     const uint16_t* near_spectrum,
@@ -290,10 +286,8 @@ int DelayEstimatorProcessFix(void* handle,
   return ProcessBinarySpectrum(self->binary_handle, binary_spectrum);
 }
 
-// Float 版の推定は削除
 
-// 最終遅延の取得APIは削除
 
-// 品質スコアのAPIは削除
+
 
  

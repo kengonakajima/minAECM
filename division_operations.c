@@ -13,7 +13,7 @@
  * This file contains implementations of the divisions
  * DivU32U16()
  * DivW32W16()
- * （教育用最小構成では未使用のため削除: DivW32W16ResW16, DivResultInQ31, DivW32HiLow）
+ *
  *
  * The description header can be found in signal_processing_library.h
  *
@@ -45,4 +45,3 @@ int32_t DivW32W16(int32_t num, int16_t den)
     }
 }
 
-// 以降の除算ユーティリティは未使用につき削除

@@ -85,15 +85,3 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
 
 
 
-  - signal_processing_library.h 本体のさらなる絞り込み
-      - 残す予定（実コードで参照中）:
-          - 定数/マクロ: WORD16_MAX/MIN, WORD32_MAX/MIN, MIN/MAX, ABS_W16/ABS_W32, UMUL_32_16, MUL_16_U16,
-  MUL_16_16, MUL_16_16_RSFT_WITH_ROUND, SAT, SHIFT_W32
-          - インライン（spl_inl.h 由来）: NormW16/NormW32/NormU32, AddSatW32 など
-          - 関数宣言: MaxAbsValueW16（alias to C実装）, DivU32U16, DivW32W16, ComplexFFT, ComplexIFFT,
-  ComplexBitReverse
-          - 付随ヘッダ: #include "spl_inl.h", #include "spl_sqrt_floor.h"
-      - 削る予定（未使用の宣言/長い解説コメント/ユーティリティ群）
-          - ベクトルスケール/ビットシフト/相関/ダウンサンプラ/フィルタ/エネルギ/ランダム等の宣言と長文コメント
-  - 併せて、ヘッダ後半の大きな未使用セクションを物理削除して、行数をさらに大きく削減
-  

@@ -22,7 +22,7 @@
 //   MaxAbsValueW16C and MaxAbsIndexW16 into a single one.)
 // TODO(kma): Move the next six functions into min_max_operations_c.c.
 
-// この翻訳単位では、公開 API 以外の補助関数は未使用のため削除。
+
 
 // Maximum absolute value of word16 vector. C version for generic platforms.
 int16_t MaxAbsValueW16C(const int16_t* vector, size_t length) {
@@ -47,4 +47,3 @@ int16_t MaxAbsValueW16C(const int16_t* vector, size_t length) {
   return (int16_t)maximum;
 }
 
-// 未使用の他関数は教育用最小構成から削除。

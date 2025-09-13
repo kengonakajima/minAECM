@@ -21,12 +21,11 @@ extern "C" {
 #include "signal_processing_library.h"
 #include "echo_control_mobile.h"
 #include "delay_estimator_wrapper.h"
-// safe_conversions は未使用化（dchecked_cast を排除）
 
  
  
 
-// Debug用のファイル入出力は最小構成から削除
+
 
 // Initialization table for echo channel in 16 kHz
 static const int16_t kChannelStored16kHz[PART_LEN1] = {
@@ -98,7 +97,7 @@ const uint16_t* Aecm_AlignedFarend(AecmCore* self,
   return &(self->far_history[buffer_position * PART_LEN1]);
 }
 
-// 関数ポインタ経由のディスパッチは廃止（C実装を直接呼ぶ）。
+
 
 AecmCore* Aecm_CreateCore() {
   // Allocate zero-filled memory.
@@ -118,7 +117,7 @@ AecmCore* Aecm_CreateCore() {
     return NULL;
   }
 
-  // nearCleanFrameBuf は最小構成では未使用のため削除
+  
 
   aecm->outFrameBuf =
       CreateBuffer(FRAME_LEN + PART_LEN, sizeof(int16_t));
@@ -228,7 +227,7 @@ static void ResetAdaptiveChannelC(AecmCore* aecm) {
   aecm->channelAdapt32[i] = (int32_t)aecm->channelStored[i] << 16;
 }
 
-// NEON/MIPS の最適化分岐は削除し、常に C 実装を使用する。
+
 
 // Aecm_InitCore(...)
 //
@@ -320,7 +319,7 @@ int Aecm_InitCore(AecmCore* const aecm) {
 
 // TODO(bjornv): This function is currently not used. Add support for these
 // parameters from a higher level
-// Aecm_Control は最小構成では未使用のため削除。
+
 
 void Aecm_FreeCore(AecmCore* aecm) {
   if (aecm == NULL) {

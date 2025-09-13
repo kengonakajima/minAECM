@@ -305,7 +305,7 @@ BinaryDelayEstimatorFarend* CreateBinaryDelayEstimatorFarend(
 
 int AllocateFarendBufferMemory(BinaryDelayEstimatorFarend* self,
                                       int history_size) {
-  // removed DCHECK(self)
+  
   // (Re-)Allocate memory for history buffers.
   self->binary_far_history = static_cast<uint32_t*>(
       realloc(self->binary_far_history,
@@ -329,16 +329,16 @@ int AllocateFarendBufferMemory(BinaryDelayEstimatorFarend* self,
 }
 
 void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self) {
-  // removed DCHECK(self)
+  
   memset(self->binary_far_history, 0, sizeof(uint32_t) * self->history_size);
   memset(self->far_bit_counts, 0, sizeof(int) * self->history_size);
 }
 
-// Soft reset (farend) は最小構成では未使用のため削除
+
 
 void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* handle,
                                  uint32_t binary_far_spectrum) {
-  // removed DCHECK(handle)
+  
   // Shift binary spectrum history and insert current `binary_far_spectrum`.
   memmove(&(handle->binary_far_history[1]), &(handle->binary_far_history[0]),
           (handle->history_size - 1) * sizeof(uint32_t));
@@ -452,7 +452,7 @@ int AllocateHistoryBufferMemory(BinaryDelayEstimator* self,
 
 void InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
   int i = 0;
-  // removed DCHECK(self)
+  
 
   memset(self->bit_counts, 0, sizeof(int32_t) * self->history_size);
   memset(self->binary_near_history, 0,
@@ -473,7 +473,7 @@ void InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
   self->last_delay_histogram = 0.f;
 }
 
-// Soft reset は最小構成では未使用のため削除
+
 
 int ProcessBinarySpectrum(BinaryDelayEstimator* self,
                                  uint32_t binary_near_spectrum) {
@@ -485,7 +485,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
   int32_t value_worst_candidate = 0;
   int32_t valley_depth = 0;
 
-  // removed DCHECK(self)
+  
   if (self->farend->history_size != self->history_size) {
     // Non matching history sizes.
     return -1;
@@ -620,9 +620,8 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
   return self->last_delay;
 }
 
-// 最終遅延取得APIは最小構成では未使用のため削除
 
-// 品質スコア取得APIは最小構成では未使用のため削除
+
 
 void MeanEstimatorFix(int32_t new_value,
                              int factor,

@@ -50,7 +50,7 @@ typedef struct {
   int16_t farBuf[FAR_BUF_LEN];
 
   int16_t mult;
-  // 乱数種（CNGで使用）は削除
+  
 
   // Delay estimation variables
   void* delay_estimator_farend;
@@ -86,7 +86,7 @@ typedef struct {
 
   int32_t echoFilt[PART_LEN1];
   int16_t nearFilt[PART_LEN1];
-  // CNG削除に伴いノイズ推定・CNGモードは廃止
+  
 
   int32_t mseAdaptOld;
   int32_t mseStoredOld;
@@ -350,10 +350,10 @@ void Aecm_UpdateChannel(AecmCore* aecm,
                               int16_t mu,
                               int32_t* echoEst);
 
-// CNG用テーブルは削除
+ 
 
 ///////////////////////////////////////////////////////////////////////////////
-// NEON/MIPS の最適化実装宣言は削除し、分岐をなくす。
+ 
 
  
 

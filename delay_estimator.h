@@ -102,7 +102,7 @@ int AllocateFarendBufferMemory(BinaryDelayEstimatorFarend* self,
 //
 void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self);
 
-// Soft reset 関連は最小構成では未使用のため削除
+
 
 // Adds the binary far-end spectrum to the internal far-end history buffer. This
 // spectrum is used as reference when calculating the delay using
@@ -166,7 +166,7 @@ int AllocateHistoryBufferMemory(BinaryDelayEstimator* self,
 //
 void InitBinaryDelayEstimator(BinaryDelayEstimator* self);
 
-// Soft reset 関連は最小構成では未使用のため削除
+
 
 // Estimates and returns the delay between the binary far-end and binary near-
 // end spectra. It is assumed the binary far-end spectrum has been added using
@@ -198,9 +198,8 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
 //    - delay                 :  >= 0 - Last calculated delay value
 //                              -2    - Insufficient data for estimation.
 //
-// 最終遅延取得APIは最小構成では未使用のため削除
 
-// 品質スコア取得APIは最小構成では未使用のため削除
+
 
 // Updates the `mean_value` recursively with a step size of 2^-`factor`. This
 // function is used internally in the Binary Delay Estimator as well as the
