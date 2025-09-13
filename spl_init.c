@@ -19,7 +19,4 @@ const MaxValueW16 WebRtcSpl_MaxValueW16 = WebRtcSpl_MaxValueW16C;
 const MaxValueW32 WebRtcSpl_MaxValueW32 = WebRtcSpl_MaxValueW32C;
 const MinValueW16 WebRtcSpl_MinValueW16 = WebRtcSpl_MinValueW16C;
 const MinValueW32 WebRtcSpl_MinValueW32 = WebRtcSpl_MinValueW32C;
-const CrossCorrelation WebRtcSpl_CrossCorrelation = WebRtcSpl_CrossCorrelationC;
-const DownsampleFast WebRtcSpl_DownsampleFast = WebRtcSpl_DownsampleFastC;
-const ScaleAndAddVectorsWithRound WebRtcSpl_ScaleAndAddVectorsWithRound =
-    WebRtcSpl_ScaleAndAddVectorsWithRoundC;
+// 未使用の関数ポインタは削除（リンク強制を避ける）

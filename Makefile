@@ -48,10 +48,7 @@ AECM_C_SRCS= \
   min_max_operations.c \
   division_operations.c \
   spl_init.c \
-  spl_sqrt_floor.c \
-  vector_scaling_operations.c \
-  cross_correlation.c \
-  downsample_fast.c
+  spl_sqrt_floor.c
 
 AECM_OBJS=$(AECM_CC_SRCS:.cc=.o) $(AECM_C_SRCS:.c=.o)
 

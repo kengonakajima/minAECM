@@ -102,3 +102,5 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
 - channelという概念自体が不要。
 
 - aecm_defines.hの未使用のマクロありそう
+
+- WebRtcSpl_FilterARFastQ12
