@@ -15,7 +15,7 @@
 
 #include "delay_estimator.h"
 
-namespace web_rtc {
+ 
 
 typedef union {
   float float_;
@@ -46,6 +46,6 @@ typedef struct {
   BinaryDelayEstimator* binary_handle;
 } DelayEstimator;
 
-}  // namespace web_rtc
+ 
 
 #endif  // MODULES_AUDIO_PROCESSING_UTILITY_DELAY_ESTIMATOR_INTERNAL_H_

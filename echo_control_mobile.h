@@ -14,7 +14,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-namespace web_rtc {
+ 
 
 enum { AecmFalse = 0, AecmTrue };
 
@@ -204,6 +204,6 @@ size_t WebRtcAecm_echo_path_size_bytes();
 }
 #endif
 
-}  // namespace web_rtc
+ 
 
 #endif  // MODULES_AUDIO_PROCESSING_AECM_ECHO_CONTROL_MOBILE_H_

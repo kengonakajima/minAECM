@@ -23,9 +23,8 @@ extern "C" {
 #include "delay_estimator_wrapper.h"
 // safe_conversions は未使用化（dchecked_cast を排除）
 
-namespace web_rtc {
-
-namespace {
+ 
+ 
 
 // Debug用のファイル入出力は最小構成から削除
 
@@ -38,7 +37,7 @@ static const int16_t kChannelStored16kHz[PART_LEN1] = {
     2651, 2781, 2922, 3075, 3253, 3471, 3738, 3976, 4151, 4258, 4308,
     4288, 4270, 4253, 4237, 4179, 4086, 3947, 3757, 3484, 3153};
 
-}  // namespace
+ 
 
 
 
@@ -994,4 +993,4 @@ void WebRtcAecm_FetchFarFrame(AecmCore* const aecm,
   aecm->farBufReadPos += readLen;
 }
 
-}  // namespace web_rtc
+ 

@@ -16,7 +16,7 @@
 
 #include <stdint.h>
 
-namespace web_rtc {
+ 
 
 static const int32_t kMaxBitCountsQ9 = (32 << 9);  // 32 matching bits in Q9.
 
@@ -252,6 +252,6 @@ void WebRtc_MeanEstimatorFix(int32_t new_value,
                              int factor,
                              int32_t* mean_value);
 
-}  // namespace web_rtc
+ 
 
 #endif  // MODULES_AUDIO_PROCESSING_UTILITY_DELAY_ESTIMATOR_H_

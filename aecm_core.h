@@ -21,7 +21,7 @@ extern "C" {
 
 struct RealFFT;
 
-namespace web_rtc {
+ 
 
 #ifdef _MSC_VER  // visual c++
 #define ALIGN8_BEG __declspec(align(8))
@@ -392,6 +392,6 @@ extern ResetAdaptiveChannel WebRtcAecm_ResetAdaptiveChannel;
 
 // NEON/MIPS の最適化実装宣言は削除し、分岐をなくす。
 
-}  // namespace web_rtc
+ 
 
 #endif

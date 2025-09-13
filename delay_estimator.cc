@@ -15,9 +15,8 @@
 
 #include <algorithm>
 
-namespace web_rtc {
-
-namespace {
+ 
+ 
 
 // Number of right shifts for scaling is linearly depending on number of bits in
 // the far-end binary spectrum.
@@ -40,7 +39,7 @@ static const float kFractionSlope = 0.05f;
 static const float kMinFractionWhenPossiblyCausal = 0.5f;
 static const float kMinFractionWhenPossiblyNonCausal = 0.25f;
 
-}  // namespace
+ 
 
 // Counts and returns number of bits of a 32-bit word.
 static int BitCount(uint32_t u32) {
@@ -703,4 +702,4 @@ void WebRtc_MeanEstimatorFix(int32_t new_value,
   *mean_value += diff;
 }
 
-}  // namespace web_rtc
+ 

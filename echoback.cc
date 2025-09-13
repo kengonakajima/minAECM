@@ -77,8 +77,8 @@ static void process_available_blocks(State& s){
       std::memcpy(out_blk.data(), near_blk.data(), s.block_size * sizeof(int16_t));
     } else {
       // AECM: 先に far をバッファリングし、その後 near を処理
-      web_rtc::WebRtcAecm_BufferFarend(s.aecm, far_blk.data(), s.block_size);
-      web_rtc::WebRtcAecm_Process(s.aecm,
+      WebRtcAecm_BufferFarend(s.aecm, far_blk.data(), s.block_size);
+      WebRtcAecm_Process(s.aecm,
                                   near_blk.data(),
                                   nullptr,
                                   out_blk.data(),
@@ -174,21 +174,21 @@ int main(int argc, char** argv){
   std::fprintf(stderr, "Running... Ctrl-C to stop.\n");
   // AECM 初期化
   if (!s.passthrough) {
-    s.aecm = web_rtc::WebRtcAecm_Create();
+    s.aecm = WebRtcAecm_Create();
     if (!s.aecm) { std::fprintf(stderr, "AECM create failed\n"); Pa_StopStream(stream); Pa_CloseStream(stream); Pa_Terminate(); return 1; }
-    if (web_rtc::WebRtcAecm_Init(s.aecm, 16000) != 0) {
+    if (WebRtcAecm_Init(s.aecm, 16000) != 0) {
       std::fprintf(stderr, "AECM init failed\n");
-      web_rtc::WebRtcAecm_Free(s.aecm); s.aecm=nullptr;
+      WebRtcAecm_Free(s.aecm); s.aecm=nullptr;
       Pa_StopStream(stream); Pa_CloseStream(stream); Pa_Terminate(); return 1;
     }
-    web_rtc::AecmConfig cfg{}; cfg.echoMode = 3;
-    web_rtc::WebRtcAecm_set_config(s.aecm, cfg);
+    AecmConfig cfg{}; cfg.echoMode = 3;
+    WebRtcAecm_set_config(s.aecm, cfg);
   }
   while (Pa_IsStreamActive(stream)==1) {
     Pa_Sleep(100);
   }
   Pa_StopStream(stream); Pa_CloseStream(stream);
-  if (s.aecm) { web_rtc::WebRtcAecm_Free(s.aecm); s.aecm=nullptr; }
+  if (s.aecm) { WebRtcAecm_Free(s.aecm); s.aecm=nullptr; }
   Pa_Terminate();
   std::fprintf(stderr, "stopped.\n");
   return 0;

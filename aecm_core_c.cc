@@ -20,9 +20,8 @@ extern "C" {
 #include "echo_control_mobile.h"
 #include "delay_estimator_wrapper.h"
 
-namespace web_rtc {
-
-namespace {
+ 
+ 
 
 // Square root of Hanning window in Q14.
 static const ALIGN8_BEG int16_t WebRtcAecm_kSqrtHanning[] ALIGN8_END = {
@@ -236,7 +235,7 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
   return time_signal_scaling;
 }
 
-}  // namespace
+ 
 
 int WebRtcAecm_ProcessBlock(AecmCore* aecm,
                             const int16_t* farend,
@@ -531,4 +530,4 @@ int WebRtcAecm_ProcessBlock(AecmCore* aecm,
   return 0;
 }
 
-}  // namespace web_rtc
+ 

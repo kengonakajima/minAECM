@@ -16,7 +16,7 @@
 #include "delay_estimator.h"
 #include "delay_estimator_internal.h"
 
-namespace web_rtc {
+ 
 
 // Only bit `kBandFirst` through bit `kBandLast` are processed and
 // `kBandFirst` - `kBandLast` must be < 32.
@@ -336,4 +336,4 @@ int WebRtc_last_delay(void* handle) {
 
 // 品質スコアのAPIは削除
 
-}  // namespace web_rtc
+ 
