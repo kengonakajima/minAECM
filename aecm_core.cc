@@ -27,10 +27,7 @@ namespace web_rtc {
 
 namespace {
 
-#ifdef AEC_DEBUG
-FILE* dfile;
-FILE* testfile;
-#endif
+// Debug用のファイル入出力は最小構成から削除
 
 // Initialization table for echo channel in 8 kHz
 static const int16_t kChannelStored8kHz[PART_LEN1] = {

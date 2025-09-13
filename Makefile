@@ -38,35 +38,22 @@ AECM_CC_SRCS= \
   delay_estimator_wrapper.cc \
   delay_estimator.cc
 
+# AECM の動作に必要な最小限の SPL/C 実装のみをビルド
+# （未使用のLPC/フィルタ/ダウンサンプル/ユーティリティ群は除外）
 AECM_C_SRCS= \
   ring_buffer.c \
-  spl_sqrt_floor.c \
-  auto_corr_to_refl_coef.c \
-  auto_correlation.c \
   complex_bit_reverse.c \
   complex_fft.c \
-  copy_set_operations.c \
-  cross_correlation.c \
-  division_operations.c \
-  downsample_fast.c \
-  energy.c \
-  filter_ar_fast_q12.c \
-  filter_ar.c \
-  filter_ma_fast_q12.c \
-  get_hanning_window.c \
-  get_scaling_square.c \
-  ilbc_specific_functions.c \
-  levinson_durbin.c \
-  lpc_to_refl_coef.c \
-  min_max_operations.c \
-  randomization_functions.c \
   real_fft.c \
-  refl_coef_to_lpc.c \
-  spl_init.c \
+  min_max_operations.c \
+  division_operations.c \
   spl_inl.c \
-  spl_sqrt.c \
-  sqrt_of_one_minus_x_squared.c \
-  vector_scaling_operations.c
+  spl_init.c \
+  spl_sqrt_floor.c \
+  randomization_functions.c \
+  vector_scaling_operations.c \
+  cross_correlation.c \
+  downsample_fast.c
 
 AECM_OBJS=$(AECM_CC_SRCS:.cc=.o) $(AECM_C_SRCS:.c=.o)
 

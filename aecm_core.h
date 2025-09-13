@@ -131,11 +131,6 @@ typedef struct {
 
   struct RealFFT* real_fft;
 
-#ifdef AEC_DEBUG
-  FILE* farFile;
-  FILE* nearFile;
-  FILE* outFile;
-#endif
 } AecmCore;
 
 ////////////////////////////////////////////////////////////////////////////////

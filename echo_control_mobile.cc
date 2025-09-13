@@ -67,12 +67,7 @@ typedef struct {
 
   int16_t echoMode;
 
-#ifdef AEC_DEBUG
-  FILE* bufFile;
-  FILE* delayFile;
-  FILE* preCompFile;
-  FILE* postCompFile;
-#endif  // AEC_DEBUG
+// デバッグ用のファイル出力は最小構成から削除
   // Structures
   RingBuffer* farendBuf;
 
@@ -104,17 +99,7 @@ void* WebRtcAecm_Create() {
     return NULL;
   }
 
-#ifdef AEC_DEBUG
-  aecm->aecmCore->farFile = fopen("aecFar.pcm", "wb");
-  aecm->aecmCore->nearFile = fopen("aecNear.pcm", "wb");
-  aecm->aecmCore->outFile = fopen("aecOut.pcm", "wb");
-  // aecm->aecmCore->outLpFile = fopen("aecOutLp.pcm","wb");
-
-  aecm->bufFile = fopen("aecBuf.dat", "wb");
-  aecm->delayFile = fopen("aecDelay.dat", "wb");
-  aecm->preCompFile = fopen("preComp.pcm", "wb");
-  aecm->postCompFile = fopen("postComp.pcm", "wb");
-#endif  // AEC_DEBUG
+  // デバッグファイルオープンは削除
   return aecm;
 }
 
@@ -125,17 +110,7 @@ void WebRtcAecm_Free(void* aecmInst) {
     return;
   }
 
-#ifdef AEC_DEBUG
-  fclose(aecm->aecmCore->farFile);
-  fclose(aecm->aecmCore->nearFile);
-  fclose(aecm->aecmCore->outFile);
-  // fclose(aecm->aecmCore->outLpFile);
-
-  fclose(aecm->bufFile);
-  fclose(aecm->delayFile);
-  fclose(aecm->preCompFile);
-  fclose(aecm->postCompFile);
-#endif  // AEC_DEBUG
+  // デバッグファイルクローズは削除
   WebRtcAecm_FreeCore(aecm->aecmCore);
   WebRtc_FreeBuffer(aecm->farendBuf);
   free(aecm);
@@ -247,9 +222,7 @@ int32_t WebRtcAecm_Process(void* aecmInst,
   short nmbrOfFilledBuffers;
   size_t nBlocks10ms;
   size_t nFrames;
-#ifdef AEC_DEBUG
-  short msInAECBuf;
-#endif
+  // デバッグ出力用の変数は削除
 
   if (aecm == NULL) {
     return -1;
@@ -399,12 +372,7 @@ int32_t WebRtcAecm_Process(void* aecmInst,
     }
   }
 
-#ifdef AEC_DEBUG
-  msInAECBuf = (short)WebRtc_available_read(aecm->farendBuf) /
-               (kSampMsNb * aecm->aecmCore->mult);
-  fwrite(&msInAECBuf, 2, 1, aecm->bufFile);
-  fwrite(&(aecm->knownDelay), sizeof(aecm->knownDelay), 1, aecm->delayFile);
-#endif
+  // デバッグファイルへの書き出しは削除
 
   return retVal;
 }
