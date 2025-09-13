@@ -72,28 +72,28 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
 ## さらなるコード削減に向けて
 
 
- 【優先度提案（上から順に）】
 
-      1. 近端クリーン経路削除＋FFT分岐削除＋未使用定数/メンバ削除（低リスクで短縮効果大）
-      2. ダイナミックQ固定化＋ABS近似/√のどちらか片側固定（依存削減）
-      3. robust validationの物理削除（遅延推定の中身を軽量化）
-      4. エコーモード/遅延パラメータの固定化（API面もスリムに）
-      5. スペクトル遅延推定の撤去（最小構成への到達）
-
-  - 16kHz前提の条件分岐除去
-      - すでに 16kHz/モノラル/160サンプル固定なので、aecm_core{,_c}.cc の mult==2 前提分岐を前提化して残る片側だけ
-  にする。
-      - echo_control_mobile.cc の NB/WB分岐コメント・i==1チェックなど、WB前提でロジックを簡素化。
-  - バッファアラインメントの簡素化
-      - NEON用の「+16/+32 バイトマージン」配列とポインタ再配置を削除し、素直な配列参照に（aecm_core.h,
-  aecm_core.cc, aecm_core_c.cc）。Apple SiliconでもC実装のみで支障なし。
-      - Aecm_set_config() と AecmConfig を廃し、Aecm_Init() 内で echoMode=3 固定。呼び出し元（echoback.cc,
-  cancel_file.cc）の設定コードを削除。
-      - 影響: 学習用途では十分。可変モードは不要。
 
   - signal_processing_library.h の必要最小限化
       - AECMが実際に使う関数/マクロ（NormW16/NormW32/NormU32/AddSat/SubSat/DivW32W16/DivU32U16/SHIFT/SAT/MUL_* な
   ど）だけを抽出し、ヘッダ内の未使用宣言と関連C実装（min_max_operations.c, division_operations.c, spl_sqrt_floor.c
   など）の未使用部分を削る。
-  - ComplexBitReverse の固定オーダ最適化
-      - 本プロジェクトは order=7（PART_LEN=64）固定なので、complex_bit_reverse.c を order固定のテーブル1つに縮約可能。
+
+
+  ほかの縮約（動的Q固定化、ABS近似/√片側固定、遅延推定の堅牢性ロジック削除）も続けますか？
+
+
+
+
+  - signal_processing_library.h 本体のさらなる絞り込み
+      - 残す予定（実コードで参照中）:
+          - 定数/マクロ: WORD16_MAX/MIN, WORD32_MAX/MIN, MIN/MAX, ABS_W16/ABS_W32, UMUL_32_16, MUL_16_U16,
+  MUL_16_16, MUL_16_16_RSFT_WITH_ROUND, SAT, SHIFT_W32
+          - インライン（spl_inl.h 由来）: NormW16/NormW32/NormU32, AddSatW32 など
+          - 関数宣言: MaxAbsValueW16（alias to C実装）, DivU32U16, DivW32W16, ComplexFFT, ComplexIFFT,
+  ComplexBitReverse
+          - 付随ヘッダ: #include "spl_inl.h", #include "spl_sqrt_floor.h"
+      - 削る予定（未使用の宣言/長い解説コメント/ユーティリティ群）
+          - ベクトルスケール/ビットシフト/相関/ダウンサンプラ/フィルタ/エネルギ/ランダム等の宣言と長文コメント
+  - 併せて、ヘッダ後半の大きな未使用セクションを物理削除して、行数をさらに大きく削減
+  

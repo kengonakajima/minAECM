@@ -9,18 +9,8 @@
  */
 
 /*
- * This file contains the implementation of functions
- * MaxAbsValueW16C()
- * MaxAbsValueW32C()
- * MaxValueW16C()
- * MaxValueW32C()
- * MinValueW16C()
- * MinValueW32C()
- * MaxAbsIndexW16()
- * MaxIndexW16()
- * MaxIndexW32()
- * MinIndexW16()
- * MinIndexW32()
+ * This file contains the implementation of functions used in minAECM:
+ *   MaxAbsValueW16C()
  *
  */
 
@@ -57,82 +47,4 @@ int16_t MaxAbsValueW16C(const int16_t* vector, size_t length) {
   return (int16_t)maximum;
 }
 
-// Maximum absolute value of word32 vector. C version for generic platforms.
-int32_t MaxAbsValueW32C(const int32_t* vector, size_t length) {
-  // Use uint32_t for the local variables, to accommodate the return value
-  // of abs(0x80000000), which is 0x80000000.
-
-  uint32_t absolute = 0, maximum = 0;
-  size_t i = 0;
-
-  /* length > 0 を期待 */
-
-  for (i = 0; i < length; i++) {
-    absolute = abs((int)vector[i]);
-    if (absolute > maximum) {
-      maximum = absolute;
-    }
-  }
-
-  maximum = MIN(maximum, WORD32_MAX);
-
-  return (int32_t)maximum;
-}
-
-// Maximum value of word16 vector. C version for generic platforms.
-int16_t MaxValueW16C(const int16_t* vector, size_t length) {
-  int16_t maximum = WORD16_MIN;
-  size_t i = 0;
-
-  /* length > 0 を期待 */
-
-  for (i = 0; i < length; i++) {
-    if (vector[i] > maximum)
-      maximum = vector[i];
-  }
-  return maximum;
-}
-
-// Maximum value of word32 vector. C version for generic platforms.
-int32_t MaxValueW32C(const int32_t* vector, size_t length) {
-  int32_t maximum = WORD32_MIN;
-  size_t i = 0;
-
-  /* length > 0 を期待 */
-
-  for (i = 0; i < length; i++) {
-    if (vector[i] > maximum)
-      maximum = vector[i];
-  }
-  return maximum;
-}
-
-// Minimum value of word16 vector. C version for generic platforms.
-int16_t MinValueW16C(const int16_t* vector, size_t length) {
-  int16_t minimum = WORD16_MAX;
-  size_t i = 0;
-
-  /* length > 0 を期待 */
-
-  for (i = 0; i < length; i++) {
-    if (vector[i] < minimum)
-      minimum = vector[i];
-  }
-  return minimum;
-}
-
-// Minimum value of word32 vector. C version for generic platforms.
-int32_t MinValueW32C(const int32_t* vector, size_t length) {
-  int32_t minimum = WORD32_MAX;
-  size_t i = 0;
-
-  /* length > 0 を期待 */
-
-  for (i = 0; i < length; i++) {
-    if (vector[i] < minimum)
-      minimum = vector[i];
-  }
-  return minimum;
-}
-
-// 未使用の補助ルーチン（MaxAbsIndex/MaxIndex/MinIndex など）は削除済み。
+// 未使用の他関数は教育用最小構成から削除。

@@ -108,65 +108,7 @@ int16_t MaxAbsValueW16C(const int16_t* vector, size_t length);
 /* NEON/MIPS 専用実装は削除 */
 #endif
 
-// Returns the largest absolute value in a signed 32-bit vector.
-//
-// Input:
-//      - vector : 32-bit input vector.
-//      - length : Number of samples in vector.
-//
-int32_t MaxAbsValueW32C(const int32_t* vector, size_t length);
-#define MaxAbsValueW32 MaxAbsValueW32C
-#if 0
-/* NEON/MIPS 専用実装は削除 */
-#endif
-
-// Returns the maximum value of a 16-bit vector.
-//
-// Input:
-//      - vector : 16-bit input vector.
-//      - length : Number of samples in vector.
-//
-int16_t MaxValueW16C(const int16_t* vector, size_t length);
-#define MaxValueW16 MaxValueW16C
-#if 0
-/* NEON/MIPS 専用実装は削除 */
-#endif
-
-// Returns the maximum value of a 32-bit vector.
-//
-// Input:
-//      - vector : 32-bit input vector.
-//      - length : Number of samples in vector.
-//
-int32_t MaxValueW32C(const int32_t* vector, size_t length);
-#define MaxValueW32 MaxValueW32C
-#if 0
-/* NEON/MIPS 専用実装は削除 */
-#endif
-
-// Returns the minimum value of a 16-bit vector.
-//
-// Input:
-//      - vector : 16-bit input vector.
-//      - length : Number of samples in vector.
-//
-int16_t MinValueW16C(const int16_t* vector, size_t length);
-#define MinValueW16 MinValueW16C
-#if 0
-/* NEON/MIPS 専用実装は削除 */
-#endif
-
-// Returns the minimum value of a 32-bit vector.
-//
-// Input:
-//      - vector : 32-bit input vector.
-//      - length : Number of samples in vector.
-//
-int32_t MinValueW32C(const int32_t* vector, size_t length);
-#define MinValueW32 MinValueW32C
-#if 0
-/* NEON/MIPS 専用実装は削除 */
-#endif
+// 最小構成では MaxAbsValueW16 のみ使用
 
 // Returns both the minimum and maximum values of a 16-bit vector.
 //
@@ -411,9 +353,6 @@ void CrossCorrelationC(int32_t* cross_correlation,
 // descriptions at bottom of this file.
 uint32_t DivU32U16(uint32_t num, uint16_t den);
 int32_t DivW32W16(int32_t num, int16_t den);
-int16_t DivW32W16ResW16(int32_t num, int16_t den);
-int32_t DivResultInQ31(int32_t num, int32_t den);
-int32_t DivW32HiLow(int32_t num, int16_t den_hi, int16_t den_low);
 // End: Divisions.
 
 // エネルギー計算（未使用）
