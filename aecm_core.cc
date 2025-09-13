@@ -133,20 +133,18 @@ AecmCore* WebRtcAecm_CreateCore() {
   }
 
   aecm->delay_estimator_farend =
-      WebRtc_CreateDelayEstimatorFarend(PART_LEN1, MAX_DELAY);
+      WebRtc_CreateDelayEstimatorFarend();
   if (aecm->delay_estimator_farend == NULL) {
     WebRtcAecm_FreeCore(aecm);
     return NULL;
   }
   aecm->delay_estimator =
-      WebRtc_CreateDelayEstimator(aecm->delay_estimator_farend, 0);
+      WebRtc_CreateDelayEstimator(aecm->delay_estimator_farend);
   if (aecm->delay_estimator == NULL) {
     WebRtcAecm_FreeCore(aecm);
     return NULL;
   }
-  // TODO(bjornv): Explicitly disable robust delay validation until no
-  // performance regression has been established.  Then remove the line.
-  WebRtc_enable_robust_validation(aecm->delay_estimator, 0);
+  // robust validation はデフォルト無効のため明示設定を省略
 
   aecm->real_fft = WebRtcSpl_CreateRealFFT(PART_LEN_SHIFT);
   if (aecm->real_fft == NULL) {
@@ -261,13 +259,9 @@ static void ResetAdaptiveChannelC(AecmCore* aecm) {
 // Return value         :  0 - Ok
 //                        -1 - Error
 //
-int WebRtcAecm_InitCore(AecmCore* const aecm, int samplingFreq) {
-
-  if (samplingFreq != 16000) {
-    return -1;
-  }
-  // sanity check of sampling frequency
-  aecm->mult = (int16_t)samplingFreq / 8000;
+int WebRtcAecm_InitCore(AecmCore* const aecm) {
+  // 16kHz 固定
+  aecm->mult = 2;
 
   aecm->farBufWritePos = 0;
   aecm->farBufReadPos = 0;
@@ -382,8 +376,8 @@ int WebRtcAecm_ProcessFrame(AecmCore* aecm,
 
   // Buffer the current frame.
   // Fetch an older one corresponding to the delay.
-  WebRtcAecm_BufferFarFrame(aecm, farend, FRAME_LEN);
-  WebRtcAecm_FetchFarFrame(aecm, farFrame, FRAME_LEN, aecm->knownDelay);
+  WebRtcAecm_BufferFarFrame(aecm, farend);
+  WebRtcAecm_FetchFarFrame(aecm, farFrame, aecm->knownDelay);
 
   // Buffer the synchronized far and near frames,
   // to pass the smaller blocks individually.
@@ -930,8 +924,8 @@ int16_t WebRtcAecm_CalcSuppressionGain(AecmCore* const aecm) {
 }
 
 void WebRtcAecm_BufferFarFrame(AecmCore* const aecm,
-                               const int16_t* const farend,
-                               const int farLen) {
+                               const int16_t* const farend) {
+  const int farLen = FRAME_LEN;
   int writeLen = farLen, writePos = 0;
 
   // Check if the write position must be wrapped
@@ -952,8 +946,8 @@ void WebRtcAecm_BufferFarFrame(AecmCore* const aecm,
 
 void WebRtcAecm_FetchFarFrame(AecmCore* const aecm,
                               int16_t* const farend,
-                              const int farLen,
                               const int knownDelay) {
+  const int farLen = FRAME_LEN;
   int readLen = farLen;
   int readPos = 0;
   int delayChange = knownDelay - aecm->lastKnownDelay;

@@ -54,29 +54,27 @@ void* WebRtcAecm_Create();
 void WebRtcAecm_Free(void* aecmInst);
 
 /*
- * Initializes an AECM instance.
+ * Initializes an AECM instance (16 kHz 固定)。
  *
  * Inputs                       Description
  * -------------------------------------------------------------------
  * void*          aecmInst      Pointer to the AECM instance
- * int32_t        sampFreq      Sampling frequency of data (must be 16000)
  *
  * Outputs                      Description
  * -------------------------------------------------------------------
  * int32_t        return        0: OK
  *                              1200-12004,12100: error/warning
  */
-int32_t WebRtcAecm_Init(void* aecmInst, int32_t sampFreq);
+int32_t WebRtcAecm_Init(void* aecmInst);
 
 /*
- * Inserts a 160 sample block of data into the farend buffer (16 kHz mono).
+ * Inserts a 160 sample block of data into the farend buffer (16 kHz mono)。
  *
  * Inputs                       Description
  * -------------------------------------------------------------------
  * void*          aecmInst      Pointer to the AECM instance
- * int16_t*       farend        In buffer containing one frame of
+ * int16_t*       farend        In buffer containing one 160-sample frame of
  *                              farend signal
- * int16_t        nrOfSamples   Number of samples in farend buffer (must be 160)
  *
  * Outputs                      Description
  * -------------------------------------------------------------------
@@ -84,8 +82,7 @@ int32_t WebRtcAecm_Init(void* aecmInst, int32_t sampFreq);
  *                              1200-12004,12100: error/warning
  */
 int32_t WebRtcAecm_BufferFarend(void* aecmInst,
-                                const int16_t* farend,
-                                size_t nrOfSamples);
+                                const int16_t* farend);
 
 /*
  * （最小構成）BufferFarend 内で簡単な検証のみ行うため、
@@ -93,7 +90,7 @@ int32_t WebRtcAecm_BufferFarend(void* aecmInst,
  */
 
 /*
- * Runs the AECM on a 160 sample block of data (16 kHz mono).
+ * Runs the AECM on a 160 sample block of data (16 kHz mono)。
  *
  * Inputs                        Description
  * -------------------------------------------------------------------
@@ -107,7 +104,6 @@ int32_t WebRtcAecm_BufferFarend(void* aecmInst,
  *                               reduction is active, provide the
  *                               clean signal here. Otherwise pass a
  *                               NULL pointer.
- * int16_t        nrOfSamples    Number of samples in nearend buffer (must be 160)
  * int16_t        msInSndCardBuf Delay estimate for sound card and
  *                               system buffers
  *
@@ -121,7 +117,6 @@ int32_t WebRtcAecm_Process(void* aecmInst,
                            const int16_t* nearendNoisy,
                            const int16_t* nearendClean,
                            int16_t* out,
-                           size_t nrOfSamples,
                            int16_t msInSndCardBuf);
 
 /*

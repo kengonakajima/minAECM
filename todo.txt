@@ -113,3 +113,5 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
   - WebRtcAecm_GetBufferFarendError を削除し、BufferFarend 内の最小限チェックに統合（または前提として省略）
   - echoback の --passthrough と latency_ms のどちらかを固定化（説明重視なら latency_ms は残す）
   - 未使用ソースファイルの物理削除（Makefile非対象のもの）
+
+- WebRtc_enable_robust_validation(..., 0) をデフォルト無効化に寄せて呼び出し削除。

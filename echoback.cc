@@ -75,12 +75,11 @@ static void process_available_blocks(State& s){
       std::memcpy(out_blk.data(), near_blk.data(), s.block_size * sizeof(int16_t));
     } else {
       // AECM: 先に far をバッファリングし、その後 near を処理
-      WebRtcAecm_BufferFarend(s.aecm, far_blk.data(), s.block_size);
+      WebRtcAecm_BufferFarend(s.aecm, far_blk.data());
       WebRtcAecm_Process(s.aecm,
                          near_blk.data(),
                          nullptr,
                          out_blk.data(),
-                         s.block_size,
                          50 /* msInSndCardBuf: 固定 */);
     }
 
@@ -161,7 +160,7 @@ int main(int argc, char** argv){
   if (!s.passthrough) {
     s.aecm = WebRtcAecm_Create();
     if (!s.aecm) { std::fprintf(stderr, "AECM create failed\n"); Pa_StopStream(stream); Pa_CloseStream(stream); Pa_Terminate(); return 1; }
-    if (WebRtcAecm_Init(s.aecm, 16000) != 0) {
+    if (WebRtcAecm_Init(s.aecm) != 0) {
       std::fprintf(stderr, "AECM init failed\n");
       WebRtcAecm_Free(s.aecm); s.aecm=nullptr;
       Pa_StopStream(stream); Pa_CloseStream(stream); Pa_Terminate(); return 1;

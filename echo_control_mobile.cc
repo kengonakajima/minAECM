@@ -115,7 +115,7 @@ void WebRtcAecm_Free(void* aecmInst) {
   free(aecm);
 }
 
-int32_t WebRtcAecm_Init(void* aecmInst, int32_t sampFreq) {
+int32_t WebRtcAecm_Init(void* aecmInst) {
   AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
   AecmConfig aecConfig;
 
@@ -124,13 +124,10 @@ int32_t WebRtcAecm_Init(void* aecmInst, int32_t sampFreq) {
   }
 
   // 16 kHz 固定
-  if (sampFreq != 16000) {
-    return AECM_BAD_PARAMETER_ERROR;
-  }
   aecm->sampFreq = 16000;
 
   // Initialize AECM core
-  if (WebRtcAecm_InitCore(aecm->aecmCore, aecm->sampFreq) == -1) {
+  if (WebRtcAecm_InitCore(aecm->aecmCore) == -1) {
     return AECM_UNSPECIFIED_ERROR;
   }
 
@@ -169,21 +166,19 @@ int32_t WebRtcAecm_Init(void* aecmInst, int32_t sampFreq) {
 // Returns any error that is caused when buffering the
 // farend signal.
 int32_t WebRtcAecm_BufferFarend(void* aecmInst,
-                                const int16_t* farend,
-                                size_t nrOfSamples) {
+                                const int16_t* farend) {
   AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
   // 最小構成: 簡易チェックのみ
   if (aecm == NULL) return -1;
   if (farend == NULL) return AECM_NULL_POINTER_ERROR;
   if (aecm->initFlag != kInitCheck) return AECM_UNINITIALIZED_ERROR;
-  if (nrOfSamples != 160) return AECM_BAD_PARAMETER_ERROR; // 16k/mono固定
 
   // TODO(unknown): Is this really a good idea?
   if (!aecm->ECstartup) {
     WebRtcAecm_DelayComp(aecm);
   }
 
-  WebRtc_WriteBuffer(aecm->farendBuf, farend, nrOfSamples);
+  WebRtc_WriteBuffer(aecm->farendBuf, farend, 160);
 
   return 0;
 }
@@ -192,7 +187,6 @@ int32_t WebRtcAecm_Process(void* aecmInst,
                            const int16_t* nearendNoisy,
                            const int16_t* nearendClean,
                            int16_t* out,
-                           size_t nrOfSamples,
                            int16_t msInSndCardBuf) {
   AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
   int32_t retVal = 0;
@@ -218,10 +212,8 @@ int32_t WebRtcAecm_Process(void* aecmInst,
     return AECM_UNINITIALIZED_ERROR;
   }
 
-  // 16kHz固定のため、160サンプルのみ受け付け
-  if (nrOfSamples != 160) {
-    return AECM_BAD_PARAMETER_ERROR;
-  }
+  // 16kHz固定のため、160サンプル固定
+  const size_t nrOfSamples = 160;
 
   if (msInSndCardBuf < 0) {
     msInSndCardBuf = 0;

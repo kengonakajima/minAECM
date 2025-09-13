@@ -38,7 +38,7 @@ void WebRtc_FreeDelayEstimatorFarend(void* handle);
 //  - void*             : Created `handle`. If the memory can't be allocated or
 //                        if any of the input parameters are invalid NULL is
 //                        returned.
-void* WebRtc_CreateDelayEstimatorFarend(int spectrum_size, int history_size);
+void* WebRtc_CreateDelayEstimatorFarend();
 
 // Initializes the far-end part of the delay estimation instance returned by
 // WebRtc_CreateDelayEstimatorFarend(...)
@@ -65,7 +65,6 @@ int WebRtc_InitDelayEstimatorFarend(void* handle);
 //
 int WebRtc_AddFarSpectrumFix(void* handle,
                              const uint16_t* far_spectrum,
-                             int spectrum_size,
                              int far_q);
 
 // See WebRtc_AddFarSpectrumFix() for description.
@@ -112,7 +111,7 @@ void WebRtc_FreeDelayEstimator(void* handle);
 //      - void*         : Created `handle`. If the memory can't be allocated or
 //                        if any of the input parameters are invalid NULL is
 //                        returned.
-void* WebRtc_CreateDelayEstimator(void* farend_handle, int max_lookahead);
+void* WebRtc_CreateDelayEstimator(void* farend_handle);
 
 // Initializes the delay estimation instance returned by
 // WebRtc_CreateDelayEstimator(...)
@@ -172,7 +171,6 @@ int WebRtc_is_robust_validation_enabled(const void* handle);
 //                        -2    - Insufficient data for estimation.
 int WebRtc_DelayEstimatorProcessFix(void* handle,
                                     const uint16_t* near_spectrum,
-                                    int spectrum_size,
                                     int near_q);
 
 // See WebRtc_DelayEstimatorProcessFix() for description.

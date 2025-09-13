@@ -151,7 +151,7 @@ AecmCore* WebRtcAecm_CreateCore();
 // Return value         :  0 - Ok
 //                        -1 - Error
 //
-int WebRtcAecm_InitCore(AecmCore* const aecm, int samplingFreq);
+int WebRtcAecm_InitCore(AecmCore* const aecm);
 
 ////////////////////////////////////////////////////////////////////////////////
 // WebRtcAecm_FreeCore(...)
@@ -237,8 +237,7 @@ int WebRtcAecm_ProcessBlock(AecmCore* aecm,
 //      - farLen        : Length of frame
 //
 void WebRtcAecm_BufferFarFrame(AecmCore* const aecm,
-                               const int16_t* const farend,
-                               int farLen);
+                               const int16_t* const farend);
 
 ////////////////////////////////////////////////////////////////////////////////
 // WebRtcAecm_FetchFarFrame()
@@ -253,7 +252,6 @@ void WebRtcAecm_BufferFarFrame(AecmCore* const aecm,
 //
 void WebRtcAecm_FetchFarFrame(AecmCore* const aecm,
                               int16_t* const farend,
-                              int farLen,
                               int knownDelay);
 
 // All the functions below are intended to be private

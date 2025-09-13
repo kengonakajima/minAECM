@@ -331,12 +331,12 @@ int WebRtcAecm_ProcessBlock(AecmCore* aecm,
   // Get the delay
   // Save far-end history and estimate delay
   WebRtcAecm_UpdateFarHistory(aecm, xfa, far_q);
-  if (WebRtc_AddFarSpectrumFix(aecm->delay_estimator_farend, xfa, PART_LEN1,
+  if (WebRtc_AddFarSpectrumFix(aecm->delay_estimator_farend, xfa,
                                far_q) == -1) {
     return -1;
   }
   delay = WebRtc_DelayEstimatorProcessFix(aecm->delay_estimator, dfaNoisy,
-                                          PART_LEN1, zerosDBufNoisy);
+                                          zerosDBufNoisy);
   if (delay == -1) {
     return -1;
   } else if (delay == -2) {

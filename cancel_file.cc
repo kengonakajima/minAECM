@@ -52,19 +52,18 @@ int main(int argc, char** argv){
   size_t N = std::min(x.samples.size(), y.samples.size()) / kBlockSize;
   void* aecm = WebRtcAecm_Create();
   if (!aecm){ std::fprintf(stderr, "AECM create failed\n"); return 1; }
-  if (WebRtcAecm_Init(aecm, 16000) != 0){ std::fprintf(stderr, "AECM init failed\n"); WebRtcAecm_Free(aecm); return 1; }
+  if (WebRtcAecm_Init(aecm) != 0){ std::fprintf(stderr, "AECM init failed\n"); WebRtcAecm_Free(aecm); return 1; }
   AecmConfig cfg{}; cfg.echoMode = 3; WebRtcAecm_set_config(aecm, cfg);
   std::vector<int16_t> processed;
   processed.resize(N * kBlockSize);
   for (size_t n=0;n<N;n++){
     // Farend/render
-    WebRtcAecm_BufferFarend(aecm, &x.samples[n*kBlockSize], kBlockSize);
+    WebRtcAecm_BufferFarend(aecm, &x.samples[n*kBlockSize]);
     // Nearend/capture -> processed
     WebRtcAecm_Process(aecm,
                                 &y.samples[n*kBlockSize],
                                 nullptr,
                                 &processed[n*kBlockSize],
-                                kBlockSize,
                                 50 /*msInSndCardBuf*/);
   }
   WebRtcAecm_Free(aecm);
