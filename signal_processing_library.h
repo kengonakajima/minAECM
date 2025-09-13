@@ -18,8 +18,10 @@
 #define COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SIGNAL_PROCESSING_LIBRARY_H_
 
 #include <string.h>
+#include <stdint.h>
+#include <limits.h>
 
-#include "dot_product_with_scale.h"
+// 教材用の最小構成: 依存は最小限にする
 
 // Macros specific for the fixed point implementation
 #define WEBRTC_SPL_WORD16_MAX 32767
@@ -94,28 +96,7 @@ extern "C" {
 // third party math functions
 #include "spl_sqrt_floor.h"
 
-int16_t WebRtcSpl_GetScalingSquare(int16_t* in_vector,
-                                   size_t in_vector_length,
-                                   size_t times);
-
-// Copy and set operations. Implementation in copy_set_operations.c.
-// Descriptions at bottom of file.
-void WebRtcSpl_MemSetW16(int16_t* vector,
-                         int16_t set_value,
-                         size_t vector_length);
-void WebRtcSpl_MemSetW32(int32_t* vector,
-                         int32_t set_value,
-                         size_t vector_length);
-void WebRtcSpl_MemCpyReversedOrder(int16_t* out_vector,
-                                   int16_t* in_vector,
-                                   size_t vector_length);
-void WebRtcSpl_CopyFromEndW16(const int16_t* in_vector,
-                              size_t in_vector_length,
-                              size_t samples,
-                              int16_t* out_vector);
-void WebRtcSpl_ZerosArrayW16(int16_t* vector, size_t vector_length);
-void WebRtcSpl_ZerosArrayW32(int32_t* vector, size_t vector_length);
-// End: Copy and set operations.
+// Copy/Set系ユーティリティは最小構成では未使用のため削除
 
 // Minimum and maximum operation functions and their pointers.
 // Implementation in min_max_operations.c.
@@ -318,24 +299,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in_vector1,
                                   int16_t* out_vector,
                                   size_t vector_length);
 
-// The functions (with related pointer) perform the vector operation:
-//   out_vector[k] = ((scale1 * in_vector1[k]) + (scale2 * in_vector2[k])
-//        + round_value) >> right_shifts,
-//   where  round_value = (1 << right_shifts) >> 1.
-//
-// Input:
-//      - in_vector1       : Input vector 1
-//      - in_vector1_scale : Gain to be used for vector 1
-//      - in_vector2       : Input vector 2
-//      - in_vector2_scale : Gain to be used for vector 2
-//      - right_shifts     : Number of right bit shifts to be applied
-//      - length           : Number of elements in the input vectors
-//
-// Output:
-//      - out_vector       : Output vector
-// Return value            : 0 if OK, -1 if (in_vector1 == null
-//                           || in_vector2 == null || out_vector == null
-//                           || length <= 0 || right_shift < 0).
+// 丸め付きスケール加算
 typedef int (*ScaleAndAddVectorsWithRound)(const int16_t* in_vector1,
                                            int16_t in_vector1_scale,
                                            const int16_t* in_vector2,
@@ -356,49 +320,11 @@ int WebRtcSpl_ScaleAndAddVectorsWithRoundC(const int16_t* in_vector1,
 #endif
 // End: Vector scaling operations.
 
-// iLBC specific functions. Implementations in ilbc_specific_functions.c.
-// Description at bottom of file.
-void WebRtcSpl_ReverseOrderMultArrayElements(int16_t* out_vector,
-                                             const int16_t* in_vector,
-                                             const int16_t* window,
-                                             size_t vector_length,
-                                             int16_t right_shifts);
-void WebRtcSpl_ElementwiseVectorMult(int16_t* out_vector,
-                                     const int16_t* in_vector,
-                                     const int16_t* window,
-                                     size_t vector_length,
-                                     int16_t right_shifts);
-void WebRtcSpl_AddVectorsAndShift(int16_t* out_vector,
-                                  const int16_t* in_vector1,
-                                  const int16_t* in_vector2,
-                                  size_t vector_length,
-                                  int16_t right_shifts);
-void WebRtcSpl_AddAffineVectorToVector(int16_t* out_vector,
-                                       const int16_t* in_vector,
-                                       int16_t gain,
-                                       int32_t add_constant,
-                                       int16_t right_shifts,
-                                       size_t vector_length);
-void WebRtcSpl_AffineTransformVector(int16_t* out_vector,
-                                     const int16_t* in_vector,
-                                     int16_t gain,
-                                     int32_t add_constant,
-                                     int16_t right_shifts,
-                                     size_t vector_length);
-// End: iLBC specific functions.
+// iLBC固有のベクトル演算は教育用最小構成では未使用のため削除
 
 // Signal processing operations.
 
-// A 32-bit fix-point implementation of auto-correlation computation
-//
-// Input:
-//      - in_vector        : Vector to calculate autocorrelation upon
-//      - in_vector_length : Length (in samples) of `vector`
-//      - order            : The order up to which the autocorrelation should be
-//                           calculated
-//
-// Output:
-//      - result           : auto-correlation values (values should be seen
+//（以下、多数の演算の説明は教育最小構成では省略）
 //                           relative to each other since the absolute values
 //                           might have been down shifted to avoid overflow)
 //
@@ -524,7 +450,7 @@ void WebRtcSpl_CrossCorrelationC(int32_t* cross_correlation,
 //
 // Output:
 //      - window    : Hanning vector in Q14.
-void WebRtcSpl_GetHanningWindow(int16_t* window, size_t size);
+// Hanning 窓生成は未使用
 
 // Calculates y[k] = sqrt(1 - x[k]^2) for each element of the input vector
 // `in_vector`. Input and output values are in Q15.
@@ -535,13 +461,10 @@ void WebRtcSpl_GetHanningWindow(int16_t* window, size_t size);
 //
 // Output:
 //      - out_vector    : Output values in Q15
-void WebRtcSpl_SqrtOfOneMinusXSquared(int16_t* in_vector,
-                                      size_t vector_length,
-                                      int16_t* out_vector);
+// sqrt(1 - x^2) は未使用
 // End: Signal processing operations.
 
-// Randomization functions. Implementations collected in
-// randomization_functions.c and descriptions at bottom of this file.
+// 乱数（AECMのCNG等で使用）
 int16_t WebRtcSpl_RandU(uint32_t* seed);
 int16_t WebRtcSpl_RandN(uint32_t* seed);
 int16_t WebRtcSpl_RandUArray(int16_t* vector,
@@ -550,7 +473,7 @@ int16_t WebRtcSpl_RandUArray(int16_t* vector,
 // End: Randomization functions.
 
 // Math functions
-int32_t WebRtcSpl_Sqrt(int32_t value);
+// 整数平方根（未使用）
 
 // Divisions. Implementations collected in division_operations.c and
 // descriptions at bottom of this file.
@@ -561,22 +484,10 @@ int32_t WebRtcSpl_DivResultInQ31(int32_t num, int32_t den);
 int32_t WebRtcSpl_DivW32HiLow(int32_t num, int16_t den_hi, int16_t den_low);
 // End: Divisions.
 
-int32_t WebRtcSpl_Energy(int16_t* vector,
-                         size_t vector_length,
-                         int* scale_factor);
+// エネルギー計算（未使用）
 
 // Filter operations.
-size_t WebRtcSpl_FilterAR(const int16_t* ar_coef,
-                          size_t ar_coef_length,
-                          const int16_t* in_vector,
-                          size_t in_vector_length,
-                          int16_t* filter_state,
-                          size_t filter_state_length,
-                          int16_t* filter_state_low,
-                          size_t filter_state_low_length,
-                          int16_t* out_vector,
-                          int16_t* out_vector_low,
-                          size_t out_vector_low_length);
+// AR/MA フィルタは未使用
 
 // WebRtcSpl_FilterMAFastQ12(...)
 //
@@ -592,11 +503,7 @@ size_t WebRtcSpl_FilterAR(const int16_t* ar_coef,
 // Output:
 //      - out_vector        : Filtered samples
 //
-void WebRtcSpl_FilterMAFastQ12(const int16_t* in_vector,
-                               int16_t* out_vector,
-                               const int16_t* ma_coef,
-                               size_t ma_coef_length,
-                               size_t vector_length);
+// 未使用
 
 // Performs a AR filtering on a vector in Q12
 // Input:
@@ -608,11 +515,7 @@ void WebRtcSpl_FilterMAFastQ12(const int16_t* in_vector,
 //      - data_length        : Number of samples to be filtered
 // Output:
 //      - data_out           : Filtered samples
-void WebRtcSpl_FilterARFastQ12(const int16_t* data_in,
-                               int16_t* data_out,
-                               const int16_t* __restrict coefficients,
-                               size_t coefficients_length,
-                               size_t data_length);
+// 未使用
 
 // The functions (with related pointer) perform a MA down sampling filter
 // on a vector.
@@ -653,215 +556,19 @@ int WebRtcSpl_DownsampleFastC(const int16_t* data_in,
 
 // End: Filter operations.
 
-// FFT operations
+// FFT operations（最小限の宣言）
 
 int WebRtcSpl_ComplexFFT(int16_t vector[], int stages, int mode);
 int WebRtcSpl_ComplexIFFT(int16_t vector[], int stages, int mode);
 
-// Treat a 16-bit complex data buffer `complex_data` as an array of 32-bit
-// values, and swap elements whose indexes are bit-reverses of each other.
-//
-// Input:
-//      - complex_data  : Complex data buffer containing 2^`stages` real
-//                        elements interleaved with 2^`stages` imaginary
-//                        elements: [Re Im Re Im Re Im....]
-//      - stages        : Number of FFT stages. Must be at least 3 and at most
-//                        10, since the table WebRtcSpl_kSinTable1024[] is 1024
-//                        elements long.
-//
-// Output:
-//      - complex_data  : The complex data buffer.
+// ビットリバース（説明簡略化）
 
 void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 
 // End: FFT operations
 
-/************************************************************
- *
- * RESAMPLING FUNCTIONS AND THEIR STRUCTS ARE DEFINED BELOW
- *
- ************************************************************/
-
-/*******************************************************************
- * resample.c
- *
- * Includes the following resampling combinations
- * 22 kHz -> 16 kHz
- * 16 kHz -> 22 kHz
- * 22 kHz ->  8 kHz
- *  8 kHz -> 22 kHz
- *
- ******************************************************************/
-
-// state structure for 22 -> 16 resampler
-typedef struct {
-  int32_t S_22_44[8];
-  int32_t S_44_32[8];
-  int32_t S_32_16[8];
-} WebRtcSpl_State22khzTo16khz;
-
-void WebRtcSpl_Resample22khzTo16khz(const int16_t* in,
-                                    int16_t* out,
-                                    WebRtcSpl_State22khzTo16khz* state,
-                                    int32_t* tmpmem);
-
-void WebRtcSpl_ResetResample22khzTo16khz(WebRtcSpl_State22khzTo16khz* state);
-
-// state structure for 16 -> 22 resampler
-typedef struct {
-  int32_t S_16_32[8];
-  int32_t S_32_22[8];
-} WebRtcSpl_State16khzTo22khz;
-
-void WebRtcSpl_Resample16khzTo22khz(const int16_t* in,
-                                    int16_t* out,
-                                    WebRtcSpl_State16khzTo22khz* state,
-                                    int32_t* tmpmem);
-
-void WebRtcSpl_ResetResample16khzTo22khz(WebRtcSpl_State16khzTo22khz* state);
-
-// state structure for 22 -> 8 resampler
-typedef struct {
-  int32_t S_22_22[16];
-  int32_t S_22_16[8];
-  int32_t S_16_8[8];
-} WebRtcSpl_State22khzTo8khz;
-
-void WebRtcSpl_Resample22khzTo8khz(const int16_t* in,
-                                   int16_t* out,
-                                   WebRtcSpl_State22khzTo8khz* state,
-                                   int32_t* tmpmem);
-
-void WebRtcSpl_ResetResample22khzTo8khz(WebRtcSpl_State22khzTo8khz* state);
-
-// state structure for 8 -> 22 resampler
-typedef struct {
-  int32_t S_8_16[8];
-  int32_t S_16_11[8];
-  int32_t S_11_22[8];
-} WebRtcSpl_State8khzTo22khz;
-
-void WebRtcSpl_Resample8khzTo22khz(const int16_t* in,
-                                   int16_t* out,
-                                   WebRtcSpl_State8khzTo22khz* state,
-                                   int32_t* tmpmem);
-
-void WebRtcSpl_ResetResample8khzTo22khz(WebRtcSpl_State8khzTo22khz* state);
-
-/*******************************************************************
- * resample_fractional.c
- * Functions for internal use in the other resample functions
- *
- * Includes the following resampling combinations
- * 48 kHz -> 32 kHz
- * 32 kHz -> 24 kHz
- * 44 kHz -> 32 kHz
- *
- ******************************************************************/
-
-void WebRtcSpl_Resample48khzTo32khz(const int32_t* In, int32_t* Out, size_t K);
-
-void WebRtcSpl_Resample32khzTo24khz(const int32_t* In, int32_t* Out, size_t K);
-
-void WebRtcSpl_Resample44khzTo32khz(const int32_t* In, int32_t* Out, size_t K);
-
-/*******************************************************************
- * resample_48khz.c
- *
- * Includes the following resampling combinations
- * 48 kHz -> 16 kHz
- * 16 kHz -> 48 kHz
- * 48 kHz ->  8 kHz
- *  8 kHz -> 48 kHz
- *
- ******************************************************************/
-
-typedef struct {
-  int32_t S_48_48[16];
-  int32_t S_48_32[8];
-  int32_t S_32_16[8];
-} WebRtcSpl_State48khzTo16khz;
-
-void WebRtcSpl_Resample48khzTo16khz(const int16_t* in,
-                                    int16_t* out,
-                                    WebRtcSpl_State48khzTo16khz* state,
-                                    int32_t* tmpmem);
-
-void WebRtcSpl_ResetResample48khzTo16khz(WebRtcSpl_State48khzTo16khz* state);
-
-typedef struct {
-  int32_t S_16_32[8];
-  int32_t S_32_24[8];
-  int32_t S_24_48[8];
-} WebRtcSpl_State16khzTo48khz;
-
-void WebRtcSpl_Resample16khzTo48khz(const int16_t* in,
-                                    int16_t* out,
-                                    WebRtcSpl_State16khzTo48khz* state,
-                                    int32_t* tmpmem);
-
-void WebRtcSpl_ResetResample16khzTo48khz(WebRtcSpl_State16khzTo48khz* state);
-
-typedef struct {
-  int32_t S_48_24[8];
-  int32_t S_24_24[16];
-  int32_t S_24_16[8];
-  int32_t S_16_8[8];
-} WebRtcSpl_State48khzTo8khz;
-
-void WebRtcSpl_Resample48khzTo8khz(const int16_t* in,
-                                   int16_t* out,
-                                   WebRtcSpl_State48khzTo8khz* state,
-                                   int32_t* tmpmem);
-
-void WebRtcSpl_ResetResample48khzTo8khz(WebRtcSpl_State48khzTo8khz* state);
-
-typedef struct {
-  int32_t S_8_16[8];
-  int32_t S_16_12[8];
-  int32_t S_12_24[8];
-  int32_t S_24_48[8];
-} WebRtcSpl_State8khzTo48khz;
-
-void WebRtcSpl_Resample8khzTo48khz(const int16_t* in,
-                                   int16_t* out,
-                                   WebRtcSpl_State8khzTo48khz* state,
-                                   int32_t* tmpmem);
-
-void WebRtcSpl_ResetResample8khzTo48khz(WebRtcSpl_State8khzTo48khz* state);
-
-/*******************************************************************
- * resample_by_2.c
- *
- * Includes down and up sampling by a factor of two.
- *
- ******************************************************************/
-
-void WebRtcSpl_DownsampleBy2(const int16_t* in,
-                             size_t len,
-                             int16_t* out,
-                             int32_t* filtState);
-
-void WebRtcSpl_UpsampleBy2(const int16_t* in,
-                           size_t len,
-                           int16_t* out,
-                           int32_t* filtState);
-
-/************************************************************
- * END OF RESAMPLING FUNCTIONS
- ************************************************************/
-void WebRtcSpl_AnalysisQMF(const int16_t* in_data,
-                           size_t in_data_length,
-                           int16_t* low_band,
-                           int16_t* high_band,
-                           int32_t* filter_state1,
-                           int32_t* filter_state2);
-void WebRtcSpl_SynthesisQMF(const int16_t* low_band,
-                            const int16_t* high_band,
-                            size_t band_length,
-                            int16_t* out_data,
-                            int32_t* filter_state1,
-                            int32_t* filter_state2);
+// Resampler/QMF: 教育最小構成では未使用のため宣言を省略
+// QMF API も未使用
 
 #ifdef __cplusplus
 }
