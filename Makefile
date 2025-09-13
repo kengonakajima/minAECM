@@ -68,7 +68,8 @@ PA_FALLBACK_LIBDIR2=/usr/local/lib
 
 # Echoback: AECM を用いたローカル・エコーバック
 echoback: echoback.cc libaecm.a libportaudio.a
-	$(CXX) -o echoback $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) -I$(PORTAUDIO_HOME)/include -I$(PA_FALLBACK_INCDIR1) -I$(PA_FALLBACK_INCDIR2) -I$(PORTAUDIO_HOME) \
+	$(CXX) -o echoback $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) -Wl,-map,echoback.map -Wl,-why_load \
+		-I$(PORTAUDIO_HOME)/include -I$(PA_FALLBACK_INCDIR1) -I$(PA_FALLBACK_INCDIR2) -I$(PORTAUDIO_HOME) \
 		echoback.cc libaecm.a \
 		-L$(PORTAUDIO_HOME) -L$(PORTAUDIO_HOME)/lib -L$(PA_FALLBACK_LIBDIR1) -L$(PA_FALLBACK_LIBDIR2) \
 		-Wl,-rpath,$(PORTAUDIO_HOME) -Wl,-rpath,$(PORTAUDIO_HOME)/lib -Wl,-rpath,$(PA_FALLBACK_LIBDIR1) -Wl,-rpath,$(PA_FALLBACK_LIBDIR2) \
@@ -76,7 +77,8 @@ echoback: echoback.cc libaecm.a libportaudio.a
 
 # Offline comparator (no PortAudio)
 cancel_file: cancel_file.cc libaecm.a
-	$(CXX) -o cancel_file $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) cancel_file.cc libaecm.a
+	$(CXX) -o cancel_file $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) -Wl,-map,cancel_file.map -Wl,-why_load \
+		cancel_file.cc libaecm.a
 
 .PHONY: clean wasm
 clean:

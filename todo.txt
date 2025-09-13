@@ -104,3 +104,9 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
 - aecm_defines.hの未使用のマクロありそう
 
 - WebRtcSpl_FilterARFastQ12
+
+
+ - 公開APIから未使用のエコーパス関連を削除（ヘッダ/実装/参照を一括）
+  - WebRtcAecm_GetBufferFarendError を削除し、BufferFarend 内の最小限チェックに統合（または前提として省略）
+  - echoback の --passthrough と latency_ms のどちらかを固定化（説明重視なら latency_ms は残す）
+  - 未使用ソースファイルの物理削除（Makefile非対象のもの）

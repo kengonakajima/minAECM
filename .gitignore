@@ -4,3 +4,4 @@ cancel_file
 echoback
 *.dSYM
 libaecm.a
+*.map
