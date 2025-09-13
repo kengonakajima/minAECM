@@ -168,37 +168,15 @@ int32_t WebRtcAecm_Init(void* aecmInst, int32_t sampFreq) {
 
 // Returns any error that is caused when buffering the
 // farend signal.
-int32_t WebRtcAecm_GetBufferFarendError(void* aecmInst,
-                                        const int16_t* farend,
-                                        size_t nrOfSamples) {
-  AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
-
-  if (aecm == NULL)
-    return -1;
-
-  if (farend == NULL)
-    return AECM_NULL_POINTER_ERROR;
-
-  if (aecm->initFlag != kInitCheck)
-    return AECM_UNINITIALIZED_ERROR;
-
-  // 16kHz固定のため、160サンプルのみ受け付け
-  if (nrOfSamples != 160)
-    return AECM_BAD_PARAMETER_ERROR;
-
-  return 0;
-}
-
 int32_t WebRtcAecm_BufferFarend(void* aecmInst,
                                 const int16_t* farend,
                                 size_t nrOfSamples) {
   AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
-
-  const int32_t err =
-      WebRtcAecm_GetBufferFarendError(aecmInst, farend, nrOfSamples);
-
-  if (err != 0)
-    return err;
+  // 最小構成: 簡易チェックのみ
+  if (aecm == NULL) return -1;
+  if (farend == NULL) return AECM_NULL_POINTER_ERROR;
+  if (aecm->initFlag != kInitCheck) return AECM_UNINITIALIZED_ERROR;
+  if (nrOfSamples != 160) return AECM_BAD_PARAMETER_ERROR; // 16k/mono固定
 
   // TODO(unknown): Is this really a good idea?
   if (!aecm->ECstartup) {
@@ -446,58 +424,7 @@ int32_t WebRtcAecm_set_config(void* aecmInst, AecmConfig config) {
   return 0;
 }
 
-int32_t WebRtcAecm_InitEchoPath(void* aecmInst,
-                                const void* echo_path,
-                                size_t size_bytes) {
-  AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
-  const int16_t* echo_path_ptr = static_cast<const int16_t*>(echo_path);
-
-  if (aecmInst == NULL) {
-    return -1;
-  }
-  if (echo_path == NULL) {
-    return AECM_NULL_POINTER_ERROR;
-  }
-  if (size_bytes != WebRtcAecm_echo_path_size_bytes()) {
-    // Input channel size does not match the size of AECM
-    return AECM_BAD_PARAMETER_ERROR;
-  }
-  if (aecm->initFlag != kInitCheck) {
-    return AECM_UNINITIALIZED_ERROR;
-  }
-
-  WebRtcAecm_InitEchoPathCore(aecm->aecmCore, echo_path_ptr);
-
-  return 0;
-}
-
-int32_t WebRtcAecm_GetEchoPath(void* aecmInst,
-                               void* echo_path,
-                               size_t size_bytes) {
-  AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
-  int16_t* echo_path_ptr = static_cast<int16_t*>(echo_path);
-
-  if (aecmInst == NULL) {
-    return -1;
-  }
-  if (echo_path == NULL) {
-    return AECM_NULL_POINTER_ERROR;
-  }
-  if (size_bytes != WebRtcAecm_echo_path_size_bytes()) {
-    // Input channel size does not match the size of AECM
-    return AECM_BAD_PARAMETER_ERROR;
-  }
-  if (aecm->initFlag != kInitCheck) {
-    return AECM_UNINITIALIZED_ERROR;
-  }
-
-  memcpy(echo_path_ptr, aecm->aecmCore->channelStored, size_bytes);
-  return 0;
-}
-
-size_t WebRtcAecm_echo_path_size_bytes() {
-  return (PART_LEN1 * sizeof(int16_t));
-}
+// Echo path 保存/復元 API は最小構成では未実装（削除）。
 
 static int WebRtcAecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf) {
   short delayNew, nSampSndCard;

@@ -88,23 +88,9 @@ int32_t WebRtcAecm_BufferFarend(void* aecmInst,
                                 size_t nrOfSamples);
 
 /*
- * Reports any errors that would arise when buffering a farend buffer.
- *
- * Inputs                       Description
- * -------------------------------------------------------------------
- * void*          aecmInst      Pointer to the AECM instance
- * int16_t*       farend        In buffer containing one frame of
- *                              farend signal
- * int16_t        nrOfSamples   Number of samples in farend buffer
- *
- * Outputs                      Description
- * -------------------------------------------------------------------
- * int32_t        return        0: OK
- *                              1200-12004,12100: error/warning
+ * （最小構成）BufferFarend 内で簡単な検証のみ行うため、
+ * 事前検証 API は削除。
  */
-int32_t WebRtcAecm_GetBufferFarendError(void* aecmInst,
-                                        const int16_t* farend,
-                                        size_t nrOfSamples);
 
 /*
  * Runs the AECM on a 160 sample block of data (16 kHz mono).
@@ -154,51 +140,7 @@ int32_t WebRtcAecm_Process(void* aecmInst,
  */
 int32_t WebRtcAecm_set_config(void* aecmInst, AecmConfig config);
 
-/*
- * This function enables the user to set the echo path on-the-fly.
- *
- * Inputs                       Description
- * -------------------------------------------------------------------
- * void*        aecmInst        Pointer to the AECM instance
- * void*        echo_path       Pointer to the echo path to be set
- * size_t       size_bytes      Size in bytes of the echo path
- *
- * Outputs                      Description
- * -------------------------------------------------------------------
- * int32_t      return          0: OK
- *                              1200-12004,12100: error/warning
- */
-int32_t WebRtcAecm_InitEchoPath(void* aecmInst,
-                                const void* echo_path,
-                                size_t size_bytes);
-
-/*
- * This function enables the user to get the currently used echo path
- * on-the-fly
- *
- * Inputs                       Description
- * -------------------------------------------------------------------
- * void*        aecmInst        Pointer to the AECM instance
- * void*        echo_path       Pointer to echo path
- * size_t       size_bytes      Size in bytes of the echo path
- *
- * Outputs                      Description
- * -------------------------------------------------------------------
- * int32_t      return          0: OK
- *                              1200-12004,12100: error/warning
- */
-int32_t WebRtcAecm_GetEchoPath(void* aecmInst,
-                               void* echo_path,
-                               size_t size_bytes);
-
-/*
- * This function enables the user to get the echo path size in bytes
- *
- * Outputs                      Description
- * -------------------------------------------------------------------
- * size_t       return          Size in bytes
- */
-size_t WebRtcAecm_echo_path_size_bytes();
+/* Echo path の保存/復元 API は教育用最小構成では未使用のため削除。 */
 
 #ifdef __cplusplus
 }

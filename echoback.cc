@@ -1,6 +1,6 @@
 // Echoback (C++): 最小構成のローカル・エコーバック + AECM
 // Usage:
-//   ./echoback [--passthrough] [latency_ms=200]
+//   ./echoback [--passthrough]
 // 前提:
 //   - 16 kHz モノラル固定, 16-bit I/O (PortAudio デフォルトデバイス)
 //   - AECM は 10ms（160サンプル）単位で処理
@@ -25,8 +25,7 @@ struct State {
   int dev_sr = 16000;              // 16k固定
   int block_size = 160;            // 10ms @16kHz （PortAudio framesPerBuffer と一致）
   // 1ch 固定（PortAudioデバイス設定も1ch）
-  int latency_ms = 200;             // jitter buffer target (ms) for local echo
-  size_t latency_samples = 48000/5; // will be set from dev_sr*latency_ms/1000
+  // ジッタバッファは固定遅延（最小構成: 内部固定値）
 
   // FIFOs in device domain (dev_sr)
   std::deque<int16_t> rec_dev;     // mic captured samples
@@ -36,7 +35,6 @@ struct State {
 
   // Jitter buffer (device domain). Local echo path accumulator, mixes into speaker
   std::deque<int16_t> jitter;      // accumulate processed to emulate loopback latency
-  bool need_jitter = true;
 
   // --passthrough: AEC を行わず素通し再生
   bool passthrough = false;
@@ -67,7 +65,7 @@ static void process_available_blocks(State& s){
     // 1) pop near block
     pop_samples(s.rec_dev, near_blk.data(), s.block_size);
     // 2) pop far block（スピーカへ送る信号 = 参照）
-    if (!s.need_jitter && s.jitter.size() >= (size_t)s.block_size) {
+    if (s.jitter.size() >= (size_t)s.block_size) {
       pop_samples(s.jitter, far_blk.data(), s.block_size);
     } else {
       std::memset(far_blk.data(), 0, s.block_size * sizeof(int16_t));
@@ -79,18 +77,15 @@ static void process_available_blocks(State& s){
       // AECM: 先に far をバッファリングし、その後 near を処理
       WebRtcAecm_BufferFarend(s.aecm, far_blk.data(), s.block_size);
       WebRtcAecm_Process(s.aecm,
-                                  near_blk.data(),
-                                  nullptr,
-                                  out_blk.data(),
-                                  s.block_size,
-                                  static_cast<int16_t>(s.latency_ms));
+                         near_blk.data(),
+                         nullptr,
+                         out_blk.data(),
+                         s.block_size,
+                         50 /* msInSndCardBuf: 固定 */);
     }
 
     // ローカル・ループバック: 処理後の出力を蓄積して、次々回以降の far にする
     push_block(s.jitter, out_blk.data(), s.block_size);
-    if (s.need_jitter && s.jitter.size() > s.latency_samples) {
-      s.need_jitter = false; // jitter満了
-    }
 
     // 今回のスピーカ出力は `far_blk`
     push_block(s.out_dev, far_blk.data(), s.block_size);
@@ -135,23 +130,13 @@ int main(int argc, char** argv){
       s.passthrough = true;
     } else if (arg == "--help" || arg == "-h") {
       std::fprintf(stderr,
-                   "Usage: %s [--passthrough] [latency_ms=200]\n",
+                   "Usage: %s [--passthrough]\n",
                    argv[0]);
       return 0;
-    } else {
-      char* endp = nullptr;
-      long v = std::strtol(arg.c_str(), &endp, 10);
-      if (endp && *endp == '\0' && v > 0 && v < 10000) {
-        s.latency_ms = static_cast<int>(v);
-      } else {
-        std::fprintf(stderr, "Unknown arg: %s (ignored)\n", arg.c_str());
-      }
     }
   }
-  s.latency_samples = (size_t)((long long)s.dev_sr * s.latency_ms / 1000);
   const char* mode = s.passthrough ? "passthrough" : "aecm";
-  std::fprintf(stderr, "echoback (16k mono): mode=%s, latency_ms=%d (samples=%zu)\n",
-                mode, s.latency_ms, s.latency_samples);
+  std::fprintf(stderr, "echoback (16k mono): mode=%s\n", mode);
   aec3_init_at_sr(s);
 
   PaError err = Pa_Initialize();
