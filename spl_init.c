@@ -12,11 +12,4 @@
 
 #include "signal_processing_library.h"
 
-// CPUタイプ検出と最適化分岐は削除。常に汎用C実装を指す。
-const MaxAbsValueW16 WebRtcSpl_MaxAbsValueW16 = WebRtcSpl_MaxAbsValueW16C;
-const MaxAbsValueW32 WebRtcSpl_MaxAbsValueW32 = WebRtcSpl_MaxAbsValueW32C;
-const MaxValueW16 WebRtcSpl_MaxValueW16 = WebRtcSpl_MaxValueW16C;
-const MaxValueW32 WebRtcSpl_MaxValueW32 = WebRtcSpl_MaxValueW32C;
-const MinValueW16 WebRtcSpl_MinValueW16 = WebRtcSpl_MinValueW16C;
-const MinValueW32 WebRtcSpl_MinValueW32 = WebRtcSpl_MinValueW32C;
-// 未使用の関数ポインタは削除（リンク強制を避ける）
+// CPUタイプ検出と最適化分岐は削除。関数ポインタによるランタイム選択も廃止。

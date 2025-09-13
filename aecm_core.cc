@@ -98,10 +98,7 @@ const uint16_t* WebRtcAecm_AlignedFarend(AecmCore* self,
   return &(self->far_history[buffer_position * PART_LEN1]);
 }
 
-// Declare function pointers.
-CalcLinearEnergies WebRtcAecm_CalcLinearEnergies;
-StoreAdaptiveChannel WebRtcAecm_StoreAdaptiveChannel;
-ResetAdaptiveChannel WebRtcAecm_ResetAdaptiveChannel;
+// 関数ポインタ経由のディスパッチは廃止（C実装を直接呼ぶ）。
 
 AecmCore* WebRtcAecm_CreateCore() {
   // Allocate zero-filled memory.
@@ -342,10 +339,6 @@ int WebRtcAecm_InitCore(AecmCore* const aecm, int samplingFreq) {
   // used in assembly code, so check the assembly files before any change.
   static_assert(PART_LEN % 16 == 0, "PART_LEN is not a multiple of 16");
 
-  // Initialize function pointers (always use plain C versions).
-  WebRtcAecm_CalcLinearEnergies = CalcLinearEnergiesC;
-  WebRtcAecm_StoreAdaptiveChannel = StoreAdaptiveChannelC;
-  WebRtcAecm_ResetAdaptiveChannel = ResetAdaptiveChannelC;
   return 0;
 }
 
@@ -545,8 +538,8 @@ void WebRtcAecm_CalcEnergies(AecmCore* aecm,
   // Logarithm of integrated magnitude spectrum (nearEner)
   aecm->nearLogEnergy[0] = LogOfEnergyInQ8(nearEner, aecm->dfaNoisyQDomain);
 
-  WebRtcAecm_CalcLinearEnergies(aecm, far_spectrum, echoEst, &tmpFar, &tmpAdapt,
-                                &tmpStored);
+  CalcLinearEnergiesC(aecm, far_spectrum, echoEst, &tmpFar, &tmpAdapt,
+                                 &tmpStored);
 
   // Shift buffers
   memmove(aecm->echoAdaptLogEnergy + 1, aecm->echoAdaptLogEnergy,
@@ -807,7 +800,7 @@ void WebRtcAecm_UpdateChannel(AecmCore* aecm,
   if ((aecm->startupState == 0) & (aecm->currentVADValue)) {
     // During startup we store the channel every block,
     // and we recalculate echo estimate
-    WebRtcAecm_StoreAdaptiveChannel(aecm, far_spectrum, echoEst);
+    StoreAdaptiveChannelC(aecm, far_spectrum, echoEst);
   } else {
     if (aecm->farLogEnergy < aecm->farEnergyMSE) {
       aecm->mseChannelCount = 0;
@@ -837,14 +830,14 @@ void WebRtcAecm_UpdateChannel(AecmCore* aecm,
            (MIN_MSE_DIFF * aecm->mseAdaptOld))) {
         // The stored channel has a significantly lower MSE than the adaptive
         // one for two consecutive calculations. Reset the adaptive channel.
-        WebRtcAecm_ResetAdaptiveChannel(aecm);
+        ResetAdaptiveChannelC(aecm);
       } else if (((MIN_MSE_DIFF * mseStored) > (mseAdapt << MSE_RESOLUTION)) &
                  (mseAdapt < aecm->mseThreshold) &
                  (aecm->mseAdaptOld < aecm->mseThreshold)) {
         // The adaptive channel has a significantly lower MSE than the stored
         // one. The MSE for the adaptive channel has also been low for two
         // consecutive calculations. Store the adaptive channel.
-        WebRtcAecm_StoreAdaptiveChannel(aecm, far_spectrum, echoEst);
+        StoreAdaptiveChannelC(aecm, far_spectrum, echoEst);
 
         // Update threshold
         if (aecm->mseThreshold == WEBRTC_SPL_WORD32_MAX) {

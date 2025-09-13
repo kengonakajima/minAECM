@@ -372,23 +372,6 @@ void WebRtcAecm_UpdateChannel(AecmCore* aecm,
 // CNG用テーブルは削除
 
 ///////////////////////////////////////////////////////////////////////////////
-// 内部関数への関数ポインタ（単一の C 実装を指す）
-typedef void (*CalcLinearEnergies)(AecmCore* aecm,
-                                   const uint16_t* far_spectrum,
-                                   int32_t* echoEst,
-                                   uint32_t* far_energy,
-                                   uint32_t* echo_energy_adapt,
-                                   uint32_t* echo_energy_stored);
-extern CalcLinearEnergies WebRtcAecm_CalcLinearEnergies;
-
-typedef void (*StoreAdaptiveChannel)(AecmCore* aecm,
-                                     const uint16_t* far_spectrum,
-                                     int32_t* echo_est);
-extern StoreAdaptiveChannel WebRtcAecm_StoreAdaptiveChannel;
-
-typedef void (*ResetAdaptiveChannel)(AecmCore* aecm);
-extern ResetAdaptiveChannel WebRtcAecm_ResetAdaptiveChannel;
-
 // NEON/MIPS の最適化実装宣言は削除し、分岐をなくす。
 
  

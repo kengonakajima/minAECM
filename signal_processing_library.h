@@ -98,19 +98,12 @@ extern "C" {
 
 // Copy/Set系ユーティリティは最小構成では未使用のため削除
 
-// Minimum and maximum operation functions and their pointers.
+// Minimum and maximum operation functions（C実装を直接使用）。
 // Implementation in min_max_operations.c.
 
 // Returns the largest absolute value in a signed 16-bit vector.
-//
-// Input:
-//      - vector : 16-bit input vector.
-//      - length : Number of samples in vector.
-//
-// Return value  : Maximum absolute value in vector.
-typedef int16_t (*MaxAbsValueW16)(const int16_t* vector, size_t length);
-extern const MaxAbsValueW16 WebRtcSpl_MaxAbsValueW16;
 int16_t WebRtcSpl_MaxAbsValueW16C(const int16_t* vector, size_t length);
+#define WebRtcSpl_MaxAbsValueW16 WebRtcSpl_MaxAbsValueW16C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -121,10 +114,8 @@ int16_t WebRtcSpl_MaxAbsValueW16C(const int16_t* vector, size_t length);
 //      - vector : 32-bit input vector.
 //      - length : Number of samples in vector.
 //
-// Return value  : Maximum absolute value in vector.
-typedef int32_t (*MaxAbsValueW32)(const int32_t* vector, size_t length);
-extern const MaxAbsValueW32 WebRtcSpl_MaxAbsValueW32;
 int32_t WebRtcSpl_MaxAbsValueW32C(const int32_t* vector, size_t length);
+#define WebRtcSpl_MaxAbsValueW32 WebRtcSpl_MaxAbsValueW32C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -135,10 +126,8 @@ int32_t WebRtcSpl_MaxAbsValueW32C(const int32_t* vector, size_t length);
 //      - vector : 16-bit input vector.
 //      - length : Number of samples in vector.
 //
-// Return value  : Maximum sample value in `vector`.
-typedef int16_t (*MaxValueW16)(const int16_t* vector, size_t length);
-extern const MaxValueW16 WebRtcSpl_MaxValueW16;
 int16_t WebRtcSpl_MaxValueW16C(const int16_t* vector, size_t length);
+#define WebRtcSpl_MaxValueW16 WebRtcSpl_MaxValueW16C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -149,10 +138,8 @@ int16_t WebRtcSpl_MaxValueW16C(const int16_t* vector, size_t length);
 //      - vector : 32-bit input vector.
 //      - length : Number of samples in vector.
 //
-// Return value  : Maximum sample value in `vector`.
-typedef int32_t (*MaxValueW32)(const int32_t* vector, size_t length);
-extern const MaxValueW32 WebRtcSpl_MaxValueW32;
 int32_t WebRtcSpl_MaxValueW32C(const int32_t* vector, size_t length);
+#define WebRtcSpl_MaxValueW32 WebRtcSpl_MaxValueW32C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -163,10 +150,8 @@ int32_t WebRtcSpl_MaxValueW32C(const int32_t* vector, size_t length);
 //      - vector : 16-bit input vector.
 //      - length : Number of samples in vector.
 //
-// Return value  : Minimum sample value in `vector`.
-typedef int16_t (*MinValueW16)(const int16_t* vector, size_t length);
-extern const MinValueW16 WebRtcSpl_MinValueW16;
 int16_t WebRtcSpl_MinValueW16C(const int16_t* vector, size_t length);
+#define WebRtcSpl_MinValueW16 WebRtcSpl_MinValueW16C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -177,10 +162,8 @@ int16_t WebRtcSpl_MinValueW16C(const int16_t* vector, size_t length);
 //      - vector : 32-bit input vector.
 //      - length : Number of samples in vector.
 //
-// Return value  : Minimum sample value in `vector`.
-typedef int32_t (*MinValueW32)(const int32_t* vector, size_t length);
-extern const MinValueW32 WebRtcSpl_MinValueW32;
 int32_t WebRtcSpl_MinValueW32C(const int32_t* vector, size_t length);
+#define WebRtcSpl_MinValueW32 WebRtcSpl_MinValueW32C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
