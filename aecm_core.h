@@ -51,7 +51,7 @@ typedef struct {
   int16_t farBuf[FAR_BUF_LEN];
 
   int16_t mult;
-  uint32_t seed;
+  // 乱数種（CNGで使用）は削除
 
   // Delay estimation variables
   void* delay_estimator_farend;
@@ -101,11 +101,7 @@ typedef struct {
 
   int32_t echoFilt[PART_LEN1];
   int16_t nearFilt[PART_LEN1];
-  int32_t noiseEst[PART_LEN1];
-  int noiseEstTooLowCtr[PART_LEN1];
-  int noiseEstTooHighCtr[PART_LEN1];
-  int16_t noiseEstCtr;
-  int16_t cngMode;
+  // CNG削除に伴いノイズ推定・CNGモードは廃止
 
   int32_t mseAdaptOld;
   int32_t mseStoredOld;
@@ -374,8 +370,7 @@ void WebRtcAecm_UpdateChannel(AecmCore* aecm,
                               int16_t mu,
                               int32_t* echoEst);
 
-extern const int16_t WebRtcAecm_kCosTable[];
-extern const int16_t WebRtcAecm_kSinTable[];
+// CNG用テーブルは削除
 
 ///////////////////////////////////////////////////////////////////////////////
 // 内部関数への関数ポインタ（単一の C 実装を指す）

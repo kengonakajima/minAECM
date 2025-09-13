@@ -50,7 +50,6 @@ AECM_C_SRCS= \
   spl_inl.c \
   spl_init.c \
   spl_sqrt_floor.c \
-  randomization_functions.c \
   vector_scaling_operations.c \
   cross_correlation.c \
   downsample_fast.c

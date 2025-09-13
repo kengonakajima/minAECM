@@ -157,8 +157,7 @@ int32_t WebRtcAecm_Init(void* aecmInst, int32_t sampFreq) {
 
   memset(&aecm->farendOld, 0, sizeof(aecm->farendOld));
 
-  // Default settings.
-  aecConfig.cngMode = AecmTrue;
+  // Default settings (CNGは削除、echoModeのみ設定)。
   aecConfig.echoMode = 3;
 
   if (WebRtcAecm_set_config(aecm, aecConfig) == -1) {
@@ -391,10 +390,7 @@ int32_t WebRtcAecm_set_config(void* aecmInst, AecmConfig config) {
     return AECM_UNINITIALIZED_ERROR;
   }
 
-  if (config.cngMode != AecmFalse && config.cngMode != AecmTrue) {
-    return AECM_BAD_PARAMETER_ERROR;
-  }
-  aecm->aecmCore->cngMode = config.cngMode;
+  // CNGは削除。
 
   if (config.echoMode < 0 || config.echoMode > 4) {
     return AECM_BAD_PARAMETER_ERROR;

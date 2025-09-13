@@ -181,7 +181,7 @@ int main(int argc, char** argv){
       web_rtc::WebRtcAecm_Free(s.aecm); s.aecm=nullptr;
       Pa_StopStream(stream); Pa_CloseStream(stream); Pa_Terminate(); return 1;
     }
-    web_rtc::AecmConfig cfg; cfg.cngMode = web_rtc::AecmTrue; cfg.echoMode = 3;
+    web_rtc::AecmConfig cfg{}; cfg.echoMode = 3;
     web_rtc::WebRtcAecm_set_config(s.aecm, cfg);
   }
   while (Pa_IsStreamActive(stream)==1) {

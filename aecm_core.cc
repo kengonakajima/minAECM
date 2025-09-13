@@ -40,7 +40,8 @@ static const int16_t kChannelStored16kHz[PART_LEN1] = {
 
 }  // namespace
 
-const int16_t WebRtcAecm_kCosTable[] = {
+// CNG用のテーブルは削除
+/* const int16_t WebRtcAecm_kCosTable[] = {
     8192,  8190,  8187,  8180,  8172,  8160,  8147,  8130,  8112,  8091,  8067,
     8041,  8012,  7982,  7948,  7912,  7874,  7834,  7791,  7745,  7697,  7647,
     7595,  7540,  7483,  7424,  7362,  7299,  7233,  7164,  7094,  7021,  6947,
@@ -108,7 +109,7 @@ const int16_t WebRtcAecm_kSinTable[] = {
     -5374, -5265, -5155, -5043, -4930, -4815, -4698, -4580, -4461, -4341, -4219,
     -4096, -3971, -3845, -3719, -3591, -3462, -3331, -3200, -3068, -2935, -2801,
     -2667, -2531, -2395, -2258, -2120, -1981, -1842, -1703, -1563, -1422, -1281,
-    -1140, -998,  -856,  -713,  -571,  -428,  -285,  -142};
+    -1140, -998,  -856,  -713,  -571,  -428,  -285,  -142}; */
 
 
 // Moves the pointer to the next entry and inserts `far_spectrum` and
@@ -336,8 +337,6 @@ static void ResetAdaptiveChannelC(AecmCore* aecm) {
 //
 int WebRtcAecm_InitCore(AecmCore* const aecm, int samplingFreq) {
   int i = 0;
-  int32_t tmp32 = PART_LEN1 * PART_LEN1;
-  int16_t tmp16 = PART_LEN1;
 
   if (samplingFreq != 16000) {
     return -1;
@@ -360,7 +359,6 @@ int WebRtcAecm_InitCore(AecmCore* const aecm, int samplingFreq) {
   memset(aecm->dBufNoisy_buf, 0, sizeof(aecm->dBufNoisy_buf));
   memset(aecm->outBuf_buf, 0, sizeof(aecm->outBuf_buf));
 
-  aecm->seed = 666;
   aecm->totCount = 0;
 
   if (WebRtc_InitDelayEstimatorFarend(aecm->delay_estimator_farend) != 0) {
@@ -392,21 +390,6 @@ int WebRtcAecm_InitCore(AecmCore* const aecm, int samplingFreq) {
 
   memset(aecm->echoFilt, 0, sizeof(aecm->echoFilt));
   memset(aecm->nearFilt, 0, sizeof(aecm->nearFilt));
-  aecm->noiseEstCtr = 0;
-
-  aecm->cngMode = AecmTrue;
-
-  memset(aecm->noiseEstTooLowCtr, 0, sizeof(aecm->noiseEstTooLowCtr));
-  memset(aecm->noiseEstTooHighCtr, 0, sizeof(aecm->noiseEstTooHighCtr));
-  // Shape the initial noise level to an approximate pink noise.
-  for (i = 0; i < (PART_LEN1 >> 1) - 1; i++) {
-    aecm->noiseEst[i] = (tmp32 << 8);
-    tmp16--;
-    tmp32 -= (int32_t)((tmp16 << 1) + 1);
-  }
-  for (; i < PART_LEN1; i++) {
-    aecm->noiseEst[i] = (tmp32 << 8);
-  }
 
   aecm->farEnergyMin = WEBRTC_SPL_WORD16_MAX;
   aecm->farEnergyMax = WEBRTC_SPL_WORD16_MIN;

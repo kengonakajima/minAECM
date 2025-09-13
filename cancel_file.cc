@@ -53,7 +53,7 @@ int main(int argc, char** argv){
   void* aecm = web_rtc::WebRtcAecm_Create();
   if (!aecm){ std::fprintf(stderr, "AECM create failed\n"); return 1; }
   if (web_rtc::WebRtcAecm_Init(aecm, 16000) != 0){ std::fprintf(stderr, "AECM init failed\n"); web_rtc::WebRtcAecm_Free(aecm); return 1; }
-  web_rtc::AecmConfig cfg; cfg.cngMode = web_rtc::AecmTrue; cfg.echoMode = 3; web_rtc::WebRtcAecm_set_config(aecm, cfg);
+  web_rtc::AecmConfig cfg{}; cfg.echoMode = 3; web_rtc::WebRtcAecm_set_config(aecm, cfg);
   std::vector<int16_t> processed;
   processed.resize(N * kBlockSize);
   for (size_t n=0;n<N;n++){
