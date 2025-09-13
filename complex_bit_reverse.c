@@ -46,7 +46,7 @@ static const int16_t index_8[240] = {
   203, 211, 207, 243, 215, 235, 223, 251, 239, 247
 };
 
-void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages) {
+void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages) {
   /* For any specific value of stages, we know exactly the indexes that are
    * bit reversed. Currently (Feb. 2012) in WebRTC the only possible values of
    * stages are 7 and 8, so we use tables to save unnecessary iterations and

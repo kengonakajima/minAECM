@@ -23,7 +23,7 @@ struct RealFFT;
 
  
 
-#ifdef _MSC_VER  // visual c++
+#ifdef MSC_VER  // visual c++
 #define ALIGN8_BEG __declspec(align(8))
 #define ALIGN8_END
 #else  // gcc or icc
@@ -129,18 +129,18 @@ typedef struct {
 } AecmCore;
 
 ////////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_CreateCore()
+// Aecm_CreateCore()
 //
 // Allocates the memory needed by the AECM. The memory needs to be
-// initialized separately using the WebRtcAecm_InitCore() function.
+// initialized separately using the Aecm_InitCore() function.
 // Returns a pointer to the instance and a nullptr at failure.
-AecmCore* WebRtcAecm_CreateCore();
+AecmCore* Aecm_CreateCore();
 
 ////////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_InitCore(...)
+// Aecm_InitCore(...)
 //
 // This function initializes the AECM instant created with
-// WebRtcAecm_CreateCore()
+// Aecm_CreateCore()
 // Input:
 //      - aecm          : Pointer to the AECM instance
 //      - samplingFreq  : Sampling Frequency
@@ -151,20 +151,20 @@ AecmCore* WebRtcAecm_CreateCore();
 // Return value         :  0 - Ok
 //                        -1 - Error
 //
-int WebRtcAecm_InitCore(AecmCore* const aecm);
+int Aecm_InitCore(AecmCore* const aecm);
 
 ////////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_FreeCore(...)
+// Aecm_FreeCore(...)
 //
-// This function releases the memory allocated by WebRtcAecm_CreateCore()
+// This function releases the memory allocated by Aecm_CreateCore()
 // Input:
 //      - aecm          : Pointer to the AECM instance
 //
-void WebRtcAecm_FreeCore(AecmCore* aecm);
+void Aecm_FreeCore(AecmCore* aecm);
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_InitEchoPathCore(...)
+// Aecm_InitEchoPathCore(...)
 //
 // This function resets the echo channel adaptation with the specified channel.
 // Input:
@@ -175,13 +175,13 @@ void WebRtcAecm_FreeCore(AecmCore* aecm);
 // Output:
 //      - aecm          : Initialized instance
 //
-void WebRtcAecm_InitEchoPathCore(AecmCore* aecm, const int16_t* echo_path);
+void Aecm_InitEchoPathCore(AecmCore* aecm, const int16_t* echo_path);
 
 ////////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_ProcessFrame(...)
+// Aecm_ProcessFrame(...)
 //
 // This function processes frames and sends blocks to
-// WebRtcAecm_ProcessBlock(...)
+// Aecm_ProcessBlock(...)
 //
 // Inputs:
 //      - aecm          : Pointer to the AECM instance
@@ -195,17 +195,17 @@ void WebRtcAecm_InitEchoPathCore(AecmCore* aecm, const int16_t* echo_path);
 //      - out           : Out buffer, one frame of nearend signal          :
 //
 //
-int WebRtcAecm_ProcessFrame(AecmCore* aecm,
+int Aecm_ProcessFrame(AecmCore* aecm,
                             const int16_t* farend,
                             const int16_t* nearendNoisy,
                             const int16_t* nearendClean,
                             int16_t* out);
 
 ////////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_ProcessBlock(...)
+// Aecm_ProcessBlock(...)
 //
 // This function is called for every block within one frame
-// This function is called by WebRtcAecm_ProcessFrame(...)
+// This function is called by Aecm_ProcessFrame(...)
 //
 // Inputs:
 //      - aecm          : Pointer to the AECM instance
@@ -219,14 +219,14 @@ int WebRtcAecm_ProcessFrame(AecmCore* aecm,
 //      - out           : Out buffer, one block of nearend signal          :
 //
 //
-int WebRtcAecm_ProcessBlock(AecmCore* aecm,
+int Aecm_ProcessBlock(AecmCore* aecm,
                             const int16_t* farend,
                             const int16_t* nearendNoisy,
                             const int16_t* noisyClean,
                             int16_t* out);
 
 ////////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_BufferFarFrame()
+// Aecm_BufferFarFrame()
 //
 // Inserts a frame of data into farend buffer.
 //
@@ -235,11 +235,11 @@ int WebRtcAecm_ProcessBlock(AecmCore* aecm,
 //      - farend        : In buffer containing one frame of farend signal
 //      - farLen        : Length of frame
 //
-void WebRtcAecm_BufferFarFrame(AecmCore* const aecm,
+void Aecm_BufferFarFrame(AecmCore* const aecm,
                                const int16_t* const farend);
 
 ////////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_FetchFarFrame()
+// Aecm_FetchFarFrame()
 //
 // Read the farend buffer to account for known delay
 //
@@ -249,14 +249,14 @@ void WebRtcAecm_BufferFarFrame(AecmCore* const aecm,
 //      - farLen        : Length of frame
 //      - knownDelay    : known delay
 //
-void WebRtcAecm_FetchFarFrame(AecmCore* const aecm,
+void Aecm_FetchFarFrame(AecmCore* const aecm,
                               int16_t* const farend,
                               int knownDelay);
 
 // All the functions below are intended to be private
 
 ////////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_UpdateFarHistory()
+// Aecm_UpdateFarHistory()
 //
 // Moves the pointer to the next entry and inserts `far_spectrum` and
 // corresponding Q-domain in its buffer.
@@ -266,18 +266,18 @@ void WebRtcAecm_FetchFarFrame(AecmCore* const aecm,
 //      - far_spectrum  : Pointer to the far end spectrum
 //      - far_q         : Q-domain of far end spectrum
 //
-void WebRtcAecm_UpdateFarHistory(AecmCore* self,
+void Aecm_UpdateFarHistory(AecmCore* self,
                                  uint16_t* far_spectrum,
                                  int far_q);
 
 ////////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_AlignedFarend()
+// Aecm_AlignedFarend()
 //
 // Returns a pointer to the far end spectrum aligned to current near end
-// spectrum. The function WebRtc_DelayEstimatorProcessFix(...) should have been
+// spectrum. The function DelayEstimatorProcessFix(...) should have been
 // called before AlignedFarend(...). Otherwise, you get the pointer to the
 // previous frame. The memory is only valid until the next call of
-// WebRtc_DelayEstimatorProcessFix(...).
+// DelayEstimatorProcessFix(...).
 //
 // Inputs:
 //      - self              : Pointer to the AECM instance.
@@ -290,10 +290,10 @@ void WebRtcAecm_UpdateFarHistory(AecmCore* self,
 //      - far_spectrum      : Pointer to the aligned far end spectrum
 //                            NULL - Error
 //
-const uint16_t* WebRtcAecm_AlignedFarend(AecmCore* self, int* far_q, int delay);
+const uint16_t* Aecm_AlignedFarend(AecmCore* self, int* far_q, int delay);
 
 ///////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_CalcSuppressionGain()
+// Aecm_CalcSuppressionGain()
 //
 // This function calculates the suppression gain that is used in the
 // Wiener filter.
@@ -305,10 +305,10 @@ const uint16_t* WebRtcAecm_AlignedFarend(AecmCore* self, int* far_q, int delay);
 //      - supGain           : Suppression gain with which to scale the noise
 //                            level (Q14).
 //
-int16_t WebRtcAecm_CalcSuppressionGain(AecmCore* const aecm);
+int16_t Aecm_CalcSuppressionGain(AecmCore* const aecm);
 
 ///////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_CalcEnergies()
+// Aecm_CalcEnergies()
 //
 // This function calculates the log of energies for nearend, farend and
 // estimated echoes. There is also an update of energy decision levels,
@@ -324,14 +324,14 @@ int16_t WebRtcAecm_CalcSuppressionGain(AecmCore* const aecm);
 // Output:
 //     - echoEst            : Estimated echo in Q(xfa_q+RESOLUTION_CHANNEL16).
 //
-void WebRtcAecm_CalcEnergies(AecmCore* aecm,
+void Aecm_CalcEnergies(AecmCore* aecm,
                              const uint16_t* far_spectrum,
                              int16_t far_q,
                              uint32_t nearEner,
                              int32_t* echoEst);
 
 ///////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_CalcStepSize()
+// Aecm_CalcStepSize()
 //
 // This function calculates the step size used in channel estimation
 //
@@ -341,10 +341,10 @@ void WebRtcAecm_CalcEnergies(AecmCore* aecm,
 // Return value:
 //      - mu                : Stepsize in log2(), i.e. number of shifts.
 //
-int16_t WebRtcAecm_CalcStepSize(AecmCore* const aecm);
+int16_t Aecm_CalcStepSize(AecmCore* const aecm);
 
 ///////////////////////////////////////////////////////////////////////////////
-// WebRtcAecm_UpdateChannel(...)
+// Aecm_UpdateChannel(...)
 //
 // This function performs channel estimation.
 // NLMS and decision on channel storage.
@@ -359,7 +359,7 @@ int16_t WebRtcAecm_CalcStepSize(AecmCore* const aecm);
 // Input/Output:
 //      - echoEst           : Estimated echo in Q(far_q+RESOLUTION_CHANNEL16).
 //
-void WebRtcAecm_UpdateChannel(AecmCore* aecm,
+void Aecm_UpdateChannel(AecmCore* aecm,
                               const uint16_t* far_spectrum,
                               int16_t far_q,
                               const uint16_t* const dfa,

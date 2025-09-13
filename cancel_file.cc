@@ -50,23 +50,23 @@ int main(int argc, char** argv){
   }
   const size_t kBlockSize = 160; // 10ms @16kHz
   size_t N = std::min(x.samples.size(), y.samples.size()) / kBlockSize;
-  void* aecm = WebRtcAecm_Create();
+  void* aecm = Aecm_Create();
   if (!aecm){ std::fprintf(stderr, "AECM create failed\n"); return 1; }
-  if (WebRtcAecm_Init(aecm) != 0){ std::fprintf(stderr, "AECM init failed\n"); WebRtcAecm_Free(aecm); return 1; }
-  AecmConfig cfg{}; cfg.echoMode = 3; WebRtcAecm_set_config(aecm, cfg);
+  if (Aecm_Init(aecm) != 0){ std::fprintf(stderr, "AECM init failed\n"); Aecm_Free(aecm); return 1; }
+  AecmConfig cfg{}; cfg.echoMode = 3; Aecm_set_config(aecm, cfg);
   std::vector<int16_t> processed;
   processed.resize(N * kBlockSize);
   for (size_t n=0;n<N;n++){
     // Farend/render
-    WebRtcAecm_BufferFarend(aecm, &x.samples[n*kBlockSize]);
+    Aecm_BufferFarend(aecm, &x.samples[n*kBlockSize]);
     // Nearend/capture -> processed
-    WebRtcAecm_Process(aecm,
+    Aecm_Process(aecm,
                                 &y.samples[n*kBlockSize],
                                 nullptr,
                                 &processed[n*kBlockSize],
                                 50 /*msInSndCardBuf*/);
   }
-  WebRtcAecm_Free(aecm);
+  Aecm_Free(aecm);
   // Save processed signal as processed.wav (PCM16 mono 16kHz)
   const uint32_t sr = 16000;
   const uint16_t ch = 1;

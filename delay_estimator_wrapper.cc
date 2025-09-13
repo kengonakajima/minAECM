@@ -31,7 +31,7 @@ static __inline uint32_t SetBit(uint32_t in, int pos) {
   return out;
 }
 
-// Calculates the mean recursively. Same version as WebRtc_MeanEstimatorFix(),
+// Calculates the mean recursively. Same version as MeanEstimatorFix(),
 // but for float.
 //
 // Inputs:
@@ -77,7 +77,7 @@ static uint32_t BinarySpectrumFix(const uint16_t* spectrum,
     // Convert input spectrum from Q(`q_domain`) to Q15.
     int32_t spectrum_q15 = ((int32_t)spectrum[i]) << (15 - q_domain);
     // Update the `threshold_spectrum`.
-    WebRtc_MeanEstimatorFix(spectrum_q15, 6, &(threshold_spectrum[i].int32_));
+    MeanEstimatorFix(spectrum_q15, 6, &(threshold_spectrum[i].int32_));
     // Convert `spectrum` at current frequency bin to a binary value.
     if (spectrum_q15 > threshold_spectrum[i].int32_) {
       out = SetBit(out, i - kBandFirst);
@@ -89,7 +89,7 @@ static uint32_t BinarySpectrumFix(const uint16_t* spectrum,
 
 // Float 版の補助関数は削除（固定小数点のみを使用）
 
-void WebRtc_FreeDelayEstimatorFarend(void* handle) {
+void FreeDelayEstimatorFarend(void* handle) {
   DelayEstimatorFarend* self = (DelayEstimatorFarend*)handle;
 
   if (handle == NULL) {
@@ -99,13 +99,13 @@ void WebRtc_FreeDelayEstimatorFarend(void* handle) {
   free(self->mean_far_spectrum);
   self->mean_far_spectrum = NULL;
 
-  WebRtc_FreeBinaryDelayEstimatorFarend(self->binary_farend);
+  FreeBinaryDelayEstimatorFarend(self->binary_farend);
   self->binary_farend = NULL;
 
   free(self);
 }
 
-void* WebRtc_CreateDelayEstimatorFarend() {
+void* CreateDelayEstimatorFarend() {
   DelayEstimatorFarend* self = NULL;
 
   // Check if the sub band used in the delay estimation is small enough to fit
@@ -119,7 +119,7 @@ void* WebRtc_CreateDelayEstimatorFarend() {
     int memory_fail = 0;
 
     // Allocate memory for the binary far-end spectrum handling.
-    self->binary_farend = WebRtc_CreateBinaryDelayEstimatorFarend(MAX_DELAY);
+    self->binary_farend = CreateBinaryDelayEstimatorFarend(MAX_DELAY);
     memory_fail |= (self->binary_farend == NULL);
 
     // Allocate memory for spectrum buffers.
@@ -130,7 +130,7 @@ void* WebRtc_CreateDelayEstimatorFarend() {
     self->spectrum_size = PART_LEN1;
 
     if (memory_fail) {
-      WebRtc_FreeDelayEstimatorFarend(self);
+      FreeDelayEstimatorFarend(self);
       self = NULL;
     }
   }
@@ -138,7 +138,7 @@ void* WebRtc_CreateDelayEstimatorFarend() {
   return self;
 }
 
-int WebRtc_InitDelayEstimatorFarend(void* handle) {
+int InitDelayEstimatorFarend(void* handle) {
   DelayEstimatorFarend* self = (DelayEstimatorFarend*)handle;
 
   if (self == NULL) {
@@ -146,7 +146,7 @@ int WebRtc_InitDelayEstimatorFarend(void* handle) {
   }
 
   // Initialize far-end part of binary delay estimator.
-  WebRtc_InitBinaryDelayEstimatorFarend(self->binary_farend);
+  InitBinaryDelayEstimatorFarend(self->binary_farend);
 
   // Set averaged far and near end spectra to zero.
   memset(self->mean_far_spectrum, 0,
@@ -159,7 +159,7 @@ int WebRtc_InitDelayEstimatorFarend(void* handle) {
 
 // Soft reset は最小構成では未使用のため削除
 
-int WebRtc_AddFarSpectrumFix(void* handle,
+int AddFarSpectrumFix(void* handle,
                              const uint16_t* far_spectrum,
                              int far_q) {
   DelayEstimatorFarend* self = (DelayEstimatorFarend*)handle;
@@ -180,14 +180,14 @@ int WebRtc_AddFarSpectrumFix(void* handle,
   // Get binary spectrum.
   binary_spectrum = BinarySpectrumFix(far_spectrum, self->mean_far_spectrum,
                                       far_q, &(self->far_spectrum_initialized));
-  WebRtc_AddBinaryFarSpectrum(self->binary_farend, binary_spectrum);
+  AddBinaryFarSpectrum(self->binary_farend, binary_spectrum);
 
   return 0;
 }
 
 // Float 版の AddFarSpectrum は削除
 
-void WebRtc_FreeDelayEstimator(void* handle) {
+void FreeDelayEstimator(void* handle) {
   DelayEstimator* self = (DelayEstimator*)handle;
 
   if (handle == NULL) {
@@ -197,13 +197,13 @@ void WebRtc_FreeDelayEstimator(void* handle) {
   free(self->mean_near_spectrum);
   self->mean_near_spectrum = NULL;
 
-  WebRtc_FreeBinaryDelayEstimator(self->binary_handle);
+  FreeBinaryDelayEstimator(self->binary_handle);
   self->binary_handle = NULL;
 
   free(self);
 }
 
-void* WebRtc_CreateDelayEstimator(void* farend_handle) {
+void* CreateDelayEstimator(void* farend_handle) {
   DelayEstimator* self = NULL;
   DelayEstimatorFarend* farend = (DelayEstimatorFarend*)farend_handle;
 
@@ -216,7 +216,7 @@ void* WebRtc_CreateDelayEstimator(void* farend_handle) {
 
     // Allocate memory for the farend spectrum handling.
     self->binary_handle =
-        WebRtc_CreateBinaryDelayEstimator(farend->binary_farend, 0);
+        CreateBinaryDelayEstimator(farend->binary_farend, 0);
     memory_fail |= (self->binary_handle == NULL);
 
     // Allocate memory for spectrum buffers.
@@ -227,7 +227,7 @@ void* WebRtc_CreateDelayEstimator(void* farend_handle) {
     self->spectrum_size = farend->spectrum_size;
 
     if (memory_fail) {
-      WebRtc_FreeDelayEstimator(self);
+      FreeDelayEstimator(self);
       self = NULL;
     }
   }
@@ -235,7 +235,7 @@ void* WebRtc_CreateDelayEstimator(void* farend_handle) {
   return self;
 }
 
-int WebRtc_InitDelayEstimator(void* handle) {
+int InitDelayEstimator(void* handle) {
   DelayEstimator* self = (DelayEstimator*)handle;
 
   if (self == NULL) {
@@ -243,7 +243,7 @@ int WebRtc_InitDelayEstimator(void* handle) {
   }
 
   // Initialize binary delay estimator.
-  WebRtc_InitBinaryDelayEstimator(self->binary_handle);
+  InitBinaryDelayEstimator(self->binary_handle);
 
   // Set averaged far and near end spectra to zero.
   memset(self->mean_near_spectrum, 0,
@@ -264,7 +264,7 @@ int WebRtc_InitDelayEstimator(void* handle) {
 
 // robust validation 関連APIは削除
 
-int WebRtc_DelayEstimatorProcessFix(void* handle,
+int DelayEstimatorProcessFix(void* handle,
                                     const uint16_t* near_spectrum,
                                     int near_q) {
   DelayEstimator* self = (DelayEstimator*)handle;
@@ -287,7 +287,7 @@ int WebRtc_DelayEstimatorProcessFix(void* handle,
       BinarySpectrumFix(near_spectrum, self->mean_near_spectrum, near_q,
                         &(self->near_spectrum_initialized));
 
-  return WebRtc_ProcessBinarySpectrum(self->binary_handle, binary_spectrum);
+  return ProcessBinarySpectrum(self->binary_handle, binary_spectrum);
 }
 
 // Float 版の推定は削除

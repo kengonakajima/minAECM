@@ -154,7 +154,7 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
   }
 }
 
-// Validates the `candidate_delay`, estimated in WebRtc_ProcessBinarySpectrum(),
+// Validates the `candidate_delay`, estimated in ProcessBinarySpectrum(),
 // based on a mix of counting concurring hits with a modified histogram
 // of recent delay estimates.  In brief a candidate is valid (returns 1) if it
 // is the most likely according to the histogram.  There are a couple of
@@ -224,7 +224,7 @@ static int HistogramBasedValidation(const BinaryDelayEstimator* self,
 }
 
 // Performs a robust validation of the `candidate_delay` estimated in
-// WebRtc_ProcessBinarySpectrum().  The algorithm takes the
+// ProcessBinarySpectrum().  The algorithm takes the
 // `is_instantaneous_valid` and the `is_histogram_valid` and combines them
 // into a robust validation.  The HistogramBasedValidation() has to be called
 // prior to this call.
@@ -233,7 +233,7 @@ static int HistogramBasedValidation(const BinaryDelayEstimator* self,
 // Inputs:
 //  - candidate_delay         : The delay to validate.
 //  - is_instantaneous_valid  : The instantaneous validation performed in
-//                              WebRtc_ProcessBinarySpectrum().
+//                              ProcessBinarySpectrum().
 //  - is_histogram_valid      : The histogram based validation.
 //
 // Return value:
@@ -266,7 +266,7 @@ static int RobustValidation(const BinaryDelayEstimator* self,
   return is_robust;
 }
 
-void WebRtc_FreeBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self) {
+void FreeBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self) {
   if (self == NULL) {
     return;
   }
@@ -280,7 +280,7 @@ void WebRtc_FreeBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self) {
   free(self);
 }
 
-BinaryDelayEstimatorFarend* WebRtc_CreateBinaryDelayEstimatorFarend(
+BinaryDelayEstimatorFarend* CreateBinaryDelayEstimatorFarend(
     int history_size) {
   BinaryDelayEstimatorFarend* self = NULL;
 
@@ -296,14 +296,14 @@ BinaryDelayEstimatorFarend* WebRtc_CreateBinaryDelayEstimatorFarend(
   self->history_size = 0;
   self->binary_far_history = NULL;
   self->far_bit_counts = NULL;
-  if (WebRtc_AllocateFarendBufferMemory(self, history_size) == 0) {
-    WebRtc_FreeBinaryDelayEstimatorFarend(self);
+  if (AllocateFarendBufferMemory(self, history_size) == 0) {
+    FreeBinaryDelayEstimatorFarend(self);
     self = NULL;
   }
   return self;
 }
 
-int WebRtc_AllocateFarendBufferMemory(BinaryDelayEstimatorFarend* self,
+int AllocateFarendBufferMemory(BinaryDelayEstimatorFarend* self,
                                       int history_size) {
   // removed DCHECK(self)
   // (Re-)Allocate memory for history buffers.
@@ -328,7 +328,7 @@ int WebRtc_AllocateFarendBufferMemory(BinaryDelayEstimatorFarend* self,
   return self->history_size;
 }
 
-void WebRtc_InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self) {
+void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self) {
   // removed DCHECK(self)
   memset(self->binary_far_history, 0, sizeof(uint32_t) * self->history_size);
   memset(self->far_bit_counts, 0, sizeof(int) * self->history_size);
@@ -336,7 +336,7 @@ void WebRtc_InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self) {
 
 // Soft reset (farend) は最小構成では未使用のため削除
 
-void WebRtc_AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* handle,
+void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* handle,
                                  uint32_t binary_far_spectrum) {
   // removed DCHECK(handle)
   // Shift binary spectrum history and insert current `binary_far_spectrum`.
@@ -351,7 +351,7 @@ void WebRtc_AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* handle,
   handle->far_bit_counts[0] = BitCount(binary_far_spectrum);
 }
 
-void WebRtc_FreeBinaryDelayEstimator(BinaryDelayEstimator* self) {
+void FreeBinaryDelayEstimator(BinaryDelayEstimator* self) {
   if (self == NULL) {
     return;
   }
@@ -375,7 +375,7 @@ void WebRtc_FreeBinaryDelayEstimator(BinaryDelayEstimator* self) {
   free(self);
 }
 
-BinaryDelayEstimator* WebRtc_CreateBinaryDelayEstimator(
+BinaryDelayEstimator* CreateBinaryDelayEstimator(
     BinaryDelayEstimatorFarend* farend,
     int max_lookahead) {
   BinaryDelayEstimator* self = NULL;
@@ -404,21 +404,21 @@ BinaryDelayEstimator* WebRtc_CreateBinaryDelayEstimator(
   self->binary_near_history = static_cast<uint32_t*>(
       malloc((max_lookahead + 1) * sizeof(*self->binary_near_history)));
   if (self->binary_near_history == NULL ||
-      WebRtc_AllocateHistoryBufferMemory(self, farend->history_size) == 0) {
-    WebRtc_FreeBinaryDelayEstimator(self);
+      AllocateHistoryBufferMemory(self, farend->history_size) == 0) {
+    FreeBinaryDelayEstimator(self);
     self = NULL;
   }
 
   return self;
 }
 
-int WebRtc_AllocateHistoryBufferMemory(BinaryDelayEstimator* self,
+int AllocateHistoryBufferMemory(BinaryDelayEstimator* self,
                                        int history_size) {
   BinaryDelayEstimatorFarend* far = self->farend;
   // (Re-)Allocate memory for spectrum and history buffers.
   if (history_size != far->history_size) {
     // Only update far-end buffers if we need.
-    history_size = WebRtc_AllocateFarendBufferMemory(far, history_size);
+    history_size = AllocateFarendBufferMemory(far, history_size);
   }
   // The extra array element in `mean_bit_counts` and `histogram` is a dummy
   // element only used while `last_delay` == -2, i.e., before we have a valid
@@ -450,7 +450,7 @@ int WebRtc_AllocateHistoryBufferMemory(BinaryDelayEstimator* self,
   return self->history_size;
 }
 
-void WebRtc_InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
+void InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
   int i = 0;
   // removed DCHECK(self)
 
@@ -475,7 +475,7 @@ void WebRtc_InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
 
 // Soft reset は最小構成では未使用のため削除
 
-int WebRtc_ProcessBinarySpectrum(BinaryDelayEstimator* self,
+int ProcessBinarySpectrum(BinaryDelayEstimator* self,
                                  uint32_t binary_near_spectrum) {
   int i = 0;
   int candidate_delay = -1;
@@ -516,7 +516,7 @@ int WebRtc_ProcessBinarySpectrum(BinaryDelayEstimator* self,
       // Make number of right shifts piecewise linear w.r.t. `far_bit_counts`.
       int shifts = kShiftsAtZero;
       shifts -= (kShiftsLinearSlope * self->farend->far_bit_counts[i]) >> 4;
-      WebRtc_MeanEstimatorFix(bit_count, shifts, &(self->mean_bit_counts[i]));
+      MeanEstimatorFix(bit_count, shifts, &(self->mean_bit_counts[i]));
     }
   }
 
@@ -624,7 +624,7 @@ int WebRtc_ProcessBinarySpectrum(BinaryDelayEstimator* self,
 
 // 品質スコア取得APIは最小構成では未使用のため削除
 
-void WebRtc_MeanEstimatorFix(int32_t new_value,
+void MeanEstimatorFix(int32_t new_value,
                              int factor,
                              int32_t* mean_value) {
   int32_t diff = new_value - *mean_value;

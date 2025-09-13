@@ -77,24 +77,24 @@ typedef struct {
 
 // Estimates delay to set the position of the farend buffer read pointer
 // (controlled by knownDelay)
-static int WebRtcAecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf);
+static int Aecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf);
 
 // Stuffs the farend buffer if the estimated delay is too large
-static int WebRtcAecm_DelayComp(AecMobile* aecm);
+static int Aecm_DelayComp(AecMobile* aecm);
 
-void* WebRtcAecm_Create() {
+void* Aecm_Create() {
   // Allocate zero-filled memory.
   AecMobile* aecm = static_cast<AecMobile*>(calloc(1, sizeof(AecMobile)));
 
-  aecm->aecmCore = WebRtcAecm_CreateCore();
+  aecm->aecmCore = Aecm_CreateCore();
   if (!aecm->aecmCore) {
-    WebRtcAecm_Free(aecm);
+    Aecm_Free(aecm);
     return NULL;
   }
 
-  aecm->farendBuf = WebRtc_CreateBuffer(kBufSizeSamp, sizeof(int16_t));
+  aecm->farendBuf = CreateBuffer(kBufSizeSamp, sizeof(int16_t));
   if (!aecm->farendBuf) {
-    WebRtcAecm_Free(aecm);
+    Aecm_Free(aecm);
     return NULL;
   }
 
@@ -102,7 +102,7 @@ void* WebRtcAecm_Create() {
   return aecm;
 }
 
-void WebRtcAecm_Free(void* aecmInst) {
+void Aecm_Free(void* aecmInst) {
   AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
 
   if (aecm == NULL) {
@@ -110,12 +110,12 @@ void WebRtcAecm_Free(void* aecmInst) {
   }
 
   // デバッグファイルクローズは削除
-  WebRtcAecm_FreeCore(aecm->aecmCore);
-  WebRtc_FreeBuffer(aecm->farendBuf);
+  Aecm_FreeCore(aecm->aecmCore);
+  FreeBuffer(aecm->farendBuf);
   free(aecm);
 }
 
-int32_t WebRtcAecm_Init(void* aecmInst) {
+int32_t Aecm_Init(void* aecmInst) {
   AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
   AecmConfig aecConfig;
 
@@ -127,12 +127,12 @@ int32_t WebRtcAecm_Init(void* aecmInst) {
   aecm->sampFreq = 16000;
 
   // Initialize AECM core
-  if (WebRtcAecm_InitCore(aecm->aecmCore) == -1) {
+  if (Aecm_InitCore(aecm->aecmCore) == -1) {
     return AECM_UNSPECIFIED_ERROR;
   }
 
   // Initialize farend buffer
-  WebRtc_InitBuffer(aecm->farendBuf);
+  InitBuffer(aecm->farendBuf);
 
   aecm->initFlag = kInitCheck;  // indicates that initialization has been done
 
@@ -156,7 +156,7 @@ int32_t WebRtcAecm_Init(void* aecmInst) {
   // Default settings (CNGは削除、echoModeのみ設定)。
   aecConfig.echoMode = 3;
 
-  if (WebRtcAecm_set_config(aecm, aecConfig) == -1) {
+  if (Aecm_set_config(aecm, aecConfig) == -1) {
     return AECM_UNSPECIFIED_ERROR;
   }
 
@@ -165,7 +165,7 @@ int32_t WebRtcAecm_Init(void* aecmInst) {
 
 // Returns any error that is caused when buffering the
 // farend signal.
-int32_t WebRtcAecm_BufferFarend(void* aecmInst,
+int32_t Aecm_BufferFarend(void* aecmInst,
                                 const int16_t* farend) {
   AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
   // 最小構成: 簡易チェックのみ
@@ -175,15 +175,15 @@ int32_t WebRtcAecm_BufferFarend(void* aecmInst,
 
   // TODO(unknown): Is this really a good idea?
   if (!aecm->ECstartup) {
-    WebRtcAecm_DelayComp(aecm);
+    Aecm_DelayComp(aecm);
   }
 
-  WebRtc_WriteBuffer(aecm->farendBuf, farend, 160);
+  WriteBuffer(aecm->farendBuf, farend, 160);
 
   return 0;
 }
 
-int32_t WebRtcAecm_Process(void* aecmInst,
+int32_t Aecm_Process(void* aecmInst,
                            const int16_t* nearendNoisy,
                            const int16_t* nearendClean,
                            int16_t* out,
@@ -238,7 +238,7 @@ int32_t WebRtcAecm_Process(void* aecmInst,
     }
 
     nmbrOfFilledBuffers =
-        (short)WebRtc_available_read(aecm->farendBuf) / FRAME_LEN;
+        (short)available_read(aecm->farendBuf) / FRAME_LEN;
     // The AECM is in the start up mode
     // AECM is disabled until the soundcard buffer and farend buffers are OK
 
@@ -256,7 +256,7 @@ int32_t WebRtcAecm_Process(void* aecmInst,
       }
 
       if (abs(aecm->firstVal - aecm->msInSndCardBuf) <
-          WEBRTC_SPL_MAX(0.2 * aecm->msInSndCardBuf, kSampMsNb)) {
+          SPL_MAX(0.2 * aecm->msInSndCardBuf, kSampMsNb)) {
         aecm->sum += aecm->msInSndCardBuf;
         aecm->counter++;
       } else {
@@ -266,7 +266,7 @@ int32_t WebRtcAecm_Process(void* aecmInst,
       if (aecm->counter * nBlocks10ms >= 6) {
         // The farend buffer size is determined in blocks of 80 samples
         // Use 75% of the average value of the soundcard buffer
-        aecm->bufSizeStart = WEBRTC_SPL_MIN(
+        aecm->bufSizeStart = SPL_MIN(
             (3 * aecm->sum * aecm->aecmCore->mult) / (aecm->counter * 40),
             BUF_SIZE_FRAMES);
         // buffersize has now been determined
@@ -276,7 +276,7 @@ int32_t WebRtcAecm_Process(void* aecmInst,
       if (aecm->checkBufSizeCtr * nBlocks10ms > 50) {
         // for really bad sound cards, don't disable echocanceller for more than
         // 0.5 sec
-        aecm->bufSizeStart = WEBRTC_SPL_MIN(
+        aecm->bufSizeStart = SPL_MIN(
             (3 * aecm->msInSndCardBuf * aecm->aecmCore->mult) / 40,
             BUF_SIZE_FRAMES);
         aecm->checkBuffSize = 0;
@@ -293,8 +293,8 @@ int32_t WebRtcAecm_Process(void* aecmInst,
       if (nmbrOfFilledBuffers == aecm->bufSizeStart) {
         aecm->ECstartup = 0;  // Enable the AECM
       } else if (nmbrOfFilledBuffers > aecm->bufSizeStart) {
-        WebRtc_MoveReadPtr(aecm->farendBuf,
-                           (int)WebRtc_available_read(aecm->farendBuf) -
+        MoveReadPtr(aecm->farendBuf,
+                           (int)available_read(aecm->farendBuf) -
                                (int)aecm->bufSizeStart * FRAME_LEN);
         aecm->ECstartup = 0;
       }
@@ -309,12 +309,12 @@ int32_t WebRtcAecm_Process(void* aecmInst,
       const int16_t* farend_ptr = NULL;
 
       nmbrOfFilledBuffers =
-          (short)WebRtc_available_read(aecm->farendBuf) / FRAME_LEN;
+          (short)available_read(aecm->farendBuf) / FRAME_LEN;
 
       // Check that there is data in the far end buffer
       if (nmbrOfFilledBuffers > 0) {
         // Get the next 80 samples from the farend buffer
-        WebRtc_ReadBuffer(aecm->farendBuf, (void**)&farend_ptr, farend,
+        ReadBuffer(aecm->farendBuf, (void**)&farend_ptr, farend,
                           FRAME_LEN);
 
         // Always store the last frame for use when we run out of data
@@ -329,13 +329,13 @@ int32_t WebRtcAecm_Process(void* aecmInst,
       // i,e. i = 0 for NB and i = 1 for WB
       // 16 kHz 固定: 2フレーム目（i==1）でバッファ遅延推定
       if (i == 1) {
-        WebRtcAecm_EstBufDelay(aecm, aecm->msInSndCardBuf);
+        Aecm_EstBufDelay(aecm, aecm->msInSndCardBuf);
       }
 
       // Call the AECM
-      /*WebRtcAecm_ProcessFrame(aecm->aecmCore, farend, &nearend[FRAME_LEN * i],
+      /*Aecm_ProcessFrame(aecm->aecmCore, farend, &nearend[FRAME_LEN * i],
        &out[FRAME_LEN * i], aecm->knownDelay);*/
-      if (WebRtcAecm_ProcessFrame(
+      if (Aecm_ProcessFrame(
               aecm->aecmCore, farend_ptr, &nearendNoisy[FRAME_LEN * i],
               (nearendClean ? &nearendClean[FRAME_LEN * i] : NULL),
               &out[FRAME_LEN * i]) == -1)
@@ -348,7 +348,7 @@ int32_t WebRtcAecm_Process(void* aecmInst,
   return retVal;
 }
 
-int32_t WebRtcAecm_set_config(void* aecmInst, AecmConfig config) {
+int32_t Aecm_set_config(void* aecmInst, AecmConfig config) {
   AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
 
   if (aecm == NULL) {
@@ -418,9 +418,9 @@ int32_t WebRtcAecm_set_config(void* aecmInst, AecmConfig config) {
 
 // Echo path 保存/復元 API は最小構成では未実装（削除）。
 
-static int WebRtcAecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf) {
+static int Aecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf) {
   short delayNew, nSampSndCard;
-  short nSampFar = (short)WebRtc_available_read(aecm->farendBuf);
+  short nSampFar = (short)available_read(aecm->farendBuf);
   short diff;
 
   nSampSndCard = msInSndCardBuf * kSampMsNb * aecm->aecmCore->mult;
@@ -428,12 +428,12 @@ static int WebRtcAecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf) {
   delayNew = nSampSndCard - nSampFar;
 
   if (delayNew < FRAME_LEN) {
-    WebRtc_MoveReadPtr(aecm->farendBuf, FRAME_LEN);
+    MoveReadPtr(aecm->farendBuf, FRAME_LEN);
     delayNew += FRAME_LEN;
   }
 
   aecm->filtDelay =
-      WEBRTC_SPL_MAX(0, (8 * aecm->filtDelay + 2 * delayNew) / 10);
+      SPL_MAX(0, (8 * aecm->filtDelay + 2 * delayNew) / 10);
 
   diff = aecm->filtDelay - aecm->knownDelay;
   if (diff > 224) {
@@ -454,13 +454,13 @@ static int WebRtcAecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf) {
   aecm->lastDelayDiff = diff;
 
   if (aecm->timeForDelayChange > 25) {
-    aecm->knownDelay = WEBRTC_SPL_MAX((int)aecm->filtDelay - 160, 0);
+    aecm->knownDelay = SPL_MAX((int)aecm->filtDelay - 160, 0);
   }
   return 0;
 }
 
-static int WebRtcAecm_DelayComp(AecMobile* aecm) {
-  int nSampFar = (int)WebRtc_available_read(aecm->farendBuf);
+static int Aecm_DelayComp(AecMobile* aecm) {
+  int nSampFar = (int)available_read(aecm->farendBuf);
   int nSampSndCard, delayNew, nSampAdd;
   const int maxStuffSamp = 10 * FRAME_LEN;
 
@@ -471,10 +471,10 @@ static int WebRtcAecm_DelayComp(AecMobile* aecm) {
     // The difference of the buffer sizes is larger than the maximum
     // allowed known delay. Compensate by stuffing the buffer.
     nSampAdd =
-        (int)(WEBRTC_SPL_MAX(((nSampSndCard >> 1) - nSampFar), FRAME_LEN));
-    nSampAdd = WEBRTC_SPL_MIN(nSampAdd, maxStuffSamp);
+        (int)(SPL_MAX(((nSampSndCard >> 1) - nSampFar), FRAME_LEN));
+    nSampAdd = SPL_MIN(nSampAdd, maxStuffSamp);
 
-    WebRtc_MoveReadPtr(aecm->farendBuf, -nSampAdd);
+    MoveReadPtr(aecm->farendBuf, -nSampAdd);
     aecm->delayChange = 1;  // the delay needs to be updated
   }
 

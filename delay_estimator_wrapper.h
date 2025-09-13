@@ -18,41 +18,41 @@
 
  
 
-// Releases the memory allocated by WebRtc_CreateDelayEstimatorFarend(...)
-void WebRtc_FreeDelayEstimatorFarend(void* handle);
+// Releases the memory allocated by CreateDelayEstimatorFarend(...)
+void FreeDelayEstimatorFarend(void* handle);
 
 // Allocates the memory needed by the far-end part of the delay estimation. The
 // memory needs to be initialized separately through
-// WebRtc_InitDelayEstimatorFarend(...).
+// InitDelayEstimatorFarend(...).
 //
 // Inputs:
 //  - spectrum_size     : Size of the spectrum used both in far-end and
 //                        near-end. Used to allocate memory for spectrum
 //                        specific buffers.
 //  - history_size      : The far-end history buffer size. A change in buffer
-//                        size can be forced with WebRtc_set_history_size().
+//                        size can be forced with set_history_size().
 //                        Note that the maximum delay which can be estimated is
-//                        determined together with WebRtc_set_lookahead().
+//                        determined together with set_lookahead().
 //
 // Return value:
 //  - void*             : Created `handle`. If the memory can't be allocated or
 //                        if any of the input parameters are invalid NULL is
 //                        returned.
-void* WebRtc_CreateDelayEstimatorFarend();
+void* CreateDelayEstimatorFarend();
 
 // Initializes the far-end part of the delay estimation instance returned by
-// WebRtc_CreateDelayEstimatorFarend(...)
-int WebRtc_InitDelayEstimatorFarend(void* handle);
+// CreateDelayEstimatorFarend(...)
+int InitDelayEstimatorFarend(void* handle);
 
 // Soft resets the far-end part of the delay estimation instance returned by
-// WebRtc_CreateDelayEstimatorFarend(...).
+// CreateDelayEstimatorFarend(...).
 // Input:
 //      - delay_shift   : The amount of blocks to shift history buffers.
 // Soft reset は教育用最小構成では未使用のため削除
 
 // Adds the far-end spectrum to the far-end history buffer. This spectrum is
 // used as reference when calculating the delay using
-// WebRtc_ProcessSpectrum().
+// ProcessSpectrum().
 //
 // Inputs:
 //    - far_spectrum    : Far-end spectrum.
@@ -63,33 +63,33 @@ int WebRtc_InitDelayEstimatorFarend(void* handle);
 // Output:
 //    - handle          : Updated far-end instance.
 //
-int WebRtc_AddFarSpectrumFix(void* handle,
+int AddFarSpectrumFix(void* handle,
                              const uint16_t* far_spectrum,
                              int far_q);
 
-// See WebRtc_AddFarSpectrumFix() for description.
+// See AddFarSpectrumFix() for description.
 // Float 版の API は削除（固定小数点のみ）
 
-// Releases the memory allocated by WebRtc_CreateDelayEstimator(...)
-void WebRtc_FreeDelayEstimator(void* handle);
+// Releases the memory allocated by CreateDelayEstimator(...)
+void FreeDelayEstimator(void* handle);
 
 // Allocates the memory needed by the delay estimation. The memory needs to be
-// initialized separately through WebRtc_InitDelayEstimator(...).
+// initialized separately through InitDelayEstimator(...).
 //
 // Inputs:
 //      - farend_handle : Pointer to the far-end part of the delay estimation
 //                        instance created prior to this call using
-//                        WebRtc_CreateDelayEstimatorFarend().
+//                        CreateDelayEstimatorFarend().
 //
-//                        Note that WebRtc_CreateDelayEstimator does not take
+//                        Note that CreateDelayEstimator does not take
 //                        ownership of `farend_handle`, which has to be torn
 //                        down properly after this instance.
 //
 //      - max_lookahead : Maximum amount of non-causal lookahead allowed. The
 //                        actual amount of lookahead used can be controlled by
-//                        WebRtc_set_lookahead(...). The default `lookahead` is
+//                        set_lookahead(...). The default `lookahead` is
 //                        set to `max_lookahead` at create time. Use
-//                        WebRtc_set_lookahead(...) before start if a different
+//                        set_lookahead(...) before start if a different
 //                        value is desired.
 //
 //                        Using lookahead can detect cases in which a near-end
@@ -105,20 +105,20 @@ void WebRtc_FreeDelayEstimator(void* handle);
 //                        Note that the effective range of delay estimates is
 //                        [-`lookahead`,... ,`history_size`-`lookahead`)
 //                        where `history_size` is set through
-//                        WebRtc_set_history_size().
+//                        set_history_size().
 //
 // Return value:
 //      - void*         : Created `handle`. If the memory can't be allocated or
 //                        if any of the input parameters are invalid NULL is
 //                        returned.
-void* WebRtc_CreateDelayEstimator(void* farend_handle);
+void* CreateDelayEstimator(void* farend_handle);
 
 // Initializes the delay estimation instance returned by
-// WebRtc_CreateDelayEstimator(...)
-int WebRtc_InitDelayEstimator(void* handle);
+// CreateDelayEstimator(...)
+int InitDelayEstimator(void* handle);
 
 // Soft resets the delay estimation instance returned by
-// WebRtc_CreateDelayEstimator(...)
+// CreateDelayEstimator(...)
 // Input:
 //      - delay_shift   : The amount of blocks to shift history buffers.
 //
@@ -166,15 +166,15 @@ int WebRtc_InitDelayEstimator(void* handle);
 //      - delay         :  >= 0 - Calculated delay value.
 //                        -1    - Error.
 //                        -2    - Insufficient data for estimation.
-int WebRtc_DelayEstimatorProcessFix(void* handle,
+int DelayEstimatorProcessFix(void* handle,
                                     const uint16_t* near_spectrum,
                                     int near_q);
 
-// See WebRtc_DelayEstimatorProcessFix() for description.
+// See DelayEstimatorProcessFix() for description.
 // Float 版の推定 API は削除
 
 // Returns the last calculated delay updated by the function
-// WebRtc_DelayEstimatorProcess(...).
+// DelayEstimatorProcess(...).
 //
 // Input:
 //      - handle        : Pointer to the delay estimation instance.
@@ -186,7 +186,7 @@ int WebRtc_DelayEstimatorProcessFix(void* handle,
 // 最終遅延の直接取得APIは最小構成では未使用のため削除。
 
 // Returns the estimation quality/probability of the last calculated delay
-// updated by the function WebRtc_DelayEstimatorProcess(...). The estimation
+// updated by the function DelayEstimatorProcess(...). The estimation
 // quality is a value in the interval [0, 1]. The higher the value, the better
 // the quality.
 //

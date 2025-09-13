@@ -24,62 +24,62 @@
 // 教材用の最小構成: 依存は最小限にする
 
 // Macros specific for the fixed point implementation
-#define WEBRTC_SPL_WORD16_MAX 32767
-#define WEBRTC_SPL_WORD16_MIN -32768
-#define WEBRTC_SPL_WORD32_MAX (int32_t)0x7fffffff
-#define WEBRTC_SPL_WORD32_MIN (int32_t)0x80000000
-#define WEBRTC_SPL_MAX_LPC_ORDER 14
-#define WEBRTC_SPL_MIN(A, B) (A < B ? A : B)  // Get min value
-#define WEBRTC_SPL_MAX(A, B) (A > B ? A : B)  // Get max value
+#define SPL_WORD16_MAX 32767
+#define SPL_WORD16_MIN -32768
+#define SPL_WORD32_MAX (int32_t)0x7fffffff
+#define SPL_WORD32_MIN (int32_t)0x80000000
+#define SPL_MAX_LPC_ORDER 14
+#define SPL_MIN(A, B) (A < B ? A : B)  // Get min value
+#define SPL_MAX(A, B) (A > B ? A : B)  // Get max value
 // TODO(kma/bjorn): For the next two macros, investigate how to correct the code
-// for inputs of a = WEBRTC_SPL_WORD16_MIN or WEBRTC_SPL_WORD32_MIN.
-#define WEBRTC_SPL_ABS_W16(a) (((int16_t)a >= 0) ? ((int16_t)a) : -((int16_t)a))
-#define WEBRTC_SPL_ABS_W32(a) (((int32_t)a >= 0) ? ((int32_t)a) : -((int32_t)a))
+// for inputs of a = SPL_WORD16_MIN or SPL_WORD32_MIN.
+#define SPL_ABS_W16(a) (((int16_t)a >= 0) ? ((int16_t)a) : -((int16_t)a))
+#define SPL_ABS_W32(a) (((int32_t)a >= 0) ? ((int32_t)a) : -((int32_t)a))
 
-#define WEBRTC_SPL_MUL(a, b) ((int32_t)((int32_t)(a) * (int32_t)(b)))
-#define WEBRTC_SPL_UMUL(a, b) ((uint32_t)((uint32_t)(a) * (uint32_t)(b)))
-#define WEBRTC_SPL_UMUL_32_16(a, b) ((uint32_t)((uint32_t)(a) * (uint16_t)(b)))
-#define WEBRTC_SPL_MUL_16_U16(a, b) ((int32_t)(int16_t)(a) * (uint16_t)(b))
+#define SPL_MUL(a, b) ((int32_t)((int32_t)(a) * (int32_t)(b)))
+#define SPL_UMUL(a, b) ((uint32_t)((uint32_t)(a) * (uint32_t)(b)))
+#define SPL_UMUL_32_16(a, b) ((uint32_t)((uint32_t)(a) * (uint16_t)(b)))
+#define SPL_MUL_16_U16(a, b) ((int32_t)(int16_t)(a) * (uint16_t)(b))
 
 // clang-format off
 // clang-format would choose some indentation leading to presubmit error (cpplint.py)
 // Always use generic C implementations (NEON/MIPS 専用は削除済み)
-#define WEBRTC_SPL_MUL_16_16(a, b) ((int32_t)(((int16_t)(a)) * ((int16_t)(b))))
-#define WEBRTC_SPL_MUL_16_32_RSFT16(a, b) \
-        (WEBRTC_SPL_MUL_16_16(a, b >> 16) +     \
-        ((WEBRTC_SPL_MUL_16_16(a, (b & 0xffff) >> 1) + 0x4000) >> 15))
+#define SPL_MUL_16_16(a, b) ((int32_t)(((int16_t)(a)) * ((int16_t)(b))))
+#define SPL_MUL_16_32_RSFT16(a, b) \
+        (SPL_MUL_16_16(a, b >> 16) +     \
+        ((SPL_MUL_16_16(a, (b & 0xffff) >> 1) + 0x4000) >> 15))
 
-#define WEBRTC_SPL_MUL_16_32_RSFT11(a, b)          \
-        (WEBRTC_SPL_MUL_16_16(a, (b) >> 16) * (1 << 5) + \
-        (((WEBRTC_SPL_MUL_16_U16(a, (uint16_t)(b)) >> 1) + 0x0200) >> 10))
-#define WEBRTC_SPL_MUL_16_32_RSFT14(a, b)          \
-        (WEBRTC_SPL_MUL_16_16(a, (b) >> 16) * (1 << 2) + \
-        (((WEBRTC_SPL_MUL_16_U16(a, (uint16_t)(b)) >> 1) + 0x1000) >> 13))
-#define WEBRTC_SPL_MUL_16_32_RSFT15(a, b)            \
-        ((WEBRTC_SPL_MUL_16_16(a, (b) >> 16) * (1 << 1)) + \
-        (((WEBRTC_SPL_MUL_16_U16(a, (uint16_t)(b)) >> 1) + 0x2000) >> 14))
+#define SPL_MUL_16_32_RSFT11(a, b)          \
+        (SPL_MUL_16_16(a, (b) >> 16) * (1 << 5) + \
+        (((SPL_MUL_16_U16(a, (uint16_t)(b)) >> 1) + 0x0200) >> 10))
+#define SPL_MUL_16_32_RSFT14(a, b)          \
+        (SPL_MUL_16_16(a, (b) >> 16) * (1 << 2) + \
+        (((SPL_MUL_16_U16(a, (uint16_t)(b)) >> 1) + 0x1000) >> 13))
+#define SPL_MUL_16_32_RSFT15(a, b)            \
+        ((SPL_MUL_16_16(a, (b) >> 16) * (1 << 1)) + \
+        (((SPL_MUL_16_U16(a, (uint16_t)(b)) >> 1) + 0x2000) >> 14))
 // clang-format on
 
-#define WEBRTC_SPL_MUL_16_16_RSFT(a, b, c) (WEBRTC_SPL_MUL_16_16(a, b) >> (c))
+#define SPL_MUL_16_16_RSFT(a, b, c) (SPL_MUL_16_16(a, b) >> (c))
 
-#define WEBRTC_SPL_MUL_16_16_RSFT_WITH_ROUND(a, b, c) \
-  ((WEBRTC_SPL_MUL_16_16(a, b) + ((int32_t)(((int32_t)1) << ((c)-1)))) >> (c))
+#define SPL_MUL_16_16_RSFT_WITH_ROUND(a, b, c) \
+  ((SPL_MUL_16_16(a, b) + ((int32_t)(((int32_t)1) << ((c)-1)))) >> (c))
 
 // C + the 32 most significant bits of A * B
-#define WEBRTC_SPL_SCALEDIFF32(A, B, C) \
+#define SPL_SCALEDIFF32(A, B, C) \
   (C + (B >> 16) * A + (((uint32_t)(B & 0x0000FFFF) * A) >> 16))
 
-#define WEBRTC_SPL_SAT(a, b, c) (b > a ? a : b < c ? c : b)
+#define SPL_SAT(a, b, c) (b > a ? a : b < c ? c : b)
 
 // Shifting with negative numbers allowed
 // Positive means left shift
-#define WEBRTC_SPL_SHIFT_W32(x, c) ((c) >= 0 ? (x) * (1 << (c)) : (x) >> -(c))
+#define SPL_SHIFT_W32(x, c) ((c) >= 0 ? (x) * (1 << (c)) : (x) >> -(c))
 
 // Shifting with negative numbers not allowed
 // We cannot do casting here due to signed/unsigned problem
-#define WEBRTC_SPL_LSHIFT_W32(x, c) ((x) << (c))
+#define SPL_LSHIFT_W32(x, c) ((x) << (c))
 
-#define WEBRTC_SPL_RSHIFT_U32(x, c) ((uint32_t)(x) >> (c))
+#define SPL_RSHIFT_U32(x, c) ((uint32_t)(x) >> (c))
 
 // 乱数生成マクロは最小構成では未使用のため削除
 
@@ -87,7 +87,7 @@
 extern "C" {
 #endif
 
-#define WEBRTC_SPL_MEMCPY_W16(v1, v2, length) \
+#define SPL_MEMCPY_W16(v1, v2, length) \
   memcpy(v1, v2, (length) * sizeof(int16_t))
 
 // inline functions:
@@ -102,8 +102,8 @@ extern "C" {
 // Implementation in min_max_operations.c.
 
 // Returns the largest absolute value in a signed 16-bit vector.
-int16_t WebRtcSpl_MaxAbsValueW16C(const int16_t* vector, size_t length);
-#define WebRtcSpl_MaxAbsValueW16 WebRtcSpl_MaxAbsValueW16C
+int16_t Spl_MaxAbsValueW16C(const int16_t* vector, size_t length);
+#define Spl_MaxAbsValueW16 Spl_MaxAbsValueW16C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -114,8 +114,8 @@ int16_t WebRtcSpl_MaxAbsValueW16C(const int16_t* vector, size_t length);
 //      - vector : 32-bit input vector.
 //      - length : Number of samples in vector.
 //
-int32_t WebRtcSpl_MaxAbsValueW32C(const int32_t* vector, size_t length);
-#define WebRtcSpl_MaxAbsValueW32 WebRtcSpl_MaxAbsValueW32C
+int32_t Spl_MaxAbsValueW32C(const int32_t* vector, size_t length);
+#define Spl_MaxAbsValueW32 Spl_MaxAbsValueW32C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -126,8 +126,8 @@ int32_t WebRtcSpl_MaxAbsValueW32C(const int32_t* vector, size_t length);
 //      - vector : 16-bit input vector.
 //      - length : Number of samples in vector.
 //
-int16_t WebRtcSpl_MaxValueW16C(const int16_t* vector, size_t length);
-#define WebRtcSpl_MaxValueW16 WebRtcSpl_MaxValueW16C
+int16_t Spl_MaxValueW16C(const int16_t* vector, size_t length);
+#define Spl_MaxValueW16 Spl_MaxValueW16C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -138,8 +138,8 @@ int16_t WebRtcSpl_MaxValueW16C(const int16_t* vector, size_t length);
 //      - vector : 32-bit input vector.
 //      - length : Number of samples in vector.
 //
-int32_t WebRtcSpl_MaxValueW32C(const int32_t* vector, size_t length);
-#define WebRtcSpl_MaxValueW32 WebRtcSpl_MaxValueW32C
+int32_t Spl_MaxValueW32C(const int32_t* vector, size_t length);
+#define Spl_MaxValueW32 Spl_MaxValueW32C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -150,8 +150,8 @@ int32_t WebRtcSpl_MaxValueW32C(const int32_t* vector, size_t length);
 //      - vector : 16-bit input vector.
 //      - length : Number of samples in vector.
 //
-int16_t WebRtcSpl_MinValueW16C(const int16_t* vector, size_t length);
-#define WebRtcSpl_MinValueW16 WebRtcSpl_MinValueW16C
+int16_t Spl_MinValueW16C(const int16_t* vector, size_t length);
+#define Spl_MinValueW16 Spl_MinValueW16C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -162,8 +162,8 @@ int16_t WebRtcSpl_MinValueW16C(const int16_t* vector, size_t length);
 //      - vector : 32-bit input vector.
 //      - length : Number of samples in vector.
 //
-int32_t WebRtcSpl_MinValueW32C(const int32_t* vector, size_t length);
-#define WebRtcSpl_MinValueW32 WebRtcSpl_MinValueW32C
+int32_t Spl_MinValueW32C(const int32_t* vector, size_t length);
+#define Spl_MinValueW32 Spl_MinValueW32C
 #if 0
 /* NEON/MIPS 専用実装は削除 */
 #endif
@@ -256,8 +256,8 @@ typedef int (*ScaleAndAddVectorsWithRound)(const int16_t* in_vector1,
                                            int right_shifts,
                                            int16_t* out_vector,
                                            size_t length);
-extern const ScaleAndAddVectorsWithRound WebRtcSpl_ScaleAndAddVectorsWithRound;
-int WebRtcSpl_ScaleAndAddVectorsWithRoundC(const int16_t* in_vector1,
+extern const ScaleAndAddVectorsWithRound Spl_ScaleAndAddVectorsWithRound;
+int Spl_ScaleAndAddVectorsWithRoundC(const int16_t* in_vector1,
                                            int16_t in_vector1_scale,
                                            const int16_t* in_vector2,
                                            int16_t in_vector2_scale,
@@ -366,8 +366,8 @@ typedef void (*CrossCorrelation)(int32_t* cross_correlation,
                                  size_t dim_cross_correlation,
                                  int right_shifts,
                                  int step_seq2);
-extern const CrossCorrelation WebRtcSpl_CrossCorrelation;
-void WebRtcSpl_CrossCorrelationC(int32_t* cross_correlation,
+extern const CrossCorrelation Spl_CrossCorrelation;
+void Spl_CrossCorrelationC(int32_t* cross_correlation,
                                  const int16_t* seq1,
                                  const int16_t* seq2,
                                  size_t dim_seq,
@@ -409,11 +409,11 @@ void WebRtcSpl_CrossCorrelationC(int32_t* cross_correlation,
 
 // Divisions. Implementations collected in division_operations.c and
 // descriptions at bottom of this file.
-uint32_t WebRtcSpl_DivU32U16(uint32_t num, uint16_t den);
-int32_t WebRtcSpl_DivW32W16(int32_t num, int16_t den);
-int16_t WebRtcSpl_DivW32W16ResW16(int32_t num, int16_t den);
-int32_t WebRtcSpl_DivResultInQ31(int32_t num, int32_t den);
-int32_t WebRtcSpl_DivW32HiLow(int32_t num, int16_t den_hi, int16_t den_low);
+uint32_t Spl_DivU32U16(uint32_t num, uint16_t den);
+int32_t Spl_DivW32W16(int32_t num, int16_t den);
+int16_t Spl_DivW32W16ResW16(int32_t num, int16_t den);
+int32_t Spl_DivResultInQ31(int32_t num, int32_t den);
+int32_t Spl_DivW32HiLow(int32_t num, int16_t den_hi, int16_t den_low);
 // End: Divisions.
 
 // エネルギー計算（未使用）
@@ -421,7 +421,7 @@ int32_t WebRtcSpl_DivW32HiLow(int32_t num, int16_t den_hi, int16_t den_low);
 // Filter operations.
 // AR/MA フィルタは未使用
 
-// WebRtcSpl_FilterMAFastQ12(...)
+// Spl_FilterMAFastQ12(...)
 //
 // Performs a MA filtering on a vector in Q12
 //
@@ -473,8 +473,8 @@ typedef int (*DownsampleFast)(const int16_t* data_in,
                               size_t coefficients_length,
                               int factor,
                               size_t delay);
-extern const DownsampleFast WebRtcSpl_DownsampleFast;
-int WebRtcSpl_DownsampleFastC(const int16_t* data_in,
+extern const DownsampleFast Spl_DownsampleFast;
+int Spl_DownsampleFastC(const int16_t* data_in,
                               size_t data_in_length,
                               int16_t* data_out,
                               size_t data_out_length,
@@ -490,12 +490,12 @@ int WebRtcSpl_DownsampleFastC(const int16_t* data_in,
 
 // FFT operations（最小限の宣言）
 
-int WebRtcSpl_ComplexFFT(int16_t vector[], int stages, int mode);
-int WebRtcSpl_ComplexIFFT(int16_t vector[], int stages, int mode);
+int Spl_ComplexFFT(int16_t vector[], int stages, int mode);
+int Spl_ComplexIFFT(int16_t vector[], int stages, int mode);
 
 // ビットリバース（説明簡略化）
 
-void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
+void Spl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 
 // End: FFT operations
 
@@ -508,8 +508,8 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 #endif  // COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SIGNAL_PROCESSING_LIBRARY_H_
 
 //
-// WebRtcSpl_AddSatW16(...)
-// WebRtcSpl_AddSatW32(...)
+// Spl_AddSatW16(...)
+// Spl_AddSatW32(...)
 //
 // Returns the result of a saturated 16-bit, respectively 32-bit, addition of
 // the numbers specified by the `var1` and `var2` parameters.
@@ -522,8 +522,8 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// WebRtcSpl_SubSatW16(...)
-// WebRtcSpl_SubSatW32(...)
+// Spl_SubSatW16(...)
+// Spl_SubSatW32(...)
 //
 // Returns the result of a saturated 16-bit, respectively 32-bit, subtraction
 // of the numbers specified by the `var1` and `var2` parameters.
@@ -536,7 +536,7 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// WebRtcSpl_GetSizeInBits(...)
+// Spl_GetSizeInBits(...)
 //
 // Returns the # of bits that are needed at the most to represent the number
 // specified by the `value` parameter.
@@ -548,7 +548,7 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// WebRtcSpl_NormW32(...)
+// Spl_NormW32(...)
 //
 // Norm returns the # of left shifts required to 32-bit normalize the 32-bit
 // signed number specified by the `value` parameter.
@@ -560,7 +560,7 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// WebRtcSpl_NormW16(...)
+// Spl_NormW16(...)
 //
 // Norm returns the # of left shifts required to 16-bit normalize the 16-bit
 // signed number specified by the `value` parameter.
@@ -572,7 +572,7 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// WebRtcSpl_NormU32(...)
+// Spl_NormU32(...)
 //
 // Norm returns the # of left shifts required to 32-bit normalize the unsigned
 // 32-bit number specified by the `value` parameter.
@@ -584,7 +584,7 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// WebRtcSpl_GetScalingSquare(...)
+// Spl_GetScalingSquare(...)
 //
 // Returns the # of bits required to scale the samples specified in the
 // `in_vector` parameter so that, if the squares of the samples are added the
@@ -601,7 +601,7 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// WebRtcSpl_MemSetW16(...)
+// Spl_MemSetW16(...)
 //
 // Sets all the values in the int16_t vector `vector` of length
 // `vector_length` to the specified value `set_value`
@@ -613,7 +613,7 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// WebRtcSpl_MemSetW32(...)
+// Spl_MemSetW32(...)
 //
 // Sets all the values in the int32_t vector `vector` of length
 // `vector_length` to the specified value `set_value`
@@ -625,7 +625,7 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// WebRtcSpl_MemCpyReversedOrder(...)
+// Spl_MemCpyReversedOrder(...)
 //
 // Copies all the values from the source int16_t vector `in_vector` to a
 // destination int16_t vector `out_vector`. It is done in reversed order,
@@ -645,7 +645,7 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// WebRtcSpl_CopyFromEndW16(...)
+// Spl_CopyFromEndW16(...)
 //
 // Copies the rightmost `samples` of `in_vector` (of length `in_vector_length`)
 // to the vector `out_vector`.
@@ -661,8 +661,8 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// WebRtcSpl_ZerosArrayW16(...)
-// WebRtcSpl_ZerosArrayW32(...)
+// Spl_ZerosArrayW16(...)
+// Spl_ZerosArrayW32(...)
 //
 // Inserts the value "zero" in all positions of a w16 and a w32 vector
 // respectively.
@@ -675,8 +675,8 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //
 
 //
-// WebRtcSpl_VectorBitShiftW16(...)
-// WebRtcSpl_VectorBitShiftW32(...)
+// Spl_VectorBitShiftW16(...)
+// Spl_VectorBitShiftW32(...)
 //
 // Bit shifts all the values in a vector up or downwards. Different calls for
 // int16_t and int32_t vectors respectively.
@@ -691,17 +691,17 @@ void WebRtcSpl_ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 //      - out_vector    : Pointer to the result vector (can be the same as
 //                        `in_vector`)
 //
-void WebRtcSpl_VectorBitShiftW16(int16_t* res,
+void Spl_VectorBitShiftW16(int16_t* res,
                                  size_t length,
                                  const int16_t* in,
                                  int16_t right_shifts);
-void WebRtcSpl_VectorBitShiftW32(int32_t* out_vector,
+void Spl_VectorBitShiftW32(int32_t* out_vector,
                                  size_t vector_length,
                                  const int32_t* in_vector,
                                  int16_t right_shifts);
 
 //
-// WebRtcSpl_VectorBitShiftW32ToW16(...)
+// Spl_VectorBitShiftW32ToW16(...)
 //
 // Bit shifts all the values in a int32_t vector up or downwards and
 // stores the result as an int16_t vector. The function will saturate the
@@ -717,13 +717,13 @@ void WebRtcSpl_VectorBitShiftW32(int32_t* out_vector,
 //      - out_vector    : Pointer to the result vector (can be the same as
 //                        `in_vector`)
 //
-void WebRtcSpl_VectorBitShiftW32ToW16(int16_t* out,
+void Spl_VectorBitShiftW32ToW16(int16_t* out,
                                       size_t length,
                                       const int32_t* in,
                                       int right_shifts);
 
 //
-// WebRtcSpl_ScaleVector(...)
+// Spl_ScaleVector(...)
 //
 // Performs the vector operation:
 //  out_vector[k] = (gain*in_vector[k])>>right_shifts
@@ -737,14 +737,14 @@ void WebRtcSpl_VectorBitShiftW32ToW16(int16_t* out,
 // Output:
 //      - out_vector    : Output vector (can be the same as `in_vector`)
 //
-void WebRtcSpl_ScaleVector(const int16_t* in_vector,
+void Spl_ScaleVector(const int16_t* in_vector,
                            int16_t* out_vector,
                            int16_t gain,
                            size_t in_vector_length,
                            int16_t right_shifts);
 
 //
-// WebRtcSpl_ScaleVectorWithSat(...)
+// Spl_ScaleVectorWithSat(...)
 //
 // Performs the vector operation:
 //  out_vector[k] = SATURATE( (gain*in_vector[k])>>right_shifts )
@@ -758,14 +758,14 @@ void WebRtcSpl_ScaleVector(const int16_t* in_vector,
 // Output:
 //      - out_vector    : Output vector (can be the same as `in_vector`)
 //
-void WebRtcSpl_ScaleVectorWithSat(const int16_t* in_vector,
+void Spl_ScaleVectorWithSat(const int16_t* in_vector,
                                   int16_t* out_vector,
                                   int16_t gain,
                                   size_t in_vector_length,
                                   int16_t right_shifts);
 
 //
-// WebRtcSpl_ScaleAndAddVectors(...)
+// Spl_ScaleAndAddVectors(...)
 //
 // Performs the vector operation:
 //  out_vector[k] = (gain1*in_vector1[k])>>right_shifts1
@@ -783,7 +783,7 @@ void WebRtcSpl_ScaleVectorWithSat(const int16_t* in_vector,
 // Output:
 //      - out_vector    : Output vector
 //
-void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
+void Spl_ScaleAndAddVectors(const int16_t* in1,
                                   int16_t gain1,
                                   int shift1,
                                   const int16_t* in2,
@@ -793,7 +793,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
                                   size_t vector_length);
 
 //
-// WebRtcSpl_ReverseOrderMultArrayElements(...)
+// Spl_ReverseOrderMultArrayElements(...)
 //
 // Performs the vector operation:
 //  out_vector[n] = (in_vector[n]*window[-n])>>right_shifts
@@ -811,7 +811,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_ElementwiseVectorMult(...)
+// Spl_ElementwiseVectorMult(...)
 //
 // Performs the vector operation:
 //  out_vector[n] = (in_vector[n]*window[n])>>right_shifts
@@ -828,7 +828,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_AddVectorsAndShift(...)
+// Spl_AddVectorsAndShift(...)
 //
 // Performs the vector operation:
 //  out_vector[k] = (in_vector1[k] + in_vector2[k])>>right_shifts
@@ -845,7 +845,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_AddAffineVectorToVector(...)
+// Spl_AddAffineVectorToVector(...)
 //
 // Adds an affine transformed vector to another vector `out_vector`, i.e,
 // performs
@@ -864,7 +864,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_AffineTransformVector(...)
+// Spl_AffineTransformVector(...)
 //
 // Affine transforms a vector, i.e, performs
 //  out_vector[k] = (in_vector[k]*gain+add_constant)>>right_shifts
@@ -882,7 +882,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_IncreaseSeed(...)
+// Spl_IncreaseSeed(...)
 //
 // Increases the seed (and returns the new value)
 //
@@ -896,7 +896,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_RandU(...)
+// Spl_RandU(...)
 //
 // Produces a uniformly distributed value in the int16_t range
 //
@@ -911,7 +911,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_RandN(...)
+// Spl_RandN(...)
 //
 // Produces a normal distributed value in the int16_t range
 //
@@ -925,7 +925,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_RandUArray(...)
+// Spl_RandUArray(...)
 //
 // Produces a uniformly distributed vector with elements in the int16_t
 // range
@@ -942,7 +942,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_Sqrt(...)
+// Spl_Sqrt(...)
 //
 // Returns the square root of the input value `value`. The precision of this
 // function is integer precision, i.e., sqrt(8) gives 2 as answer.
@@ -964,7 +964,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_DivU32U16(...)
+// Spl_DivU32U16(...)
 //
 // Divides a uint32_t `num` by a uint16_t `den`.
 //
@@ -979,7 +979,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_DivW32W16(...)
+// Spl_DivW32W16(...)
 //
 // Divides a int32_t `num` by a int16_t `den`.
 //
@@ -994,7 +994,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_DivW32W16ResW16(...)
+// Spl_DivW32W16ResW16(...)
 //
 // Divides a int32_t `num` by a int16_t `den`, assuming that the
 // result is less than 32768, otherwise an unpredictable result will occur.
@@ -1010,7 +1010,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_DivResultInQ31(...)
+// Spl_DivResultInQ31(...)
 //
 // Divides a int32_t `num` by a int16_t `den`, assuming that the
 // absolute value of the denominator is larger than the numerator, otherwise
@@ -1024,7 +1024,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_DivW32HiLow(...)
+// Spl_DivW32HiLow(...)
 //
 // Divides a int32_t `num` by a denominator in hi, low format. The
 // absolute value of the denominator has to be larger (or equal to) the
@@ -1039,7 +1039,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_Energy(...)
+// Spl_Energy(...)
 //
 // Calculates the energy of a vector
 //
@@ -1055,7 +1055,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_FilterAR(...)
+// Spl_FilterAR(...)
 //
 // Performs a 32-bit AR filtering on a vector in Q12
 //
@@ -1084,7 +1084,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_ComplexIFFT(...)
+// Spl_ComplexIFFT(...)
 //
 // Complex Inverse FFT
 //
@@ -1110,7 +1110,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //                    Value below.
 //
 //      - stages    : Number of FFT stages. Must be at least 3 and at most 10,
-//                    since the table WebRtcSpl_kSinTable1024[] is 1024
+//                    since the table Spl_kSinTable1024[] is 1024
 //                    elements long.
 //
 //      - mode      : This parameter gives the user to choose how the FFT
@@ -1130,7 +1130,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_ComplexFFT(...)
+// Spl_ComplexFFT(...)
 //
 // Complex FFT
 //
@@ -1159,7 +1159,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //                    The output is in the Q0 domain.
 //
 //      - stages    : Number of FFT stages. Must be at least 3 and at most 10,
-//                    since the table WebRtcSpl_kSinTable1024[] is 1024
+//                    since the table Spl_kSinTable1024[] is 1024
 //                    elements long.
 //
 //      - mode      : This parameter gives the user to choose how the FFT
@@ -1175,7 +1175,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_AnalysisQMF(...)
+// Spl_AnalysisQMF(...)
 //
 // Splits a 0-2*F Hz signal into two sub bands: 0-F Hz and F-2*F Hz. The
 // current version has F = 8000, therefore, a super-wideband audio signal is
@@ -1195,7 +1195,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //
 
 //
-// WebRtcSpl_SynthesisQMF(...)
+// Spl_SynthesisQMF(...)
 //
 // Combines the two sub bands (0-F and F-2*F Hz) into a signal of 0-2*F
 // Hz, (current version has F = 8000 Hz). So the filter combines lower-band
@@ -1214,7 +1214,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //      - out_data      : Super-wideband speech signal, 0-16 kHz
 //
 
-// int16_t WebRtcSpl_SatW32ToW16(...)
+// int16_t Spl_SatW32ToW16(...)
 //
 // This function saturates a 32-bit word into a 16-bit word.
 //
@@ -1225,7 +1225,7 @@ void WebRtcSpl_ScaleAndAddVectors(const int16_t* in1,
 //      - out16     : the saturated 16-bit word.
 //
 
-// int32_t WebRtc_MulAccumW16(...)
+// int32_t MulAccumW16(...)
 //
 // This function multiply a 16-bit word by a 16-bit word, and accumulate this
 // value to a 32-bit integer.

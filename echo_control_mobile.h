@@ -39,19 +39,19 @@ extern "C" {
 
 /*
  * Allocates the memory needed by the AECM. The memory needs to be
- * initialized separately using the WebRtcAecm_Init() function.
+ * initialized separately using the Aecm_Init() function.
  * Returns a pointer to the instance and a nullptr at failure.
  */
-void* WebRtcAecm_Create();
+void* Aecm_Create();
 
 /*
- * This function releases the memory allocated by WebRtcAecm_Create()
+ * This function releases the memory allocated by Aecm_Create()
  *
  * Inputs                       Description
  * -------------------------------------------------------------------
  * void*    aecmInst            Pointer to the AECM instance
  */
-void WebRtcAecm_Free(void* aecmInst);
+void Aecm_Free(void* aecmInst);
 
 /*
  * Initializes an AECM instance (16 kHz 固定)。
@@ -65,7 +65,7 @@ void WebRtcAecm_Free(void* aecmInst);
  * int32_t        return        0: OK
  *                              1200-12004,12100: error/warning
  */
-int32_t WebRtcAecm_Init(void* aecmInst);
+int32_t Aecm_Init(void* aecmInst);
 
 /*
  * Inserts a 160 sample block of data into the farend buffer (16 kHz mono)。
@@ -81,7 +81,7 @@ int32_t WebRtcAecm_Init(void* aecmInst);
  * int32_t        return        0: OK
  *                              1200-12004,12100: error/warning
  */
-int32_t WebRtcAecm_BufferFarend(void* aecmInst,
+int32_t Aecm_BufferFarend(void* aecmInst,
                                 const int16_t* farend);
 
 /*
@@ -113,7 +113,7 @@ int32_t WebRtcAecm_BufferFarend(void* aecmInst,
  * int32_t        return         0: OK
  *                               1200-12004,12100: error/warning
  */
-int32_t WebRtcAecm_Process(void* aecmInst,
+int32_t Aecm_Process(void* aecmInst,
                            const int16_t* nearendNoisy,
                            const int16_t* nearendClean,
                            int16_t* out,
@@ -133,7 +133,7 @@ int32_t WebRtcAecm_Process(void* aecmInst,
  * int32_t        return        0: OK
  *                              1200-12004,12100: error/warning
  */
-int32_t WebRtcAecm_set_config(void* aecmInst, AecmConfig config);
+int32_t Aecm_set_config(void* aecmInst, AecmConfig config);
 
 /* Echo path の保存/復元 API は教育用最小構成では未使用のため削除。 */
 

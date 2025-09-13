@@ -10,7 +10,7 @@
 
 
 /*
- * This file contains the function WebRtcSpl_ComplexFFT().
+ * This file contains the function Spl_ComplexFFT().
  * The description header can be found in signal_processing_library.h
  *
  */
@@ -26,7 +26,7 @@
 #define CIFFTRND 1
 
 
-int WebRtcSpl_ComplexFFT(int16_t frfi[], int stages, int mode)
+int Spl_ComplexFFT(int16_t frfi[], int stages, int mode)
 {
     int i, j, l, k, istep, n, m;
     int16_t wr, wi;
@@ -133,7 +133,7 @@ int WebRtcSpl_ComplexFFT(int16_t frfi[], int stages, int mode)
     return 0;
 }
 
-int WebRtcSpl_ComplexIFFT(int16_t frfi[], int stages, int mode)
+int Spl_ComplexIFFT(int16_t frfi[], int stages, int mode)
 {
     size_t i, j, l, istep, n, m;
     int k, scale, shift;
@@ -160,7 +160,7 @@ int WebRtcSpl_ComplexIFFT(int16_t frfi[], int stages, int mode)
         shift = 0;
         round2 = 8192;
 
-        tmp32 = WebRtcSpl_MaxAbsValueW16(frfi, 2 * n);
+        tmp32 = Spl_MaxAbsValueW16(frfi, 2 * n);
         if (tmp32 > 13573)
         {
             shift++;

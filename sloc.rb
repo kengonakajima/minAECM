@@ -123,11 +123,13 @@ end
 options = {
   root: ARGV[0] || '.',
   details: true,
+  list_files: true,
 }
 
 OptionParser.new do |opt|
   opt.banner = 'Usage: ruby sloc.rb [PATH]'
   opt.on('--no-details', 'Do not show per-extension breakdown') { options[:details] = false }
+  opt.on('--no-files', 'Do not show per-file ranking') { options[:list_files] = false }
 end.parse!(ARGV[1..] || [])
 
 root = options[:root]
@@ -139,6 +141,7 @@ end
 per_ext = Hash.new { |h, k| h[k] = { files: 0, sloc: 0 } }
 total_files = 0
 total_sloc = 0
+files = []
 
 Find.find(root) do |path|
   if File.directory?(path)
@@ -160,6 +163,7 @@ Find.find(root) do |path|
   per_ext[ext][:sloc] += sloc
   total_files += 1
   total_sloc += sloc
+  files << [path, sloc]
 end
 
 if options[:details]
@@ -175,3 +179,10 @@ end
 puts format('Total files: %d', total_files)
 puts format('Total SLOC : %d', total_sloc)
 
+if options[:list_files]
+  puts
+  puts 'SLOC by file (desc):'
+  files.sort_by { |(_p, s)| -s }.each do |path, sloc|
+    puts format('%8d  %s', sloc, path)
+  end
+end

@@ -11,11 +11,11 @@
 
 /*
  * This file contains implementations of the divisions
- * WebRtcSpl_DivU32U16()
- * WebRtcSpl_DivW32W16()
- * WebRtcSpl_DivW32W16ResW16()
- * WebRtcSpl_DivResultInQ31()
- * WebRtcSpl_DivW32HiLow()
+ * Spl_DivU32U16()
+ * Spl_DivW32W16()
+ * Spl_DivW32W16ResW16()
+ * Spl_DivResultInQ31()
+ * Spl_DivW32HiLow()
  *
  * The description header can be found in signal_processing_library.h
  *
@@ -23,7 +23,7 @@
 
 #include "signal_processing_library.h"
 
-uint32_t WebRtcSpl_DivU32U16(uint32_t num, uint16_t den)
+uint32_t Spl_DivU32U16(uint32_t num, uint16_t den)
 {
     // Guard against division with 0
     if (den != 0)
@@ -35,7 +35,7 @@ uint32_t WebRtcSpl_DivU32U16(uint32_t num, uint16_t den)
     }
 }
 
-int32_t WebRtcSpl_DivW32W16(int32_t num, int16_t den)
+int32_t Spl_DivW32W16(int32_t num, int16_t den)
 {
     // Guard against division with 0
     if (den != 0)
@@ -47,7 +47,7 @@ int32_t WebRtcSpl_DivW32W16(int32_t num, int16_t den)
     }
 }
 
-int16_t WebRtcSpl_DivW32W16ResW16(int32_t num, int16_t den)
+int16_t Spl_DivW32W16ResW16(int32_t num, int16_t den)
 {
     // Guard against division with 0
     if (den != 0)
@@ -59,7 +59,7 @@ int16_t WebRtcSpl_DivW32W16ResW16(int32_t num, int16_t den)
     }
 }
 
-int32_t WebRtcSpl_DivResultInQ31(int32_t num, int32_t den)
+int32_t Spl_DivResultInQ31(int32_t num, int32_t den)
 {
     int32_t L_num = num;
     int32_t L_den = den;
@@ -97,12 +97,12 @@ int32_t WebRtcSpl_DivResultInQ31(int32_t num, int32_t den)
     return div;
 }
 
-int32_t WebRtcSpl_DivW32HiLow(int32_t num, int16_t den_hi, int16_t den_low)
+int32_t Spl_DivW32HiLow(int32_t num, int16_t den_hi, int16_t den_low)
 {
     int16_t approx, tmp_hi, tmp_low, num_hi, num_low;
     int32_t tmpW32;
 
-    approx = (int16_t)WebRtcSpl_DivW32W16((int32_t)0x1FFFFFFF, den_hi);
+    approx = (int16_t)Spl_DivW32W16((int32_t)0x1FFFFFFF, den_hi);
     // result in Q14 (Note: 3FFFFFFF = 0.5 in Q30)
 
     // tmpW32 = 1/den = approx * (2.0 - den * approx) (in Q30)
@@ -133,7 +133,7 @@ int32_t WebRtcSpl_DivW32HiLow(int32_t num, int16_t den_hi, int16_t den_low)
         (num_low * tmp_hi >> 15);
 
     // Put result in Q31 (convert from Q28)
-    tmpW32 = WEBRTC_SPL_LSHIFT_W32(tmpW32, 3);
+    tmpW32 = SPL_LSHIFT_W32(tmpW32, 3);
 
     return tmpW32;
 }
