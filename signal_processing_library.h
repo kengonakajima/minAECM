@@ -81,7 +81,7 @@
 
 #define WEBRTC_SPL_RSHIFT_U32(x, c) ((uint32_t)(x) >> (c))
 
-#define WEBRTC_SPL_RAND(a) ((int16_t)((((int16_t)a * 18816) >> 7) & 0x00007fff))
+// 乱数生成マクロは最小構成では未使用のため削除
 
 #ifdef __cplusplus
 extern "C" {
