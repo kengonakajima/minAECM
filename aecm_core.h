@@ -56,7 +56,6 @@ typedef struct {
   // Delay estimation variables
   void* delay_estimator_farend;
   void* delay_estimator;
-  uint16_t currentDelay;
   // Far end history variables
   // TODO(bjornv): Replace `far_history` with ring_buffer.
   uint16_t far_history[PART_LEN1 * MAX_DELAY];

@@ -265,7 +265,6 @@ static void ResetAdaptiveChannelC(AecmCore* aecm) {
 //                        -1 - Error
 //
 int WebRtcAecm_InitCore(AecmCore* const aecm, int samplingFreq) {
-  int i = 0;
 
   if (samplingFreq != 16000) {
     return -1;

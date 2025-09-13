@@ -24,7 +24,7 @@ int WebRtcSpl_DownsampleFastC(const int16_t* data_in,
                               size_t coefficients_length,
                               int factor,
                               size_t delay) {
-  int16_t* const original_data_out = data_out;
+  // 出力ポインタの初期値は未使用のため削除
   size_t i = 0;
   size_t j = 0;
   int32_t out_s32 = 0;
