@@ -145,9 +145,7 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
   int32_t tmp32no1 = 0;
   int32_t tmp32no2 = 0;
 
-  // In fft_buf, +16 for 32-byte alignment.
-  int16_t fft_buf[PART_LEN4 + 16];
-  int16_t* fft = (int16_t*)(((uintptr_t)fft_buf + 31) & ~31);
+  int16_t fft[PART_LEN4];
 
   int16_t tmp16no1;
   int16_t tmp16no2;
@@ -250,17 +248,11 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   uint16_t* ptrDfaClean = dfaNoisy;
   const uint16_t* far_spectrum_ptr = NULL;
 
-  // 32 byte aligned buffers (with +8 or +16).
-  // TODO(kma): define fft with ComplexInt16.
-  int16_t fft_buf[PART_LEN4 + 2 + 16];  // +2 to make a loop safe.
-  int32_t echoEst32_buf[PART_LEN1 + 8];
-  int32_t dfw_buf[PART_LEN2 + 8];
-  int32_t efw_buf[PART_LEN2 + 8];
-
-  int16_t* fft = (int16_t*)(((uintptr_t)fft_buf + 31) & ~31);
-  int32_t* echoEst32 = (int32_t*)(((uintptr_t)echoEst32_buf + 31) & ~31);
-  ComplexInt16* dfw = (ComplexInt16*)(((uintptr_t)dfw_buf + 31) & ~31);
-  ComplexInt16* efw = (ComplexInt16*)(((uintptr_t)efw_buf + 31) & ~31);
+  // シンプルなローカル配列（手動アラインメント不要）
+  int16_t fft[PART_LEN4 + 2];  // +2 to make a loop safe.
+  int32_t echoEst32[PART_LEN1];
+  ComplexInt16 dfw[PART_LEN2];
+  ComplexInt16 efw[PART_LEN2];
 
   int16_t hnl[PART_LEN1];
   int16_t numPosCoef = 0;

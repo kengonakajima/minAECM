@@ -76,24 +76,13 @@ typedef struct {
   int16_t echoAdaptLogEnergy[MAX_BUF_LEN];
   int16_t echoStoredLogEnergy[MAX_BUF_LEN];
 
-  // The extra 16 or 32 bytes in the following buffers are for alignment based
-  // Neon code.
-  // It's designed this way since the current GCC compiler can't align a
-  // buffer in 16 or 32 byte boundaries properly.
-  int16_t channelStored_buf[PART_LEN1 + 8];
-  int16_t channelAdapt16_buf[PART_LEN1 + 8];
-  int32_t channelAdapt32_buf[PART_LEN1 + 8];
-  int16_t xBuf_buf[PART_LEN2 + 16];       // farend
-  int16_t dBufNoisy_buf[PART_LEN2 + 16];  // nearend
-  int16_t outBuf_buf[PART_LEN + 8];
-
-  // Pointers to the above buffers
-  int16_t* channelStored;
-  int16_t* channelAdapt16;
-  int32_t* channelAdapt32;
-  int16_t* xBuf;
-  int16_t* dBufNoisy;
-  int16_t* outBuf;
+  // バッファは素直な配列として保持（NEON用のアラインメントは不要）
+  int16_t channelStored[PART_LEN1];
+  int16_t channelAdapt16[PART_LEN1];
+  int32_t channelAdapt32[PART_LEN1];
+  int16_t xBuf[PART_LEN2];       // farend
+  int16_t dBufNoisy[PART_LEN2];  // nearend
+  int16_t outBuf[PART_LEN];
 
   int32_t echoFilt[PART_LEN1];
   int16_t nearFilt[PART_LEN1];

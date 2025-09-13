@@ -147,17 +147,7 @@ AecmCore* Aecm_CreateCore() {
     return NULL;
   }
 
-  // Init some aecm pointers. 16 and 32 byte alignment is only necessary
-  // for Neon code currently.
-  aecm->xBuf = (int16_t*)(((uintptr_t)aecm->xBuf_buf + 31) & ~31);
-  aecm->dBufNoisy = (int16_t*)(((uintptr_t)aecm->dBufNoisy_buf + 31) & ~31);
-  aecm->outBuf = (int16_t*)(((uintptr_t)aecm->outBuf_buf + 15) & ~15);
-  aecm->channelStored =
-      (int16_t*)(((uintptr_t)aecm->channelStored_buf + 15) & ~15);
-  aecm->channelAdapt16 =
-      (int16_t*)(((uintptr_t)aecm->channelAdapt16_buf + 15) & ~15);
-  aecm->channelAdapt32 =
-      (int32_t*)(((uintptr_t)aecm->channelAdapt32_buf + 31) & ~31);
+  // バッファは配列をそのまま使用（手動アラインメントは不要）
 
   return aecm;
 }
@@ -266,9 +256,9 @@ int Aecm_InitCore(AecmCore* const aecm) {
   InitBuffer(aecm->nearNoisyFrameBuf);
   InitBuffer(aecm->outFrameBuf);
 
-  memset(aecm->xBuf_buf, 0, sizeof(aecm->xBuf_buf));
-  memset(aecm->dBufNoisy_buf, 0, sizeof(aecm->dBufNoisy_buf));
-  memset(aecm->outBuf_buf, 0, sizeof(aecm->outBuf_buf));
+  memset(aecm->xBuf, 0, sizeof(aecm->xBuf));
+  memset(aecm->dBufNoisy, 0, sizeof(aecm->dBufNoisy));
+  memset(aecm->outBuf, 0, sizeof(aecm->outBuf));
 
   aecm->totCount = 0;
 
@@ -352,8 +342,7 @@ int Aecm_ProcessFrame(AecmCore* aecm,
                             const int16_t* farend,
                             const int16_t* nearend,
                             int16_t* out) {
-  int16_t outBlock_buf[PART_LEN + 8];  // Align buffer to 8-byte boundary.
-  int16_t* outBlock = (int16_t*)(((uintptr_t)outBlock_buf + 15) & ~15);
+  int16_t outBlock[PART_LEN];
 
   int16_t farFrame[FRAME_LEN];
   const int16_t* out_ptr = NULL;
