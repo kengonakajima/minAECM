@@ -34,7 +34,8 @@ extern "C" {
 
 static const size_t kBufSizeSamp =
     BUF_SIZE_FRAMES * FRAME_LEN;  // buffer size (samples)
-static const int kSampMsNb = 8;   // samples per ms in nb
+// 16kHz固定のため、1msあたり16サンプル
+static const int kSamplesPerMs16k = 16;
 // Target suppression levels for nlp modes
 // log{0.001, 0.00001, 0.00000001}
 static const int kInitCheck = 42;
@@ -190,7 +191,6 @@ int32_t Aecm_Process(void* aecmInst,
   int32_t retVal = 0;
   size_t i;
   short nmbrOfFilledBuffers;
-  size_t nBlocks10ms;
   size_t nFrames;
   // デバッグ出力用の変数は削除
 
@@ -223,8 +223,7 @@ int32_t Aecm_Process(void* aecmInst,
   msInSndCardBuf += 10;
   aecm->msInSndCardBuf = msInSndCardBuf;
 
-  nFrames = nrOfSamples / FRAME_LEN;
-  nBlocks10ms = nFrames / aecm->aecmCore->mult;
+  nFrames = nrOfSamples / FRAME_LEN; // 160/80=2（16kHz固定）
 
   if (aecm->ECstartup) {
     if (out != nearend) {
@@ -250,28 +249,29 @@ int32_t Aecm_Process(void* aecmInst,
       }
 
       if (abs(aecm->firstVal - aecm->msInSndCardBuf) <
-          MAX(0.2 * aecm->msInSndCardBuf, kSampMsNb)) {
+          MAX(0.2 * aecm->msInSndCardBuf, 8)) { // しきい値は従来のNB値(8ms)相当で据え置き
         aecm->sum += aecm->msInSndCardBuf;
         aecm->counter++;
       } else {
         aecm->counter = 0;
       }
 
-      if (aecm->counter * nBlocks10ms >= 6) {
+      if (aecm->counter >= 6) {
         // The farend buffer size is determined in blocks of 80 samples
         // Use 75% of the average value of the soundcard buffer
+        // 16k: 10msは80サンプル×2ブロック -> 0.75 * 平均ms * 2 / 10ms
         aecm->bufSizeStart = MIN(
-            (3 * aecm->sum * aecm->aecmCore->mult) / (aecm->counter * 40),
+            (3 * aecm->sum * 2) / (aecm->counter * 40),
             BUF_SIZE_FRAMES);
         // buffersize has now been determined
         aecm->checkBuffSize = 0;
       }
 
-      if (aecm->checkBufSizeCtr * nBlocks10ms > 50) {
+      if (aecm->checkBufSizeCtr > 50) {
         // for really bad sound cards, don't disable echocanceller for more than
         // 0.5 sec
         aecm->bufSizeStart = MIN(
-            (3 * aecm->msInSndCardBuf * aecm->aecmCore->mult) / 40,
+            (3 * aecm->msInSndCardBuf * 2) / 40,
             BUF_SIZE_FRAMES);
         aecm->checkBuffSize = 0;
       }
@@ -297,7 +297,7 @@ int32_t Aecm_Process(void* aecmInst,
   } else {
     // AECM is enabled
 
-    // Note only 1 block supported for nb and 2 blocks for wb
+    // 16kHz: 10msは80サンプル×2ブロック
     for (i = 0; i < nFrames; i++) {
       int16_t farend[FRAME_LEN];
       const int16_t* farend_ptr = NULL;
@@ -319,10 +319,8 @@ int32_t Aecm_Process(void* aecmInst,
         farend_ptr = farend;
       }
 
-      // Call buffer delay estimator when all data is extracted,
-      // i,e. i = 0 for NB and i = 1 for WB
-      // 16 kHz 固定: 2フレーム目（i==1）でバッファ遅延推定
-      if (i == 1) {
+      // 10ms（2ブロック）取り出し終わりのタイミングで1回だけ遅延推定
+      if (i == nFrames - 1) {
         Aecm_EstBufDelay(aecm, aecm->msInSndCardBuf);
       }
 
@@ -416,7 +414,7 @@ static int Aecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf) {
   short nSampFar = (short)available_read(aecm->farendBuf);
   short diff;
 
-  nSampSndCard = msInSndCardBuf * kSampMsNb * aecm->aecmCore->mult;
+  nSampSndCard = msInSndCardBuf * kSamplesPerMs16k;
 
   delayNew = nSampSndCard - nSampFar;
 
@@ -457,10 +455,10 @@ static int Aecm_DelayComp(AecMobile* aecm) {
   int nSampSndCard, delayNew, nSampAdd;
   const int maxStuffSamp = 10 * FRAME_LEN;
 
-  nSampSndCard = aecm->msInSndCardBuf * kSampMsNb * aecm->aecmCore->mult;
+  nSampSndCard = aecm->msInSndCardBuf * kSamplesPerMs16k;
   delayNew = nSampSndCard - nSampFar;
 
-  if (delayNew > FAR_BUF_LEN - FRAME_LEN * aecm->aecmCore->mult) {
+  if (delayNew > FAR_BUF_LEN - FRAME_LEN * 2) {
     // The difference of the buffer sizes is larger than the maximum
     // allowed known delay. Compensate by stuffing the buffer.
     nSampAdd =
