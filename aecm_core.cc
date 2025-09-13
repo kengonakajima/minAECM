@@ -118,12 +118,7 @@ AecmCore* Aecm_CreateCore() {
     return NULL;
   }
 
-  aecm->nearCleanFrameBuf =
-      CreateBuffer(FRAME_LEN + PART_LEN, sizeof(int16_t));
-  if (!aecm->nearCleanFrameBuf) {
-    Aecm_FreeCore(aecm);
-    return NULL;
-  }
+  // nearCleanFrameBuf は最小構成では未使用のため削除
 
   aecm->outFrameBuf =
       CreateBuffer(FRAME_LEN + PART_LEN, sizeof(int16_t));
@@ -155,7 +150,6 @@ AecmCore* Aecm_CreateCore() {
   // Init some aecm pointers. 16 and 32 byte alignment is only necessary
   // for Neon code currently.
   aecm->xBuf = (int16_t*)(((uintptr_t)aecm->xBuf_buf + 31) & ~31);
-  aecm->dBufClean = (int16_t*)(((uintptr_t)aecm->dBufClean_buf + 31) & ~31);
   aecm->dBufNoisy = (int16_t*)(((uintptr_t)aecm->dBufNoisy_buf + 31) & ~31);
   aecm->outBuf = (int16_t*)(((uintptr_t)aecm->outBuf_buf + 15) & ~15);
   aecm->channelStored =
@@ -270,11 +264,9 @@ int Aecm_InitCore(AecmCore* const aecm) {
 
   InitBuffer(aecm->farFrameBuf);
   InitBuffer(aecm->nearNoisyFrameBuf);
-  InitBuffer(aecm->nearCleanFrameBuf);
   InitBuffer(aecm->outFrameBuf);
 
   memset(aecm->xBuf_buf, 0, sizeof(aecm->xBuf_buf));
-  memset(aecm->dBufClean_buf, 0, sizeof(aecm->dBufClean_buf));
   memset(aecm->dBufNoisy_buf, 0, sizeof(aecm->dBufNoisy_buf));
   memset(aecm->outBuf_buf, 0, sizeof(aecm->outBuf_buf));
 
@@ -347,7 +339,6 @@ void Aecm_FreeCore(AecmCore* aecm) {
 
   FreeBuffer(aecm->farFrameBuf);
   FreeBuffer(aecm->nearNoisyFrameBuf);
-  FreeBuffer(aecm->nearCleanFrameBuf);
   FreeBuffer(aecm->outFrameBuf);
 
   FreeDelayEstimator(aecm->delay_estimator);
@@ -359,8 +350,7 @@ void Aecm_FreeCore(AecmCore* aecm) {
 
 int Aecm_ProcessFrame(AecmCore* aecm,
                             const int16_t* farend,
-                            const int16_t* nearendNoisy,
-                            const int16_t* nearendClean,
+                            const int16_t* nearend,
                             int16_t* out) {
   int16_t outBlock_buf[PART_LEN + 8];  // Align buffer to 8-byte boundary.
   int16_t* outBlock = (int16_t*)(((uintptr_t)outBlock_buf + 15) & ~15);
@@ -377,10 +367,7 @@ int Aecm_ProcessFrame(AecmCore* aecm,
   // Buffer the synchronized far and near frames,
   // to pass the smaller blocks individually.
   WriteBuffer(aecm->farFrameBuf, farFrame, FRAME_LEN);
-  WriteBuffer(aecm->nearNoisyFrameBuf, nearendNoisy, FRAME_LEN);
-  if (nearendClean != NULL) {
-    WriteBuffer(aecm->nearCleanFrameBuf, nearendClean, FRAME_LEN);
-  }
+  WriteBuffer(aecm->nearNoisyFrameBuf, nearend, FRAME_LEN);
 
   // Process as many blocks as possible.
   while (available_read(aecm->farFrameBuf) >= PART_LEN) {
@@ -393,21 +380,9 @@ int Aecm_ProcessFrame(AecmCore* aecm,
                       PART_LEN);
     ReadBuffer(aecm->nearNoisyFrameBuf, (void**)&near_noisy_block_ptr,
                       near_noisy_block, PART_LEN);
-    if (nearendClean != NULL) {
-      int16_t near_clean_block[PART_LEN];
-      const int16_t* near_clean_block_ptr = NULL;
-
-      ReadBuffer(aecm->nearCleanFrameBuf, (void**)&near_clean_block_ptr,
-                        near_clean_block, PART_LEN);
-      if (Aecm_ProcessBlock(aecm, far_block_ptr, near_noisy_block_ptr,
-                                  near_clean_block_ptr, outBlock) == -1) {
-        return -1;
-      }
-    } else {
-      if (Aecm_ProcessBlock(aecm, far_block_ptr, near_noisy_block_ptr,
-                                  NULL, outBlock) == -1) {
-        return -1;
-      }
+    if (Aecm_ProcessBlock(aecm, far_block_ptr, near_noisy_block_ptr,
+                                outBlock) == -1) {
+      return -1;
     }
 
     WriteBuffer(aecm->outFrameBuf, outBlock, PART_LEN);

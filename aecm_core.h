@@ -45,7 +45,6 @@ typedef struct {
 
   RingBuffer* farFrameBuf;
   RingBuffer* nearNoisyFrameBuf;
-  RingBuffer* nearCleanFrameBuf;
   RingBuffer* outFrameBuf;
 
   int16_t farBuf[FAR_BUF_LEN];
@@ -85,7 +84,6 @@ typedef struct {
   int16_t channelAdapt16_buf[PART_LEN1 + 8];
   int32_t channelAdapt32_buf[PART_LEN1 + 8];
   int16_t xBuf_buf[PART_LEN2 + 16];       // farend
-  int16_t dBufClean_buf[PART_LEN2 + 16];  // nearend
   int16_t dBufNoisy_buf[PART_LEN2 + 16];  // nearend
   int16_t outBuf_buf[PART_LEN + 8];
 
@@ -94,7 +92,6 @@ typedef struct {
   int16_t* channelAdapt16;
   int32_t* channelAdapt32;
   int16_t* xBuf;
-  int16_t* dBufClean;
   int16_t* dBufNoisy;
   int16_t* outBuf;
 
@@ -197,8 +194,7 @@ void Aecm_InitEchoPathCore(AecmCore* aecm, const int16_t* echo_path);
 //
 int Aecm_ProcessFrame(AecmCore* aecm,
                             const int16_t* farend,
-                            const int16_t* nearendNoisy,
-                            const int16_t* nearendClean,
+                            const int16_t* nearend,
                             int16_t* out);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -221,8 +217,7 @@ int Aecm_ProcessFrame(AecmCore* aecm,
 //
 int Aecm_ProcessBlock(AecmCore* aecm,
                             const int16_t* farend,
-                            const int16_t* nearendNoisy,
-                            const int16_t* noisyClean,
+                            const int16_t* nearend,
                             int16_t* out);
 
 ////////////////////////////////////////////////////////////////////////////////

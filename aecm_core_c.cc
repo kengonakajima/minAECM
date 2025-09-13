@@ -78,8 +78,7 @@ static void WindowAndFFT(AecmCore* aecm,
 static void InverseFFTAndWindow(AecmCore* aecm,
                                 int16_t* fft,
                                 ComplexInt16* efw,
-                                int16_t* output,
-                                const int16_t* nearendClean) {
+                                int16_t* output) {
   int i, j, outCFFT;
   int32_t tmp32no1;
   // Reuse `efw` for the inverse FFT output after transferring
@@ -120,10 +119,6 @@ static void InverseFFTAndWindow(AecmCore* aecm,
   memcpy(aecm->xBuf, aecm->xBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
   memcpy(aecm->dBufNoisy, aecm->dBufNoisy + PART_LEN,
          sizeof(int16_t) * PART_LEN);
-  if (nearendClean != NULL) {
-    memcpy(aecm->dBufClean, aecm->dBufClean + PART_LEN,
-           sizeof(int16_t) * PART_LEN);
-  }
 }
 
 // Transforms a time domain signal into the frequency domain, outputting the
@@ -239,14 +234,12 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
 
 int Aecm_ProcessBlock(AecmCore* aecm,
                             const int16_t* farend,
-                            const int16_t* nearendNoisy,
-                            const int16_t* nearendClean,
+                            const int16_t* nearend,
                             int16_t* output) {
   int i;
 
   uint32_t xfaSum;
   uint32_t dfaNoisySum;
-  uint32_t dfaCleanSum;
   uint32_t echoEst32Gained;
   uint32_t tmpU32;
 
@@ -254,8 +247,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
 
   uint16_t xfa[PART_LEN1];
   uint16_t dfaNoisy[PART_LEN1];
-  uint16_t dfaClean[PART_LEN1];
-  uint16_t* ptrDfaClean = dfaClean;
+  uint16_t* ptrDfaClean = dfaNoisy;
   const uint16_t* far_spectrum_ptr = NULL;
 
   // 32 byte aligned buffers (with +8 or +16).
@@ -279,7 +271,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   int16_t mu;
   int16_t supGain;
   int16_t zeros32, zeros16;
-  int16_t zerosDBufNoisy, zerosDBufClean, zerosXBuf;
+  int16_t zerosDBufNoisy, zerosXBuf;
   int far_q;
   int16_t resolutionDiff, qDomainDiff, dfa_clean_q_domain_diff;
 
@@ -300,11 +292,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
 
   // Buffer near and far end signals
   memcpy(aecm->xBuf + PART_LEN, farend, sizeof(int16_t) * PART_LEN);
-  memcpy(aecm->dBufNoisy + PART_LEN, nearendNoisy, sizeof(int16_t) * PART_LEN);
-  if (nearendClean != NULL) {
-    memcpy(aecm->dBufClean + PART_LEN, nearendClean,
-           sizeof(int16_t) * PART_LEN);
-  }
+  memcpy(aecm->dBufNoisy + PART_LEN, nearend, sizeof(int16_t) * PART_LEN);
 
   // Transform far end signal from time domain to frequency domain.
   far_q = TimeToFrequencyDomain(aecm, aecm->xBuf, dfw, xfa, &xfaSum);
@@ -315,18 +303,9 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   aecm->dfaNoisyQDomainOld = aecm->dfaNoisyQDomain;
   aecm->dfaNoisyQDomain = (int16_t)zerosDBufNoisy;
 
-  if (nearendClean == NULL) {
-    ptrDfaClean = dfaNoisy;
-    aecm->dfaCleanQDomainOld = aecm->dfaNoisyQDomainOld;
-    aecm->dfaCleanQDomain = aecm->dfaNoisyQDomain;
-    dfaCleanSum = dfaNoisySum;
-  } else {
-    // Transform clean near end signal from time domain to frequency domain.
-    zerosDBufClean = TimeToFrequencyDomain(aecm, aecm->dBufClean, dfw, dfaClean,
-                                           &dfaCleanSum);
-    aecm->dfaCleanQDomainOld = aecm->dfaCleanQDomain;
-    aecm->dfaCleanQDomain = (int16_t)zerosDBufClean;
-  }
+  // 近端クリーン経路は削除。クリーンQドメインはノイジーと等価に扱う。
+  aecm->dfaCleanQDomainOld = aecm->dfaNoisyQDomainOld;
+  aecm->dfaCleanQDomain = aecm->dfaNoisyQDomain;
 
   // Get the delay
   // Save far-end history and estimate delay
@@ -525,7 +504,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
 
   // CNG 削除につき快適雑音の付加は行わない
 
-  InverseFFTAndWindow(aecm, fft, efw, output, nearendClean);
+  InverseFFTAndWindow(aecm, fft, efw, output);
 
   return 0;
 }

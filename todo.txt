@@ -71,47 +71,30 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
 
 ## さらなるコード削減に向けて
 
-エコー除去のアルゴリズムを説明するためのコード以外は一切なくしたい。
-そのために、 aecmや common_audioなどのライブラリ本体のコードをどんどん小さくしていきたい。
 
+ 【優先度提案（上から順に）】
 
-- 複数チャンネルを処理するための機能をすべて削減したい。
-- 拡張性や柔軟性や安全性のためのC++機能の活用が不要。たとえば、 scoped_refptr など。
-- common_audio/mocks いる?
-- vad いらない
-- .gnとかいらない
+      1. 近端クリーン経路削除＋FFT分岐削除＋未使用定数/メンバ削除（低リスクで短縮効果大）
+      2. ダイナミックQ固定化＋ABS近似/√のどちらか片側固定（依存削減）
+      3. robust validationの物理削除（遅延推定の中身を軽量化）
+      4. エコーモード/遅延パラメータの固定化（API面もスリムに）
+      5. スペクトル遅延推定の撤去（最小構成への到達）
 
+  - 16kHz前提の条件分岐除去
+      - すでに 16kHz/モノラル/160サンプル固定なので、aecm_core{,_c}.cc の mult==2 前提分岐を前提化して残る片側だけ
+  にする。
+      - echo_control_mobile.cc の NB/WB分岐コメント・i==1チェックなど、WB前提でロジックを簡素化。
+  - バッファアラインメントの簡素化
+      - NEON用の「+16/+32 バイトマージン」配列とポインタ再配置を削除し、素直な配列参照に（aecm_core.h,
+  aecm_core.cc, aecm_core_c.cc）。Apple SiliconでもC実装のみで支障なし。
+      - Aecm_set_config() と AecmConfig を廃し、Aecm_Init() 内で echoMode=3 固定。呼び出し元（echoback.cc,
+  cancel_file.cc）の設定コードを削除。
+      - 影響: 学習用途では十分。可変モードは不要。
 
-- 削除済み: system_wrappers/include/cpu_features_wrapper.h
-- 削除済み: rtc_base/system/arch.h
-- CPUタイプ分岐の削除: resample_by_2.c, complex_fft.c, spl_init.c, spl_inl.h, min_max_operations.c, aecm_core_c.cc を汎用C実装に統一
-
-
-- cpu_features_wrapper.h
-- RTC_BASE_SYSTEM_ARCH_H_
-- 削除済み: rtc_base/checks.h, rtc_base/compile_assert_c.h
-- 削除済み: rtc_base/sanitizer.h
-- 削除済み: rtc_base/numerics ディレクトリ（safe_conversions*, safe_compare）
-- sanitizer.h
-
-- 削除済み: rtc_base/system/inline.h, rtc_base/system/rtc_export.h
-- 削除済み: rtc_base/type_traits.h（<type_traits> も未参照）
-- フラット化: ビルドに必要な common_audio/ および modules/ 配下のソース/ヘッダをレポジトリ直下へ移動し、各 #include をローカル参照に統一
-
-- 削除済み: api/scoped_refptr.h
-
-
-- アラインメント関連のためのコード。NEON用の? こういうコメントがある  // The extra 16 or 32 bytes in the following buffers are for alignment based Neon code.
-- channelという概念自体が不要。
-
-- aecm_defines.hの未使用のマクロありそう
-
-- WebRtcSpl_FilterARFastQ12
-
-
- - 公開APIから未使用のエコーパス関連を削除（ヘッダ/実装/参照を一括）
-  - WebRtcAecm_GetBufferFarendError を削除し、BufferFarend 内の最小限チェックに統合（または前提として省略）
-  - echoback の --passthrough と latency_ms のどちらかを固定化（説明重視なら latency_ms は残す）
-  - 未使用ソースファイルの物理削除（Makefile非対象のもの）
-
-- WebRtc_enable_robust_validation(..., 0) をデフォルト無効化に寄せて呼び出し削除。
+  - signal_processing_library.h の必要最小限化
+      - AECMが実際に使う関数/マクロ（NormW16/NormW32/NormU32/AddSat/SubSat/DivW32W16/DivU32U16/SHIFT/SAT/MUL_* な
+  ど）だけを抽出し、ヘッダ内の未使用宣言と関連C実装（min_max_operations.c, division_operations.c, spl_sqrt_floor.c
+  など）の未使用部分を削る。
+  - ComplexBitReverse の固定オーダ最適化
+      - 本プロジェクトは order=7（PART_LEN=64）固定なので、complex_bit_reverse.c を order固定のテーブル1つに縮約
+  可能。

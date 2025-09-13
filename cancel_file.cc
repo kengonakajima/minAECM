@@ -62,7 +62,6 @@ int main(int argc, char** argv){
     // Nearend/capture -> processed
     Aecm_Process(aecm,
                                 &y.samples[n*kBlockSize],
-                                nullptr,
                                 &processed[n*kBlockSize],
                                 50 /*msInSndCardBuf*/);
   }

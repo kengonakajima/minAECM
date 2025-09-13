@@ -30,7 +30,7 @@ extern "C" {
 // Maximum length of resampled signal. Must be an integer multiple of frames
 // (ceil(1/(1 + MIN_SKEW)*2) + 1)*FRAME_LEN
 // The factor of 2 handles wb, and the + 1 is as a safety margin
-#define MAX_RESAMP_LEN (5 * FRAME_LEN)
+// MAX_RESAMP_LEN は未使用のため削除
 
 static const size_t kBufSizeSamp =
     BUF_SIZE_FRAMES * FRAME_LEN;  // buffer size (samples)
@@ -41,7 +41,6 @@ static const int kInitCheck = 42;
 
 typedef struct {
   int sampFreq;
-  int scSampFreq;
   short bufSizeStart;
   int knownDelay;
 
@@ -184,8 +183,7 @@ int32_t Aecm_BufferFarend(void* aecmInst,
 }
 
 int32_t Aecm_Process(void* aecmInst,
-                           const int16_t* nearendNoisy,
-                           const int16_t* nearendClean,
+                           const int16_t* nearend,
                            int16_t* out,
                            int16_t msInSndCardBuf) {
   AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
@@ -200,7 +198,7 @@ int32_t Aecm_Process(void* aecmInst,
     return -1;
   }
 
-  if (nearendNoisy == NULL) {
+  if (nearend == NULL) {
     return AECM_NULL_POINTER_ERROR;
   }
 
@@ -229,12 +227,8 @@ int32_t Aecm_Process(void* aecmInst,
   nBlocks10ms = nFrames / aecm->aecmCore->mult;
 
   if (aecm->ECstartup) {
-    if (nearendClean == NULL) {
-      if (out != nearendNoisy) {
-        memcpy(out, nearendNoisy, sizeof(short) * nrOfSamples);
-      }
-    } else if (out != nearendClean) {
-      memcpy(out, nearendClean, sizeof(short) * nrOfSamples);
+    if (out != nearend) {
+      memcpy(out, nearend, sizeof(short) * nrOfSamples);
     }
 
     nmbrOfFilledBuffers =
@@ -336,8 +330,7 @@ int32_t Aecm_Process(void* aecmInst,
       /*Aecm_ProcessFrame(aecm->aecmCore, farend, &nearend[FRAME_LEN * i],
        &out[FRAME_LEN * i], aecm->knownDelay);*/
       if (Aecm_ProcessFrame(
-              aecm->aecmCore, farend_ptr, &nearendNoisy[FRAME_LEN * i],
-              (nearendClean ? &nearendClean[FRAME_LEN * i] : NULL),
+              aecm->aecmCore, farend_ptr, &nearend[FRAME_LEN * i],
               &out[FRAME_LEN * i]) == -1)
         return -1;
     }

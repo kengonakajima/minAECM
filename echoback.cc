@@ -78,7 +78,6 @@ static void process_available_blocks(State& s){
       Aecm_BufferFarend(s.aecm, far_blk.data());
       Aecm_Process(s.aecm,
                          near_blk.data(),
-                         nullptr,
                          out_blk.data(),
                          50 /* msInSndCardBuf: 固定 */);
     }

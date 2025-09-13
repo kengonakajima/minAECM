@@ -114,8 +114,7 @@ int32_t Aecm_BufferFarend(void* aecmInst,
  *                               1200-12004,12100: error/warning
  */
 int32_t Aecm_Process(void* aecmInst,
-                           const int16_t* nearendNoisy,
-                           const int16_t* nearendClean,
+                           const int16_t* nearend,
                            int16_t* out,
                            int16_t msInSndCardBuf);
 
