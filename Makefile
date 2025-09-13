@@ -18,8 +18,11 @@ PFFLAGS=-DWEBRTC_POSIX
 WARN_CXX=-Wall -Wextra -Wunreachable-code -Wunused-function -Wunused-const-variable -Wunused-private-field -Wunused-variable -Wno-unused-parameter
 WARN_C=-Wall -Wextra -Wunreachable-code -Wunused-function -Wunused-const-variable -Wunused-variable -Wno-unused-parameter -Wmissing-prototypes
 CPPFLAGS=$(INCFLAGS) $(PFFLAGS)
-CXXFLAGS=-std=c++20 -g -O3 -mmacosx-version-min=10.13 $(WARN_CXX)
-CFLAGS=-std=c11 -g -O3 -mmacosx-version-min=10.13 $(WARN_C)
+CXXFLAGS=-std=c++20 -g -O3 -mmacosx-version-min=10.13 \
+  -ffunction-sections -fdata-sections $(WARN_CXX)
+CFLAGS=-std=c11 -g -O3 -mmacosx-version-min=10.13 \
+  -ffunction-sections -fdata-sections $(WARN_C)
+LDFLAGS=-Wl,-dead_strip
 
 
 all: libaecm.a echoback cancel_file
@@ -47,8 +50,8 @@ AECM_C_SRCS= \
   real_fft.c \
   min_max_operations.c \
   division_operations.c \
-  spl_init.c \
   spl_sqrt_floor.c
+ 
 
 AECM_OBJS=$(AECM_CC_SRCS:.cc=.o) $(AECM_C_SRCS:.c=.o)
 
@@ -65,7 +68,7 @@ PA_FALLBACK_LIBDIR2=/usr/local/lib
 
 # Echoback: AECM を用いたローカル・エコーバック
 echoback: echoback.cc libaecm.a libportaudio.a
-	$(CXX) -o echoback $(CXXFLAGS) $(CPPFLAGS) -I$(PORTAUDIO_HOME)/include -I$(PA_FALLBACK_INCDIR1) -I$(PA_FALLBACK_INCDIR2) -I$(PORTAUDIO_HOME) \
+	$(CXX) -o echoback $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) -I$(PORTAUDIO_HOME)/include -I$(PA_FALLBACK_INCDIR1) -I$(PA_FALLBACK_INCDIR2) -I$(PORTAUDIO_HOME) \
 		echoback.cc libaecm.a \
 		-L$(PORTAUDIO_HOME) -L$(PORTAUDIO_HOME)/lib -L$(PA_FALLBACK_LIBDIR1) -L$(PA_FALLBACK_LIBDIR2) \
 		-Wl,-rpath,$(PORTAUDIO_HOME) -Wl,-rpath,$(PORTAUDIO_HOME)/lib -Wl,-rpath,$(PA_FALLBACK_LIBDIR1) -Wl,-rpath,$(PA_FALLBACK_LIBDIR2) \
@@ -73,7 +76,7 @@ echoback: echoback.cc libaecm.a libportaudio.a
 
 # Offline comparator (no PortAudio)
 cancel_file: cancel_file.cc libaecm.a
-	$(CXX) -o cancel_file $(CXXFLAGS) $(CPPFLAGS) cancel_file.cc libaecm.a
+	$(CXX) -o cancel_file $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) cancel_file.cc libaecm.a
 
 .PHONY: clean wasm
 clean:
