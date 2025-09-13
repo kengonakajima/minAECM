@@ -338,12 +338,7 @@ int WebRtcAecm_InitCore(AecmCore* const aecm) {
 
 // TODO(bjornv): This function is currently not used. Add support for these
 // parameters from a higher level
-int WebRtcAecm_Control(AecmCore* aecm, int delay, int nlpFlag) {
-  aecm->nlpFlag = nlpFlag;
-  aecm->fixedDelay = delay;
-
-  return 0;
-}
+// WebRtcAecm_Control は最小構成では未使用のため削除。
 
 void WebRtcAecm_FreeCore(AecmCore* aecm) {
   if (aecm == NULL) {

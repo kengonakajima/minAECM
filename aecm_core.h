@@ -162,7 +162,6 @@ int WebRtcAecm_InitCore(AecmCore* const aecm);
 //
 void WebRtcAecm_FreeCore(AecmCore* aecm);
 
-int WebRtcAecm_Control(AecmCore* aecm, int delay, int nlpFlag);
 
 ////////////////////////////////////////////////////////////////////////////////
 // WebRtcAecm_InitEchoPathCore(...)

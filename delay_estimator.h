@@ -102,15 +102,7 @@ int WebRtc_AllocateFarendBufferMemory(BinaryDelayEstimatorFarend* self,
 //
 void WebRtc_InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self);
 
-// Soft resets the delay estimation far-end instance created with
-// WebRtc_CreateBinaryDelayEstimatorFarend(...).
-//
-// Input:
-//    - delay_shift   : The amount of blocks to shift history buffers.
-//
-void WebRtc_SoftResetBinaryDelayEstimatorFarend(
-    BinaryDelayEstimatorFarend* self,
-    int delay_shift);
+// Soft reset 関連は最小構成では未使用のため削除
 
 // Adds the binary far-end spectrum to the internal far-end history buffer. This
 // spectrum is used as reference when calculating the delay using
@@ -174,17 +166,7 @@ int WebRtc_AllocateHistoryBufferMemory(BinaryDelayEstimator* self,
 //
 void WebRtc_InitBinaryDelayEstimator(BinaryDelayEstimator* self);
 
-// Soft resets the delay estimation instance created with
-// WebRtc_CreateBinaryDelayEstimator(...).
-//
-// Input:
-//    - delay_shift   : The amount of blocks to shift history buffers.
-//
-// Return value:
-//    - actual_shifts : The actual number of shifts performed.
-//
-int WebRtc_SoftResetBinaryDelayEstimator(BinaryDelayEstimator* self,
-                                         int delay_shift);
+// Soft reset 関連は最小構成では未使用のため削除
 
 // Estimates and returns the delay between the binary far-end and binary near-
 // end spectra. It is assumed the binary far-end spectrum has been added using
@@ -216,16 +198,9 @@ int WebRtc_ProcessBinarySpectrum(BinaryDelayEstimator* self,
 //    - delay                 :  >= 0 - Last calculated delay value
 //                              -2    - Insufficient data for estimation.
 //
-int WebRtc_binary_last_delay(BinaryDelayEstimator* self);
+// 最終遅延取得APIは最小構成では未使用のため削除
 
-// Returns the estimation quality of the last calculated delay updated by the
-// function WebRtc_ProcessBinarySpectrum(...). The estimation quality is a value
-// in the interval [0, 1].  The higher the value, the better the quality.
-//
-// Return value:
-//    - delay_quality         :  >= 0 - Estimation quality of last calculated
-//                                      delay value.
-float WebRtc_binary_last_delay_quality(BinaryDelayEstimator* self);
+// 品質スコア取得APIは最小構成では未使用のため削除
 
 // Updates the `mean_value` recursively with a step size of 2^-`factor`. This
 // function is used internally in the Binary Delay Estimator as well as the

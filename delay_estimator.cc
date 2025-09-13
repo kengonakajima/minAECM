@@ -334,38 +334,7 @@ void WebRtc_InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self) {
   memset(self->far_bit_counts, 0, sizeof(int) * self->history_size);
 }
 
-void WebRtc_SoftResetBinaryDelayEstimatorFarend(
-    BinaryDelayEstimatorFarend* self,
-    int delay_shift) {
-  int abs_shift = abs(delay_shift);
-  int shift_size = 0;
-  int dest_index = 0;
-  int src_index = 0;
-  int padding_index = 0;
-
-  // removed DCHECK(self)
-  shift_size = self->history_size - abs_shift;
-  // expect shift_size > 0
-  if (delay_shift == 0) {
-    return;
-  } else if (delay_shift > 0) {
-    dest_index = abs_shift;
-  } else if (delay_shift < 0) {
-    src_index = abs_shift;
-    padding_index = shift_size;
-  }
-
-  // Shift and zero pad buffers.
-  memmove(&self->binary_far_history[dest_index],
-          &self->binary_far_history[src_index],
-          sizeof(*self->binary_far_history) * shift_size);
-  memset(&self->binary_far_history[padding_index], 0,
-         sizeof(*self->binary_far_history) * abs_shift);
-  memmove(&self->far_bit_counts[dest_index], &self->far_bit_counts[src_index],
-          sizeof(*self->far_bit_counts) * shift_size);
-  memset(&self->far_bit_counts[padding_index], 0,
-         sizeof(*self->far_bit_counts) * abs_shift);
-}
+// Soft reset (farend) は最小構成では未使用のため削除
 
 void WebRtc_AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* handle,
                                  uint32_t binary_far_spectrum) {
@@ -504,20 +473,7 @@ void WebRtc_InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
   self->last_delay_histogram = 0.f;
 }
 
-int WebRtc_SoftResetBinaryDelayEstimator(BinaryDelayEstimator* self,
-                                         int delay_shift) {
-  int lookahead = 0;
-  // removed DCHECK(self)
-  lookahead = self->lookahead;
-  self->lookahead -= delay_shift;
-  if (self->lookahead < 0) {
-    self->lookahead = 0;
-  }
-  if (self->lookahead > self->near_history_size - 1) {
-    self->lookahead = self->near_history_size - 1;
-  }
-  return lookahead - self->lookahead;
-}
+// Soft reset は最小構成では未使用のため削除
 
 int WebRtc_ProcessBinarySpectrum(BinaryDelayEstimator* self,
                                  uint32_t binary_near_spectrum) {
@@ -664,29 +620,9 @@ int WebRtc_ProcessBinarySpectrum(BinaryDelayEstimator* self,
   return self->last_delay;
 }
 
-int WebRtc_binary_last_delay(BinaryDelayEstimator* self) {
-  // removed DCHECK(self)
-  return self->last_delay;
-}
+// 最終遅延取得APIは最小構成では未使用のため削除
 
-float WebRtc_binary_last_delay_quality(BinaryDelayEstimator* self) {
-  float quality = 0;
-  // removed DCHECK(self)
-
-  if (self->robust_validation_enabled) {
-    // Simply a linear function of the histogram height at delay estimate.
-    quality = self->histogram[self->compare_delay] / kHistogramMax;
-  } else {
-    // Note that `last_delay_probability` states how deep the minimum of the
-    // cost function is, so it is rather an error probability.
-    quality = (float)(kMaxBitCountsQ9 - self->last_delay_probability) /
-              kMaxBitCountsQ9;
-    if (quality < 0) {
-      quality = 0;
-    }
-  }
-  return quality;
-}
+// 品質スコア取得APIは最小構成では未使用のため削除
 
 void WebRtc_MeanEstimatorFix(int32_t new_value,
                              int factor,

@@ -146,10 +146,7 @@ int WebRtc_InitDelayEstimator(void* handle);
 // Inputs:
 //      - handle        : Pointer to the delay estimation instance.
 //      - enable        : Enable (1) or disable (0) this feature.
-int WebRtc_enable_robust_validation(void* handle, int enable);
-
-// Returns 1 if robust validation is enabled and 0 if disabled.
-int WebRtc_is_robust_validation_enabled(const void* handle);
+// robust validation 関連のAPIは最小構成では未使用のため削除。
 
 // Estimates and returns the delay between the far-end and near-end blocks. The
 // value will be offset by the lookahead (i.e. the lookahead should be
@@ -186,7 +183,7 @@ int WebRtc_DelayEstimatorProcessFix(void* handle,
 //      - delay         : >= 0  - Last calculated delay value.
 //                        -1    - Error.
 //                        -2    - Insufficient data for estimation.
-int WebRtc_last_delay(void* handle);
+// 最終遅延の直接取得APIは最小構成では未使用のため削除。
 
 // Returns the estimation quality/probability of the last calculated delay
 // updated by the function WebRtc_DelayEstimatorProcess(...). The estimation

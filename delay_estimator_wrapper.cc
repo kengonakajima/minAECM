@@ -262,28 +262,7 @@ int WebRtc_InitDelayEstimator(void* handle) {
 
 // allowed_offset のAPIは削除
 
-int WebRtc_enable_robust_validation(void* handle, int enable) {
-  DelayEstimator* self = (DelayEstimator*)handle;
-
-  if (self == NULL) {
-    return -1;
-  }
-  if ((enable < 0) || (enable > 1)) {
-    return -1;
-  }
-  // removed DCHECK(self->binary_handle)
-  self->binary_handle->robust_validation_enabled = enable;
-  return 0;
-}
-
-int WebRtc_is_robust_validation_enabled(const void* handle) {
-  const DelayEstimator* self = (const DelayEstimator*)handle;
-
-  if (self == NULL) {
-    return -1;
-  }
-  return self->binary_handle->robust_validation_enabled;
-}
+// robust validation 関連APIは削除
 
 int WebRtc_DelayEstimatorProcessFix(void* handle,
                                     const uint16_t* near_spectrum,
@@ -313,15 +292,7 @@ int WebRtc_DelayEstimatorProcessFix(void* handle,
 
 // Float 版の推定は削除
 
-int WebRtc_last_delay(void* handle) {
-  DelayEstimator* self = (DelayEstimator*)handle;
-
-  if (self == NULL) {
-    return -1;
-  }
-
-  return WebRtc_binary_last_delay(self->binary_handle);
-}
+// 最終遅延の取得APIは削除
 
 // 品質スコアのAPIは削除
 
