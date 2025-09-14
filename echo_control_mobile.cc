@@ -35,6 +35,9 @@ static const size_t kBufSizeSamp =
     BUF_SIZE_FRAMES * FRAME_LEN;  // buffer size (samples)
 // 16kHz固定のため、1msあたり16サンプル
 static const int kSamplesPerMs16k = 16;
+// 本実装では、デバイス入出力の往復遅延を 50ms とし、
+// 従来の +10ms マージン込みで固定 60ms とする。
+static const short kFixedMsInSndCardBuf = 60;
 // Target suppression levels for nlp modes
 // log{0.001, 0.00001, 0.00000001}
 static const int kInitCheck = 42;
@@ -55,7 +58,6 @@ typedef struct {
   short checkBufSizeCtr;
 
   // Variables used for delay shifts
-  short msInSndCardBuf;
   short filtDelay;
   int timeForDelayChange;
   int ECstartup;
@@ -76,7 +78,7 @@ typedef struct {
 
 // Estimates delay to set the position of the farend buffer read pointer
 // (controlled by knownDelay)
-static int Aecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf);
+static int Aecm_EstBufDelay(AecMobile* aecm);
 
 // Stuffs the farend buffer if the estimated delay is too large
 static int Aecm_DelayComp(AecMobile* aecm);
@@ -154,7 +156,6 @@ int32_t Aecm_BufferFarend(const int16_t* farend) {
 int32_t Aecm_Process(const int16_t* nearend,
                            int16_t* out) {
   AecMobile* aecm = &g_aecm;
-  int32_t retVal = 0;
   size_t i;
   short nmbrOfFilledBuffers;
   size_t nFrames;
@@ -174,18 +175,7 @@ int32_t Aecm_Process(const int16_t* nearend,
   // 16kHz固定のため、160サンプル固定
   const size_t nrOfSamples = 160;
 
-  // 本実装ではサウンドカードバッファ遅延を固定 50ms とする
-  int16_t msInSndCardBuf = 50;
-  // 元の範囲チェックと +10ms のマージン処理は維持
-  if (msInSndCardBuf < 0) {
-    msInSndCardBuf = 0;
-    retVal = AECM_BAD_PARAMETER_WARNING;
-  } else if (msInSndCardBuf > 500) {
-    msInSndCardBuf = 500;
-    retVal = AECM_BAD_PARAMETER_WARNING;
-  }
-  msInSndCardBuf += 10;
-  aecm->msInSndCardBuf = msInSndCardBuf;
+  // サウンドカードバッファ遅延は固定
 
   nFrames = nrOfSamples / FRAME_LEN; // 160/80=2（16kHz固定）
 
@@ -208,13 +198,13 @@ int32_t Aecm_Process(const int16_t* nearend,
       // seems to be stable then we start to fill up the far end buffer.
 
       if (aecm->counter == 0) {
-        aecm->firstVal = aecm->msInSndCardBuf;
+        aecm->firstVal = kFixedMsInSndCardBuf;
         aecm->sum = 0;
       }
 
-      if (abs(aecm->firstVal - aecm->msInSndCardBuf) <
-          MAX(0.2 * aecm->msInSndCardBuf, 8)) { // しきい値は従来のNB値(8ms)相当で据え置き
-        aecm->sum += aecm->msInSndCardBuf;
+      if (abs(aecm->firstVal - kFixedMsInSndCardBuf) <
+          MAX(0.2 * kFixedMsInSndCardBuf, 8)) { // しきい値は従来のNB値(8ms)相当で据え置き
+        aecm->sum += kFixedMsInSndCardBuf;
         aecm->counter++;
       } else {
         aecm->counter = 0;
@@ -235,7 +225,7 @@ int32_t Aecm_Process(const int16_t* nearend,
         // for really bad sound cards, don't disable echocanceller for more than
         // 0.5 sec
         aecm->bufSizeStart = MIN(
-            (3 * aecm->msInSndCardBuf * 2) / 40,
+            (3 * kFixedMsInSndCardBuf * 2) / 40,
             BUF_SIZE_FRAMES);
         aecm->checkBuffSize = 0;
       }
@@ -285,7 +275,7 @@ int32_t Aecm_Process(const int16_t* nearend,
 
       // 10ms（2ブロック）取り出し終わりのタイミングで1回だけ遅延推定
       if (i == nFrames - 1) {
-        Aecm_EstBufDelay(aecm, aecm->msInSndCardBuf);
+        Aecm_EstBufDelay(aecm);
       }
 
       // Call the AECM
@@ -300,7 +290,7 @@ int32_t Aecm_Process(const int16_t* nearend,
 
   
 
-  return retVal;
+  return 0;
 }
 
 int32_t Aecm_set_config(AecmConfig config) {
@@ -367,12 +357,12 @@ int32_t Aecm_set_config(AecmConfig config) {
 
 
 
-static int Aecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf) {
+static int Aecm_EstBufDelay(AecMobile* aecm) {
   short delayNew, nSampSndCard;
   short nSampFar = (short)available_read(&aecm->farendBuf);
   short diff;
 
-  nSampSndCard = msInSndCardBuf * kSamplesPerMs16k;
+  nSampSndCard = kFixedMsInSndCardBuf * kSamplesPerMs16k;
 
   delayNew = nSampSndCard - nSampFar;
 
@@ -413,7 +403,7 @@ static int Aecm_DelayComp(AecMobile* aecm) {
   int nSampSndCard, delayNew, nSampAdd;
   const int maxStuffSamp = 10 * FRAME_LEN;
 
-  nSampSndCard = aecm->msInSndCardBuf * kSamplesPerMs16k;
+  nSampSndCard = kFixedMsInSndCardBuf * kSamplesPerMs16k;
   delayNew = nSampSndCard - nSampFar;
 
   if (delayNew > FAR_BUF_LEN - FRAME_LEN * 2) {
