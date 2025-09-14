@@ -80,43 +80,26 @@ static int Aecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf);
 // Stuffs the farend buffer if the estimated delay is too large
 static int Aecm_DelayComp(AecMobile* aecm);
 
-void* Aecm_Create() {
-  // Allocate zero-filled memory.
-  AecMobile* aecm = static_cast<AecMobile*>(calloc(1, sizeof(AecMobile)));
+// 単一インスタンス実体
+static AecMobile g_aecm;
+static int g_created = 0;  // サブ構造（Core/Buffer）確保済み
 
-  aecm->aecmCore = Aecm_CreateCore();
-  if (!aecm->aecmCore) {
-    Aecm_Free(aecm);
-    return NULL;
-  }
-
-  aecm->farendBuf = CreateBuffer(kBufSizeSamp, sizeof(int16_t));
-  if (!aecm->farendBuf) {
-    Aecm_Free(aecm);
-    return NULL;
-  }
-
-  return aecm;
-}
-
-void Aecm_Free(void* aecmInst) {
-  AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
-
-  if (aecm == NULL) {
-    return;
-  }
-
-  Aecm_FreeCore(aecm->aecmCore);
-  FreeBuffer(aecm->farendBuf);
-  free(aecm);
-}
-
-int32_t Aecm_Init(void* aecmInst) {
-  AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
+int32_t Aecm_Init() {
+  AecMobile* aecm = &g_aecm;
   AecmConfig aecConfig;
 
-  if (aecm == NULL) {
-    return -1;
+  // 初回のみサブ構造を確保
+  if (!g_created) {
+    memset(aecm, 0, sizeof(*aecm));
+    aecm->aecmCore = Aecm_CreateCore();
+    if (!aecm->aecmCore) {
+      return -1;
+    }
+    aecm->farendBuf = CreateBuffer(kBufSizeSamp, sizeof(int16_t));
+    if (!aecm->farendBuf) {
+      return -1;
+    }
+    g_created = 1;
   }
 
   // 16 kHz 固定
@@ -152,7 +135,7 @@ int32_t Aecm_Init(void* aecmInst) {
   // Default settings
   aecConfig.echoMode = 3;
 
-  if (Aecm_set_config(aecm, aecConfig) == -1) {
+  if (Aecm_set_config(aecConfig) == -1) {
     return AECM_UNSPECIFIED_ERROR;
   }
 
@@ -161,11 +144,9 @@ int32_t Aecm_Init(void* aecmInst) {
 
 // Returns any error that is caused when buffering the
 // farend signal.
-int32_t Aecm_BufferFarend(void* aecmInst,
-                                const int16_t* farend) {
-  AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
+int32_t Aecm_BufferFarend(const int16_t* farend) {
+  AecMobile* aecm = &g_aecm;
   // 最小構成: 簡易チェックのみ
-  if (aecm == NULL) return -1;
   if (farend == NULL) return AECM_NULL_POINTER_ERROR;
   if (aecm->initFlag != kInitCheck) return AECM_UNINITIALIZED_ERROR;
 
@@ -179,21 +160,15 @@ int32_t Aecm_BufferFarend(void* aecmInst,
   return 0;
 }
 
-int32_t Aecm_Process(void* aecmInst,
-                           const int16_t* nearend,
+int32_t Aecm_Process(const int16_t* nearend,
                            int16_t* out,
                            int16_t msInSndCardBuf) {
-  AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
+  AecMobile* aecm = &g_aecm;
   int32_t retVal = 0;
   size_t i;
   short nmbrOfFilledBuffers;
   size_t nFrames;
   
-
-  if (aecm == NULL) {
-    return -1;
-  }
-
   if (nearend == NULL) {
     return AECM_NULL_POINTER_ERROR;
   }
@@ -335,17 +310,12 @@ int32_t Aecm_Process(void* aecmInst,
   return retVal;
 }
 
-int32_t Aecm_set_config(void* aecmInst, AecmConfig config) {
-  AecMobile* aecm = static_cast<AecMobile*>(aecmInst);
-
-  if (aecm == NULL) {
-    return -1;
-  }
+int32_t Aecm_set_config(AecmConfig config) {
+  AecMobile* aecm = &g_aecm;
 
   if (aecm->initFlag != kInitCheck) {
     return AECM_UNINITIALIZED_ERROR;
   }
-
 
   if (config.echoMode < 0 || config.echoMode > 4) {
     return AECM_BAD_PARAMETER_ERROR;

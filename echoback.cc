@@ -39,8 +39,7 @@ struct State {
   // --passthrough: AEC を行わず素通し再生
   bool passthrough = false;
   
-  // AECM インスタンス
-  void* aecm = nullptr;
+  // 単一インスタンス化API。個別インスタンスは不要。
 };
 
 static void aec3_init_at_sr(State& s){
@@ -75,11 +74,10 @@ static void process_available_blocks(State& s){
       std::memcpy(out_blk.data(), near_blk.data(), s.block_size * sizeof(int16_t));
     } else {
       // AECM: 先に far をバッファリングし、その後 near を処理
-      Aecm_BufferFarend(s.aecm, far_blk.data());
-      Aecm_Process(s.aecm,
-                         near_blk.data(),
-                         out_blk.data(),
-                         50 /* msInSndCardBuf: 固定 */);
+      Aecm_BufferFarend(far_blk.data());
+      Aecm_Process(near_blk.data(),
+                   out_blk.data(),
+                   50 /* msInSndCardBuf: 固定 */);
     }
 
     // ローカル・ループバック: 処理後の出力を蓄積して、次々回以降の far にする
@@ -157,21 +155,17 @@ int main(int argc, char** argv){
   std::fprintf(stderr, "Running... Ctrl-C to stop.\n");
   // AECM 初期化
   if (!s.passthrough) {
-    s.aecm = Aecm_Create();
-    if (!s.aecm) { std::fprintf(stderr, "AECM create failed\n"); Pa_StopStream(stream); Pa_CloseStream(stream); Pa_Terminate(); return 1; }
-    if (Aecm_Init(s.aecm) != 0) {
+    if (Aecm_Init() != 0) {
       std::fprintf(stderr, "AECM init failed\n");
-      Aecm_Free(s.aecm); s.aecm=nullptr;
       Pa_StopStream(stream); Pa_CloseStream(stream); Pa_Terminate(); return 1;
     }
     AecmConfig cfg{}; cfg.echoMode = 3;
-    Aecm_set_config(s.aecm, cfg);
+    Aecm_set_config(cfg);
   }
   while (Pa_IsStreamActive(stream)==1) {
     Pa_Sleep(100);
   }
   Pa_StopStream(stream); Pa_CloseStream(stream);
-  if (s.aecm) { Aecm_Free(s.aecm); s.aecm=nullptr; }
   Pa_Terminate();
   std::fprintf(stderr, "stopped.\n");
   return 0;

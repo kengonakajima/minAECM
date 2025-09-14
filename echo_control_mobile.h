@@ -37,100 +37,24 @@ extern "C" {
 #endif
 
 /*
- * Allocates the memory needed by the AECM. The memory needs to be
- * initialized separately using the Aecm_Init() function.
- * Returns a pointer to the instance and a nullptr at failure.
+ * 単一インスタンス前提の極簡API。
+ * 16 kHz/モノラル固定のため、グローバル状態を1個だけ内部保持します。
+ * そのため Create/Free は不要です。
  */
-void* Aecm_Create();
 
-/*
- * This function releases the memory allocated by Aecm_Create()
- *
- * Inputs                       Description
- * -------------------------------------------------------------------
- * void*    aecmInst            Pointer to the AECM instance
- */
-void Aecm_Free(void* aecmInst);
+/* 初期化（再初期化可）。0で成功。*/
+int32_t Aecm_Init();
 
-/*
- * Initializes an AECM instance (16 kHz 固定)。
- *
- * Inputs                       Description
- * -------------------------------------------------------------------
- * void*          aecmInst      Pointer to the AECM instance
- *
- * Outputs                      Description
- * -------------------------------------------------------------------
- * int32_t        return        0: OK
- *                              1200-12004,12100: error/warning
- */
-int32_t Aecm_Init(void* aecmInst);
+/* Farend（参照）160サンプルを供給。0で成功。*/
+int32_t Aecm_BufferFarend(const int16_t* farend);
 
-/*
- * Inserts a 160 sample block of data into the farend buffer (16 kHz mono)。
- *
- * Inputs                       Description
- * -------------------------------------------------------------------
- * void*          aecmInst      Pointer to the AECM instance
- * int16_t*       farend        In buffer containing one 160-sample frame of
- *                              farend signal
- *
- * Outputs                      Description
- * -------------------------------------------------------------------
- * int32_t        return        0: OK
- *                              1200-12004,12100: error/warning
- */
-int32_t Aecm_BufferFarend(void* aecmInst,
-                                const int16_t* farend);
+/* Nearend 160サンプルを処理して out へ。0で成功。*/
+int32_t Aecm_Process(const int16_t* nearend,
+                     int16_t* out,
+                     int16_t msInSndCardBuf);
 
-
-
-/*
- * Runs the AECM on a 160 sample block of data (16 kHz mono)。
- *
- * Inputs                        Description
- * -------------------------------------------------------------------
- * void*          aecmInst       Pointer to the AECM instance
- * int16_t*       nearendNoisy   In buffer containing one frame of
- *                               reference nearend+echo signal. If
- *                               noise reduction is active, provide
- *                               the noisy signal here.
- * int16_t*       nearendClean   In buffer containing one frame of
- *                               nearend+echo signal. If noise
- *                               reduction is active, provide the
- *                               clean signal here. Otherwise pass a
- *                               NULL pointer.
- * int16_t        msInSndCardBuf Delay estimate for sound card and
- *                               system buffers
- *
- * Outputs                       Description
- * -------------------------------------------------------------------
- * int16_t*       out            Out buffer, one frame of processed nearend
- * int32_t        return         0: OK
- *                               1200-12004,12100: error/warning
- */
-int32_t Aecm_Process(void* aecmInst,
-                           const int16_t* nearend,
-                           int16_t* out,
-                           int16_t msInSndCardBuf);
-
-/*
- * This function enables the user to set certain parameters on-the-fly
- *
- * Inputs                       Description
- * -------------------------------------------------------------------
- * void*          aecmInst      Pointer to the AECM instance
- * AecmConfig     config        Config instance that contains all
- *                              properties to be set
- *
- * Outputs                      Description
- * -------------------------------------------------------------------
- * int32_t        return        0: OK
- *                              1200-12004,12100: error/warning
- */
-int32_t Aecm_set_config(void* aecmInst, AecmConfig config);
-
-
+/* 動作モードの設定。0で成功。*/
+int32_t Aecm_set_config(AecmConfig config);
 
 #ifdef __cplusplus
 }
