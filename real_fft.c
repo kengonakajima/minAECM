@@ -14,28 +14,6 @@
 
 #include "signal_processing_library.h"
 
-struct RealFFT* CreateRealFFT(int order) {
-  struct RealFFT* self = NULL;
-
-  if (order > kMaxFFTOrder || order < 0) {
-    return NULL;
-  }
-
-  self = malloc(sizeof(struct RealFFT));
-  if (self == NULL) {
-    return NULL;
-  }
-  self->order = order;
-
-  return self;
-}
-
-void FreeRealFFT(struct RealFFT* self) {
-  if (self != NULL) {
-    free(self);
-  }
-}
-
 // The C version FFT functions (i.e. RealForwardFFT and
 // RealInverseFFT) are real-valued FFT wrappers for complex-valued
 // FFT implementation in SPL.

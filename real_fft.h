@@ -26,13 +26,9 @@ struct RealFFT {
 extern "C" {
 #endif
 
-struct RealFFT* CreateRealFFT(int order);
-void FreeRealFFT(struct RealFFT* self);
-
 // Compute an FFT for a real-valued signal of length of 2^order,
-// where 1 < order <= MAX_FFT_ORDER. Transform length is determined by the
-// specification structure, which must be initialized prior to calling the FFT
-// function with CreateRealFFT().
+// where 1 < order <= MAX_FFT_ORDER. Transform length is determined by
+// `self->order` which must be preset by caller.
 // The relationship between the input and output sequences can
 // be expressed in terms of the DFT, i.e.:
 //     x[n] = (2^(-scalefactor)/N)  . SUM[k=0,...,N-1] X[k].e^(jnk.2.pi/N)
@@ -66,8 +62,7 @@ int RealForwardFFT(struct RealFFT* self,
 
 // Compute the inverse FFT for a conjugate-symmetric input sequence of length of
 // 2^order, where 1 < order <= MAX_FFT_ORDER. Transform length is determined by
-// the specification structure, which must be initialized prior to calling the
-// FFT function with CreateRealFFT().
+// `self->order` which must be preset by caller.
 // For a transform of length M, the input sequence is represented using a packed
 // CCS vector of length M+2, which is explained in the comments for
 // RealForwardFFTC above.

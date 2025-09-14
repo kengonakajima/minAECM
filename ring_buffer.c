@@ -51,31 +51,6 @@ static size_t GetBufferReadRegions(RingBuffer* buf,
   return read_elements;
 }
 
-RingBuffer* CreateBuffer(size_t element_count, size_t element_size) {
-  RingBuffer* self = NULL;
-  if (element_count == 0 || element_size == 0) {
-    return NULL;
-  }
-
-  self = malloc(sizeof(RingBuffer));
-  if (!self) {
-    return NULL;
-  }
-
-  self->data = malloc(element_count * element_size);
-  if (!self->data) {
-    free(self);
-    self = NULL;
-    return NULL;
-  }
-
-  self->element_count = element_count;
-  self->element_size = element_size;
-  InitBuffer(self);
-
-  return self;
-}
-
 void InitBuffer(RingBuffer* self) {
   self->read_pos = 0;
   self->write_pos = 0;
@@ -94,16 +69,6 @@ void InitBufferWith(RingBuffer* self,
   self->element_count = element_count;
   self->element_size = element_size;
   InitBuffer(self);
-}
-
-void FreeBuffer(void* handle) {
-  RingBuffer* self = (RingBuffer*)handle;
-  if (!self) {
-    return;
-  }
-
-  free(self->data);
-  free(self);
 }
 
 size_t ReadBuffer(RingBuffer* self,

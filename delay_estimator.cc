@@ -449,7 +449,8 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
     self->compare_delay = self->last_delay;
   }
 
-  // Debug print every 100 calls: candidate (pre-hist), histogram value, hist_valid, last_delay
+  // Debug print every 100 calls: candidate (pre-hist), histogram value,
+  // hist_valid flag, and last_delay.
   {
     static int dbg_counter = 0;
     dbg_counter++;

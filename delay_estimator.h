@@ -43,41 +43,7 @@ typedef struct {
   BinaryDelayEstimatorFarend* farend;
 } BinaryDelayEstimator;
 
-// Releases the memory allocated by
-// CreateBinaryDelayEstimatorFarend(...).
-// Input:
-//    - self              : Pointer to the binary delay estimation far-end
-//                          instance which is the return value of
-//                          CreateBinaryDelayEstimatorFarend().
-//
-// 動的確保は行わないため、Freeは不要。
-
-// Allocates the memory needed by the far-end part of the binary delay
-// estimation. The memory needs to be initialized separately through
-// InitBinaryDelayEstimatorFarend(...).
-//
-// Inputs:
-//      - history_size    : Size of the far-end binary spectrum history.
-//
-// Return value:
-//      - BinaryDelayEstimatorFarend*
-//                        : Created `handle`. If the memory can't be allocated
-//                          or if any of the input parameters are invalid NULL
-//                          is returned.
-//
-// 動的確保は行わないため、Create/Allocateは不要。
-
-// Re-allocates the buffers.
-//
-// Inputs:
-//      - self            : Pointer to the binary estimation far-end instance
-//                          which is the return value of
-//                          CreateBinaryDelayEstimatorFarend().
-//      - history_size    : Size of the far-end binary spectrum history.
-//
-// Return value:
-//      - history_size    : The history size allocated.
-// 固定長バッファのためAllocateは不要。
+// 動的確保APIは削除（固定長・単一インスタンス前提）。
 
 // Initializes the delay estimation far-end instance created with
 // CreateBinaryDelayEstimatorFarend(...).
@@ -107,38 +73,7 @@ void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self);
 void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* self,
                                  uint32_t binary_far_spectrum);
 
-// Releases the memory allocated by CreateBinaryDelayEstimator(...).
 //
-// Note that BinaryDelayEstimator utilizes BinaryDelayEstimatorFarend, but does
-// not take ownership of it, hence the BinaryDelayEstimator has to be torn down
-// before the far-end.
-//
-// Input:
-//    - self              : Pointer to the binary delay estimation instance
-//                          which is the return value of
-//                          CreateBinaryDelayEstimator().
-//
-// 動的確保は行わないため、Freeは不要。
-
-// Allocates the memory needed by the binary delay estimation. The memory needs
-// to be initialized separately through InitBinaryDelayEstimator(...).
-//
-// See CreateDelayEstimator(..) in delay_estimator_wrapper.c for detailed
-// description.
-// 動的確保は行わないため、Createは不要。
-
-// Re-allocates `history_size` dependent buffers. The far-end buffers will be
-// updated at the same time if needed.
-//
-// Input:
-//      - self            : Pointer to the binary estimation instance which is
-//                          the return value of
-//                          CreateBinaryDelayEstimator().
-//      - history_size    : Size of the history buffers.
-//
-// Return value:
-//      - history_size    : The history size allocated.
-// 固定長バッファのためAllocateは不要。
 
 // Initializes the delay estimation instance created with
 // CreateBinaryDelayEstimator(...).

@@ -33,12 +33,10 @@ typedef struct RingBuffer {
   char* data;
 } RingBuffer;
 
-// Creates and initializes the buffer. Returns null on failure.
-RingBuffer* CreateBuffer(size_t element_count, size_t element_size);
+// 初期化（固定配列バッキング利用）。
 void InitBuffer(RingBuffer* handle);
-void FreeBuffer(void* handle);
 
-// 追加: 事前確保した領域で初期化（動的確保不要）
+// 事前確保した領域で初期化（動的確保なし）
 void InitBufferWith(RingBuffer* handle,
                     void* backing,
                     size_t element_count,
