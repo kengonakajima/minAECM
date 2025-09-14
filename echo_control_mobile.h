@@ -48,10 +48,10 @@ int32_t Aecm_Init();
 /* Farend（参照）160サンプルを供給。0で成功。*/
 int32_t Aecm_BufferFarend(const int16_t* farend);
 
-/* Nearend 160サンプルを処理して out へ。0で成功。*/
+/* Nearend 160サンプルを処理して out へ。0で成功。
+ * デバイス遅延は本実装では固定(50ms)として内部使用。*/
 int32_t Aecm_Process(const int16_t* nearend,
-                     int16_t* out,
-                     int16_t msInSndCardBuf);
+                     int16_t* out);
 
 /* 動作モードの設定。0で成功。*/
 int32_t Aecm_set_config(AecmConfig config);

@@ -59,8 +59,7 @@ int main(int argc, char** argv){
     Aecm_BufferFarend(&x.samples[n*kBlockSize]);
     // Nearend/capture -> processed
     Aecm_Process(&y.samples[n*kBlockSize],
-                 &processed[n*kBlockSize],
-                 50 /*msInSndCardBuf*/);
+                 &processed[n*kBlockSize]);
   }
   // Save processed signal as processed.wav (PCM16 mono 16kHz)
   const uint32_t sr = 16000;

@@ -152,8 +152,7 @@ int32_t Aecm_BufferFarend(const int16_t* farend) {
 }
 
 int32_t Aecm_Process(const int16_t* nearend,
-                           int16_t* out,
-                           int16_t msInSndCardBuf) {
+                           int16_t* out) {
   AecMobile* aecm = &g_aecm;
   int32_t retVal = 0;
   size_t i;
@@ -175,6 +174,9 @@ int32_t Aecm_Process(const int16_t* nearend,
   // 16kHz固定のため、160サンプル固定
   const size_t nrOfSamples = 160;
 
+  // 本実装ではサウンドカードバッファ遅延を固定 50ms とする
+  int16_t msInSndCardBuf = 50;
+  // 元の範囲チェックと +10ms のマージン処理は維持
   if (msInSndCardBuf < 0) {
     msInSndCardBuf = 0;
     retVal = AECM_BAD_PARAMETER_WARNING;

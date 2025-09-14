@@ -76,8 +76,7 @@ static void process_available_blocks(State& s){
       // AECM: 先に far をバッファリングし、その後 near を処理
       Aecm_BufferFarend(far_blk.data());
       Aecm_Process(near_blk.data(),
-                   out_blk.data(),
-                   50 /* msInSndCardBuf: 固定 */);
+                   out_blk.data());
     }
 
     // ローカル・ループバック: 処理後の出力を蓄積して、次々回以降の far にする
