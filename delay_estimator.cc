@@ -12,6 +12,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include <algorithm>
 
@@ -392,7 +393,7 @@ BinaryDelayEstimator* CreateBinaryDelayEstimator(
   self->farend = farend;
   self->near_history_size = max_lookahead + 1;
   self->history_size = 0;
-  self->robust_validation_enabled = 0;  // Disabled by default.
+  self->robust_validation_enabled = 1;  // Enabled by default.
   self->allowed_offset = 0;
 
   self->lookahead = max_lookahead;
@@ -480,6 +481,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
   int i = 0;
   int candidate_delay = -1;
   int valid_candidate = 0;
+  int hist_valid_dbg = -1;  // -1: N/A (robust disabled), 0/1: histogram validity
 
   int32_t value_best_candidate = kMaxBitCountsQ9;
   int32_t value_worst_candidate = 0;
@@ -591,6 +593,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
 
   if (self->robust_validation_enabled) {
     int is_histogram_valid = HistogramBasedValidation(self, candidate_delay);
+    hist_valid_dbg = is_histogram_valid;
     valid_candidate = RobustValidation(self, candidate_delay, valid_candidate,
                                        is_histogram_valid);
   }
@@ -615,6 +618,21 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
       self->last_delay_probability = value_best_candidate;
     }
     self->compare_delay = self->last_delay;
+  }
+
+  // Debug print every 100 calls: candidate (pre-hist), histogram value, hist_valid, last_delay
+  {
+    static int dbg_counter = 0;
+    dbg_counter++;
+    if (dbg_counter % 100 == 0) {
+      float hist_val = 0.f;
+      if (candidate_delay >= 0 && candidate_delay < self->history_size) {
+        hist_val = self->histogram[candidate_delay];
+      }
+      fprintf(stderr,
+              "[DelayEstimator] block=%d cand=%d hist_val=%.3f hist_valid=%d last=%d\n",
+              dbg_counter, candidate_delay, hist_val, hist_valid_dbg, self->last_delay);
+    }
   }
 
   return self->last_delay;
