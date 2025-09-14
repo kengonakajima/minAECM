@@ -85,6 +85,17 @@ void InitBuffer(RingBuffer* self) {
   memset(self->data, 0, self->element_count * self->element_size);
 }
 
+void InitBufferWith(RingBuffer* self,
+                    void* backing,
+                    size_t element_count,
+                    size_t element_size) {
+  if (!self || !backing || element_count == 0 || element_size == 0) return;
+  self->data = (char*)backing;
+  self->element_count = element_count;
+  self->element_size = element_size;
+  InitBuffer(self);
+}
+
 void FreeBuffer(void* handle) {
   RingBuffer* self = (RingBuffer*)handle;
   if (!self) {

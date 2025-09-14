@@ -9,6 +9,7 @@
  */
 
 #include "delay_estimator.h"
+#include "aecm_defines.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -140,7 +141,7 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
   // 4. All other bins are decreased with `valley_depth`.
   // TODO(bjornv): Investigate how to make this loop more efficient.  Split up
   // the loop?  Remove parts that doesn't add too much.
-  for (i = 0; i < self->history_size; ++i) {
+  for (i = 0; i < MAX_DELAY; ++i) {
     int is_in_last_set = (i >= self->last_delay - 2) &&
                          (i <= self->last_delay + 1) && (i != candidate_delay);
     int is_in_candidate_set =
@@ -267,198 +268,32 @@ static int RobustValidation(const BinaryDelayEstimator* self,
   return is_robust;
 }
 
-void FreeBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self) {
-  if (self == NULL) {
-    return;
-  }
-
-  free(self->binary_far_history);
-  self->binary_far_history = NULL;
-
-  free(self->far_bit_counts);
-  self->far_bit_counts = NULL;
-
-  free(self);
-}
-
-BinaryDelayEstimatorFarend* CreateBinaryDelayEstimatorFarend(
-    int history_size) {
-  BinaryDelayEstimatorFarend* self = NULL;
-
-  if (history_size > 1) {
-    // Sanity conditions fulfilled.
-    self = static_cast<BinaryDelayEstimatorFarend*>(
-        malloc(sizeof(BinaryDelayEstimatorFarend)));
-  }
-  if (self == NULL) {
-    return NULL;
-  }
-
-  self->history_size = 0;
-  self->binary_far_history = NULL;
-  self->far_bit_counts = NULL;
-  if (AllocateFarendBufferMemory(self, history_size) == 0) {
-    FreeBinaryDelayEstimatorFarend(self);
-    self = NULL;
-  }
-  return self;
-}
-
-int AllocateFarendBufferMemory(BinaryDelayEstimatorFarend* self,
-                                      int history_size) {
-  
-  // (Re-)Allocate memory for history buffers.
-  self->binary_far_history = static_cast<uint32_t*>(
-      realloc(self->binary_far_history,
-              history_size * sizeof(*self->binary_far_history)));
-  self->far_bit_counts = static_cast<int*>(realloc(
-      self->far_bit_counts, history_size * sizeof(*self->far_bit_counts)));
-  if ((self->binary_far_history == NULL) || (self->far_bit_counts == NULL)) {
-    history_size = 0;
-  }
-  // Fill with zeros if we have expanded the buffers.
-  if (history_size > self->history_size) {
-    int size_diff = history_size - self->history_size;
-    memset(&self->binary_far_history[self->history_size], 0,
-           sizeof(*self->binary_far_history) * size_diff);
-    memset(&self->far_bit_counts[self->history_size], 0,
-           sizeof(*self->far_bit_counts) * size_diff);
-  }
-  self->history_size = history_size;
-
-  return self->history_size;
-}
-
 void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self) {
-  
-  memset(self->binary_far_history, 0, sizeof(uint32_t) * self->history_size);
-  memset(self->far_bit_counts, 0, sizeof(int) * self->history_size);
+  memset(self->binary_far_history, 0, sizeof(self->binary_far_history));
+  memset(self->far_bit_counts, 0, sizeof(self->far_bit_counts));
 }
 
 
 
 void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* handle,
                                  uint32_t binary_far_spectrum) {
-  
   // Shift binary spectrum history and insert current `binary_far_spectrum`.
   memmove(&(handle->binary_far_history[1]), &(handle->binary_far_history[0]),
-          (handle->history_size - 1) * sizeof(uint32_t));
+          (MAX_DELAY - 1) * sizeof(uint32_t));
   handle->binary_far_history[0] = binary_far_spectrum;
 
   // Shift history of far-end binary spectrum bit counts and insert bit count
   // of current `binary_far_spectrum`.
   memmove(&(handle->far_bit_counts[1]), &(handle->far_bit_counts[0]),
-          (handle->history_size - 1) * sizeof(int));
+          (MAX_DELAY - 1) * sizeof(int));
   handle->far_bit_counts[0] = BitCount(binary_far_spectrum);
 }
-
-void FreeBinaryDelayEstimator(BinaryDelayEstimator* self) {
-  if (self == NULL) {
-    return;
-  }
-
-  free(self->mean_bit_counts);
-  self->mean_bit_counts = NULL;
-
-  free(self->bit_counts);
-  self->bit_counts = NULL;
-
-  free(self->binary_near_history);
-  self->binary_near_history = NULL;
-
-  free(self->histogram);
-  self->histogram = NULL;
-
-  // BinaryDelayEstimator does not have ownership of `farend`, hence we do not
-  // free the memory here. That should be handled separately by the user.
-  self->farend = NULL;
-
-  free(self);
-}
-
-BinaryDelayEstimator* CreateBinaryDelayEstimator(
-    BinaryDelayEstimatorFarend* farend,
-    int max_lookahead) {
-  BinaryDelayEstimator* self = NULL;
-
-  if ((farend != NULL) && (max_lookahead >= 0)) {
-    // Sanity conditions fulfilled.
-    self = static_cast<BinaryDelayEstimator*>(
-        malloc(sizeof(BinaryDelayEstimator)));
-  }
-  if (self == NULL) {
-    return NULL;
-  }
-
-  self->farend = farend;
-  self->near_history_size = max_lookahead + 1;
-  self->history_size = 0;
-  self->robust_validation_enabled = 1;  // Enabled by default.
-  self->allowed_offset = 0;
-
-  self->lookahead = max_lookahead;
-
-  // Allocate memory for spectrum and history buffers.
-  self->mean_bit_counts = NULL;
-  self->bit_counts = NULL;
-  self->histogram = NULL;
-  self->binary_near_history = static_cast<uint32_t*>(
-      malloc((max_lookahead + 1) * sizeof(*self->binary_near_history)));
-  if (self->binary_near_history == NULL ||
-      AllocateHistoryBufferMemory(self, farend->history_size) == 0) {
-    FreeBinaryDelayEstimator(self);
-    self = NULL;
-  }
-
-  return self;
-}
-
-int AllocateHistoryBufferMemory(BinaryDelayEstimator* self,
-                                       int history_size) {
-  BinaryDelayEstimatorFarend* far = self->farend;
-  // (Re-)Allocate memory for spectrum and history buffers.
-  if (history_size != far->history_size) {
-    // Only update far-end buffers if we need.
-    history_size = AllocateFarendBufferMemory(far, history_size);
-  }
-  // The extra array element in `mean_bit_counts` and `histogram` is a dummy
-  // element only used while `last_delay` == -2, i.e., before we have a valid
-  // estimate.
-  self->mean_bit_counts = static_cast<int32_t*>(
-      realloc(self->mean_bit_counts,
-              (history_size + 1) * sizeof(*self->mean_bit_counts)));
-  self->bit_counts = static_cast<int32_t*>(
-      realloc(self->bit_counts, history_size * sizeof(*self->bit_counts)));
-  self->histogram = static_cast<float*>(
-      realloc(self->histogram, (history_size + 1) * sizeof(*self->histogram)));
-
-  if ((self->mean_bit_counts == NULL) || (self->bit_counts == NULL) ||
-      (self->histogram == NULL)) {
-    history_size = 0;
-  }
-  // Fill with zeros if we have expanded the buffers.
-  if (history_size > self->history_size) {
-    int size_diff = history_size - self->history_size;
-    memset(&self->mean_bit_counts[self->history_size], 0,
-           sizeof(*self->mean_bit_counts) * size_diff);
-    memset(&self->bit_counts[self->history_size], 0,
-           sizeof(*self->bit_counts) * size_diff);
-    memset(&self->histogram[self->history_size], 0,
-           sizeof(*self->histogram) * size_diff);
-  }
-  self->history_size = history_size;
-
-  return self->history_size;
-}
-
 void InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
   int i = 0;
   
-
-  memset(self->bit_counts, 0, sizeof(int32_t) * self->history_size);
-  memset(self->binary_near_history, 0,
-         sizeof(uint32_t) * self->near_history_size);
-  for (i = 0; i <= self->history_size; ++i) {
+  memset(self->bit_counts, 0, sizeof(self->bit_counts));
+  memset(self->binary_near_history, 0, sizeof(self->binary_near_history));
+  for (i = 0; i <= MAX_DELAY; ++i) {
     self->mean_bit_counts[i] = (20 << 9);  // 20 in Q9.
     self->histogram[i] = 0.f;
   }
@@ -469,9 +304,13 @@ void InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
   self->last_delay = -2;
 
   self->last_candidate_delay = -2;
-  self->compare_delay = self->history_size;
+  self->compare_delay = MAX_DELAY;
   self->candidate_hits = 0;
   self->last_delay_histogram = 0.f;
+
+  // 堅牢な遅延推定をデフォルト有効化。
+  self->robust_validation_enabled = 1;
+  self->allowed_offset = 0;
 }
 
 
@@ -488,25 +327,15 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
   int32_t valley_depth = 0;
 
   
-  if (self->farend->history_size != self->history_size) {
-    // Non matching history sizes.
-    return -1;
-  }
-  if (self->near_history_size > 1) {
-    // If we apply lookahead, shift near-end binary spectrum history. Insert
-    // current `binary_near_spectrum` and pull out the delayed one.
-    memmove(&(self->binary_near_history[1]), &(self->binary_near_history[0]),
-            (self->near_history_size - 1) * sizeof(uint32_t));
-    self->binary_near_history[0] = binary_near_spectrum;
-    binary_near_spectrum = self->binary_near_history[self->lookahead];
-  }
+  // lookahead=0 固定のため履歴操作なし
+  self->binary_near_history[0] = binary_near_spectrum;
 
   // Compare with delayed spectra and store the `bit_counts` for each delay.
   BitCountComparison(binary_near_spectrum, self->farend->binary_far_history,
-                     self->history_size, self->bit_counts);
+                     MAX_DELAY, self->bit_counts);
 
   // Update `mean_bit_counts`, which is the smoothed version of `bit_counts`.
-  for (i = 0; i < self->history_size; i++) {
+  for (i = 0; i < MAX_DELAY; i++) {
     // `bit_counts` is constrained to [0, 32], meaning we can smooth with a
     // factor up to 2^26. We use Q9.
     int32_t bit_count = (self->bit_counts[i] << 9);  // Q9.
@@ -524,7 +353,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
 
   // Find `candidate_delay`, `value_best_candidate` and `value_worst_candidate`
   // of `mean_bit_counts`.
-  for (i = 0; i < self->history_size; i++) {
+  for (i = 0; i < MAX_DELAY; i++) {
     if (self->mean_bit_counts[i] < value_best_candidate) {
       value_best_candidate = self->mean_bit_counts[i];
       candidate_delay = i;
@@ -581,7 +410,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
   // Check for nonstationary farend signal.
   const bool non_stationary_farend =
       std::any_of(self->farend->far_bit_counts,
-                  self->farend->far_bit_counts + self->history_size,
+                  self->farend->far_bit_counts + MAX_DELAY,
                   [](int a) { return a > 0; });
 
   if (non_stationary_farend) {
@@ -626,7 +455,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
     dbg_counter++;
     if (dbg_counter % 100 == 0) {
       float hist_val = 0.f;
-      if (candidate_delay >= 0 && candidate_delay < self->history_size) {
+      if (candidate_delay >= 0 && candidate_delay < MAX_DELAY) {
         hist_val = self->histogram[candidate_delay];
       }
       fprintf(stderr,

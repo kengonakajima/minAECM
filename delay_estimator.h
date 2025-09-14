@@ -5,51 +5,41 @@
 #define MODULES_AUDIO_PROCESSING_UTILITY_DELAY_ESTIMATOR_H_
 
 #include <stdint.h>
+#include "aecm_defines.h"
 
  
 
 static const int32_t kMaxBitCountsQ9 = (32 << 9);  // 32 matching bits in Q9.
 
 typedef struct {
-  // Pointer to bit counts.
-  int* far_bit_counts;
-  // Binary history variables.
-  uint32_t* binary_far_history;
-  int history_size;
+  // 固定長履歴（MAX_DELAY固定）。
+  int far_bit_counts[MAX_DELAY];
+  uint32_t binary_far_history[MAX_DELAY];
 } BinaryDelayEstimatorFarend;
 
 typedef struct {
-  // Pointer to bit counts.
-  int32_t* mean_bit_counts;
-  // Array only used locally in ProcessBinarySpectrum() but whose size is
-  // determined at run-time.
-  int32_t* bit_counts;
+  // 平滑化済みbitカウント（Q9）と瞬時bitカウント。
+  int32_t mean_bit_counts[MAX_DELAY + 1];
+  int32_t bit_counts[MAX_DELAY];
 
-  // Binary history variables.
-  uint32_t* binary_near_history;
-  int near_history_size;
-  int history_size;
+  // 近端2値化の履歴（lookahead=0固定なので長さ1）。
+  uint32_t binary_near_history[1];
 
-  // Delay estimation variables.
+  // 遅延推定の内部状態。
   int32_t minimum_probability;
   int last_delay_probability;
-
-  // Delay memory.
   int last_delay;
 
-  // Robust validation
+  // 堅牢性（ヒストグラム）
   int robust_validation_enabled;
   int allowed_offset;
   int last_candidate_delay;
   int compare_delay;
   int candidate_hits;
-  float* histogram;
+  float histogram[MAX_DELAY + 1];
   float last_delay_histogram;
 
-  // For dynamically changing the lookahead when using SoftReset...().
-  int lookahead;
-
-  // Far-end binary spectrum history buffer etc.
+  // Far-end history（外部のFarendに紐付け）。
   BinaryDelayEstimatorFarend* farend;
 } BinaryDelayEstimator;
 
@@ -60,7 +50,7 @@ typedef struct {
 //                          instance which is the return value of
 //                          CreateBinaryDelayEstimatorFarend().
 //
-void FreeBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self);
+// 動的確保は行わないため、Freeは不要。
 
 // Allocates the memory needed by the far-end part of the binary delay
 // estimation. The memory needs to be initialized separately through
@@ -75,8 +65,7 @@ void FreeBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self);
 //                          or if any of the input parameters are invalid NULL
 //                          is returned.
 //
-BinaryDelayEstimatorFarend* CreateBinaryDelayEstimatorFarend(
-    int history_size);
+// 動的確保は行わないため、Create/Allocateは不要。
 
 // Re-allocates the buffers.
 //
@@ -88,8 +77,7 @@ BinaryDelayEstimatorFarend* CreateBinaryDelayEstimatorFarend(
 //
 // Return value:
 //      - history_size    : The history size allocated.
-int AllocateFarendBufferMemory(BinaryDelayEstimatorFarend* self,
-                                      int history_size);
+// 固定長バッファのためAllocateは不要。
 
 // Initializes the delay estimation far-end instance created with
 // CreateBinaryDelayEstimatorFarend(...).
@@ -130,16 +118,14 @@ void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* self,
 //                          which is the return value of
 //                          CreateBinaryDelayEstimator().
 //
-void FreeBinaryDelayEstimator(BinaryDelayEstimator* self);
+// 動的確保は行わないため、Freeは不要。
 
 // Allocates the memory needed by the binary delay estimation. The memory needs
 // to be initialized separately through InitBinaryDelayEstimator(...).
 //
 // See CreateDelayEstimator(..) in delay_estimator_wrapper.c for detailed
 // description.
-BinaryDelayEstimator* CreateBinaryDelayEstimator(
-    BinaryDelayEstimatorFarend* farend,
-    int max_lookahead);
+// 動的確保は行わないため、Createは不要。
 
 // Re-allocates `history_size` dependent buffers. The far-end buffers will be
 // updated at the same time if needed.
@@ -152,8 +138,7 @@ BinaryDelayEstimator* CreateBinaryDelayEstimator(
 //
 // Return value:
 //      - history_size    : The history size allocated.
-int AllocateHistoryBufferMemory(BinaryDelayEstimator* self,
-                                       int history_size);
+// 固定長バッファのためAllocateは不要。
 
 // Initializes the delay estimation instance created with
 // CreateBinaryDelayEstimator(...).

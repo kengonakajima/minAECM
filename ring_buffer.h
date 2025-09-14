@@ -38,6 +38,12 @@ RingBuffer* CreateBuffer(size_t element_count, size_t element_size);
 void InitBuffer(RingBuffer* handle);
 void FreeBuffer(void* handle);
 
+// 追加: 事前確保した領域で初期化（動的確保不要）
+void InitBufferWith(RingBuffer* handle,
+                    void* backing,
+                    size_t element_count,
+                    size_t element_size);
+
 // Reads data from the buffer. Returns the number of elements that were read.
 // The `data_ptr` will point to the address where the read data is located.
 // If no data can be read, `data_ptr` is set to `NULL`. If all data can be read

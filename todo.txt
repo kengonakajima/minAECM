@@ -69,10 +69,11 @@ Makefileを修正し、 make一発で echobackと cancel_fileがコンパイル�
 
 
 
+## 削減してみたら、音質に影響が大きかった部分
+
+- 堅牢な遅延推定(ヒストグラム)は削減しない。
+
 ## さらなるコード削減に向けて
-
-
-
 
   - signal_processing_library.h の必要最小限化
       - AECMが実際に使う関数/マクロ（NormW16/NormW32/NormU32/AddSat/SubSat/DivW32W16/DivU32U16/SHIFT/SAT/MUL_* な

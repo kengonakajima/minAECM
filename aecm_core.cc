@@ -14,10 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern "C" {
-#include "ring_buffer.h"
-#include "real_fft.h"
-}
 #include "signal_processing_library.h"
 #include "echo_control_mobile.h"
 #include "delay_estimator_wrapper.h"
@@ -97,59 +93,7 @@ const uint16_t* Aecm_AlignedFarend(AecmCore* self,
   return &(self->far_history[buffer_position * PART_LEN1]);
 }
 
-
-
-AecmCore* Aecm_CreateCore() {
-  // Allocate zero-filled memory.
-  AecmCore* aecm = static_cast<AecmCore*>(calloc(1, sizeof(AecmCore)));
-
-  aecm->farFrameBuf =
-      CreateBuffer(FRAME_LEN + PART_LEN, sizeof(int16_t));
-  if (!aecm->farFrameBuf) {
-    Aecm_FreeCore(aecm);
-    return NULL;
-  }
-
-  aecm->nearNoisyFrameBuf =
-      CreateBuffer(FRAME_LEN + PART_LEN, sizeof(int16_t));
-  if (!aecm->nearNoisyFrameBuf) {
-    Aecm_FreeCore(aecm);
-    return NULL;
-  }
-
-  
-
-  aecm->outFrameBuf =
-      CreateBuffer(FRAME_LEN + PART_LEN, sizeof(int16_t));
-  if (!aecm->outFrameBuf) {
-    Aecm_FreeCore(aecm);
-    return NULL;
-  }
-
-  aecm->delay_estimator_farend =
-      CreateDelayEstimatorFarend();
-  if (aecm->delay_estimator_farend == NULL) {
-    Aecm_FreeCore(aecm);
-    return NULL;
-  }
-  aecm->delay_estimator =
-      CreateDelayEstimator(aecm->delay_estimator_farend);
-  if (aecm->delay_estimator == NULL) {
-    Aecm_FreeCore(aecm);
-    return NULL;
-  }
-  // robust validation はデフォルト無効のため明示設定を省略
-
-  aecm->real_fft = CreateRealFFT(PART_LEN_SHIFT);
-  if (aecm->real_fft == NULL) {
-    Aecm_FreeCore(aecm);
-    return NULL;
-  }
-
-  // バッファは配列をそのまま使用（手動アラインメントは不要）
-
-  return aecm;
-}
+// Create/Freeは廃止。Aecm_InitCore()で内部状態を初期化する。
 
 void Aecm_InitEchoPathCore(AecmCore* aecm, const int16_t* echo_path) {
   int i = 0;
@@ -251,9 +195,13 @@ int Aecm_InitCore(AecmCore* const aecm) {
   aecm->knownDelay = 0;
   aecm->lastKnownDelay = 0;
 
-  InitBuffer(aecm->farFrameBuf);
-  InitBuffer(aecm->nearNoisyFrameBuf);
-  InitBuffer(aecm->outFrameBuf);
+  // 固定長リングバッファのバッキングを設定
+  InitBufferWith(&aecm->farFrameBuf, aecm->farFrameBufData,
+                 FRAME_LEN + PART_LEN, sizeof(int16_t));
+  InitBufferWith(&aecm->nearNoisyFrameBuf, aecm->nearNoisyFrameBufData,
+                 FRAME_LEN + PART_LEN, sizeof(int16_t));
+  InitBufferWith(&aecm->outFrameBuf, aecm->outFrameBufData,
+                 FRAME_LEN + PART_LEN, sizeof(int16_t));
 
   memset(aecm->xBuf, 0, sizeof(aecm->xBuf));
   memset(aecm->dBufNoisy, 0, sizeof(aecm->dBufNoisy));
@@ -261,10 +209,12 @@ int Aecm_InitCore(AecmCore* const aecm) {
 
   aecm->totCount = 0;
 
-  if (InitDelayEstimatorFarend(aecm->delay_estimator_farend) != 0) {
+  if (InitDelayEstimatorFarend(&aecm->delay_estimator_farend) != 0) {
     return -1;
   }
-  if (InitDelayEstimator(aecm->delay_estimator) != 0) {
+  // FarendとEstimatorを接続
+  aecm->delay_estimator.farend_wrapper = &aecm->delay_estimator_farend;
+  if (InitDelayEstimator(&aecm->delay_estimator) != 0) {
     return -1;
   }
   // Set far end histories to zero
@@ -314,6 +264,9 @@ int Aecm_InitCore(AecmCore* const aecm) {
   // used in assembly code, so check the assembly files before any change.
   static_assert(PART_LEN % 16 == 0, "PART_LEN is not a multiple of 16");
 
+  // Real FFTのorderを設定
+  aecm->real_fft.order = PART_LEN_SHIFT;
+
   return 0;
 }
 
@@ -321,21 +274,7 @@ int Aecm_InitCore(AecmCore* const aecm) {
 // parameters from a higher level
 
 
-void Aecm_FreeCore(AecmCore* aecm) {
-  if (aecm == NULL) {
-    return;
-  }
-
-  FreeBuffer(aecm->farFrameBuf);
-  FreeBuffer(aecm->nearNoisyFrameBuf);
-  FreeBuffer(aecm->outFrameBuf);
-
-  FreeDelayEstimator(aecm->delay_estimator);
-  FreeDelayEstimatorFarend(aecm->delay_estimator_farend);
-  FreeRealFFT(aecm->real_fft);
-
-  free(aecm);
-}
+// Freeは不要
 
 int Aecm_ProcessFrame(AecmCore* aecm,
                             const int16_t* farend,
@@ -354,37 +293,37 @@ int Aecm_ProcessFrame(AecmCore* aecm,
 
   // Buffer the synchronized far and near frames,
   // to pass the smaller blocks individually.
-  WriteBuffer(aecm->farFrameBuf, farFrame, FRAME_LEN);
-  WriteBuffer(aecm->nearNoisyFrameBuf, nearend, FRAME_LEN);
+  WriteBuffer(&aecm->farFrameBuf, farFrame, FRAME_LEN);
+  WriteBuffer(&aecm->nearNoisyFrameBuf, nearend, FRAME_LEN);
 
   // Process as many blocks as possible.
-  while (available_read(aecm->farFrameBuf) >= PART_LEN) {
+  while (available_read(&aecm->farFrameBuf) >= PART_LEN) {
     int16_t far_block[PART_LEN];
     const int16_t* far_block_ptr = NULL;
     int16_t near_noisy_block[PART_LEN];
     const int16_t* near_noisy_block_ptr = NULL;
 
-    ReadBuffer(aecm->farFrameBuf, (void**)&far_block_ptr, far_block,
+    ReadBuffer(&aecm->farFrameBuf, (void**)&far_block_ptr, far_block,
                       PART_LEN);
-    ReadBuffer(aecm->nearNoisyFrameBuf, (void**)&near_noisy_block_ptr,
+    ReadBuffer(&aecm->nearNoisyFrameBuf, (void**)&near_noisy_block_ptr,
                       near_noisy_block, PART_LEN);
     if (Aecm_ProcessBlock(aecm, far_block_ptr, near_noisy_block_ptr,
                                 outBlock) == -1) {
       return -1;
     }
 
-    WriteBuffer(aecm->outFrameBuf, outBlock, PART_LEN);
+    WriteBuffer(&aecm->outFrameBuf, outBlock, PART_LEN);
   }
 
   // Stuff the out buffer if we have less than a frame to output.
   // This should only happen for the first frame.
-  size = (int)available_read(aecm->outFrameBuf);
+  size = (int)available_read(&aecm->outFrameBuf);
   if (size < FRAME_LEN) {
-    MoveReadPtr(aecm->outFrameBuf, size - FRAME_LEN);
+    MoveReadPtr(&aecm->outFrameBuf, size - FRAME_LEN);
   }
 
   // Obtain an output frame.
-  ReadBuffer(aecm->outFrameBuf, (void**)&out_ptr, out, FRAME_LEN);
+  ReadBuffer(&aecm->outFrameBuf, (void**)&out_ptr, out, FRAME_LEN);
   if (out_ptr != out) {
     // ReadBuffer() hasn't copied to `out` in this case.
     memcpy(out, out_ptr, FRAME_LEN * sizeof(int16_t));

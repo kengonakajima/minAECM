@@ -16,10 +16,10 @@
 extern "C" {
 #include "ring_buffer.h"
 #include "signal_processing_library.h"
+#include "real_fft.h"
 }
 #include "aecm_defines.h"
-
-struct RealFFT;
+#include "delay_estimator_internal.h"
 
  
 
@@ -43,18 +43,22 @@ typedef struct {
   int lastKnownDelay;
   int firstVAD;  // Parameter to control poorly initialized channels
 
-  RingBuffer* farFrameBuf;
-  RingBuffer* nearNoisyFrameBuf;
-  RingBuffer* outFrameBuf;
+  // 固定長リングバッファ（外部確保なし）
+  RingBuffer farFrameBuf;
+  RingBuffer nearNoisyFrameBuf;
+  RingBuffer outFrameBuf;
+  int16_t farFrameBufData[FRAME_LEN + PART_LEN];
+  int16_t nearNoisyFrameBufData[FRAME_LEN + PART_LEN];
+  int16_t outFrameBufData[FRAME_LEN + PART_LEN];
 
   int16_t farBuf[FAR_BUF_LEN];
 
   int16_t mult;
   
 
-  // Delay estimation variables
-  void* delay_estimator_farend;
-  void* delay_estimator;
+  // Delay estimation variables（固定長値型）
+  DelayEstimatorFarend delay_estimator_farend;
+  DelayEstimator delay_estimator;
   // Far end history variables
   // TODO(bjornv): Replace `far_history` with ring_buffer.
   uint16_t far_history[PART_LEN1 * MAX_DELAY];
@@ -110,17 +114,9 @@ typedef struct {
   int16_t supGainErrParamDiffAB;
   int16_t supGainErrParamDiffBD;
 
-  struct RealFFT* real_fft;
+  struct RealFFT real_fft;
 
 } AecmCore;
-
-////////////////////////////////////////////////////////////////////////////////
-// Aecm_CreateCore()
-//
-// Allocates the memory needed by the AECM. The memory needs to be
-// initialized separately using the Aecm_InitCore() function.
-// Returns a pointer to the instance and a nullptr at failure.
-AecmCore* Aecm_CreateCore();
 
 ////////////////////////////////////////////////////////////////////////////////
 // Aecm_InitCore(...)
@@ -139,14 +135,7 @@ AecmCore* Aecm_CreateCore();
 //
 int Aecm_InitCore(AecmCore* const aecm);
 
-////////////////////////////////////////////////////////////////////////////////
-// Aecm_FreeCore(...)
-//
-// This function releases the memory allocated by Aecm_CreateCore()
-// Input:
-//      - aecm          : Pointer to the AECM instance
-//
-void Aecm_FreeCore(AecmCore* aecm);
+// Create/Freeは不要（単一インスタンス、固定長バッファ）。
 
 
 ////////////////////////////////////////////////////////////////////////////////

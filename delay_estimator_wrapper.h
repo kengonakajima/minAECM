@@ -17,28 +17,7 @@
 #include <stdint.h>
 
  
-
-// Releases the memory allocated by CreateDelayEstimatorFarend(...)
-void FreeDelayEstimatorFarend(void* handle);
-
-// Allocates the memory needed by the far-end part of the delay estimation. The
-// memory needs to be initialized separately through
-// InitDelayEstimatorFarend(...).
-//
-// Inputs:
-//  - spectrum_size     : Size of the spectrum used both in far-end and
-//                        near-end. Used to allocate memory for spectrum
-//                        specific buffers.
-//  - history_size      : The far-end history buffer size. A change in buffer
-//                        size can be forced with set_history_size().
-//                        Note that the maximum delay which can be estimated is
-//                        determined together with set_lookahead().
-//
-// Return value:
-//  - void*             : Created `handle`. If the memory can't be allocated or
-//                        if any of the input parameters are invalid NULL is
-//                        returned.
-void* CreateDelayEstimatorFarend();
+// Farend/Estimatorは単一インスタンス前提で外部確保不要。Initのみ提供。
 
 // Initializes the far-end part of the delay estimation instance returned by
 // CreateDelayEstimatorFarend(...)
@@ -67,49 +46,6 @@ int AddFarSpectrumFix(void* handle,
                              int far_q);
 
 // See AddFarSpectrumFix() for description.
-
-// Releases the memory allocated by CreateDelayEstimator(...)
-void FreeDelayEstimator(void* handle);
-
-// Allocates the memory needed by the delay estimation. The memory needs to be
-// initialized separately through InitDelayEstimator(...).
-//
-// Inputs:
-//      - farend_handle : Pointer to the far-end part of the delay estimation
-//                        instance created prior to this call using
-//                        CreateDelayEstimatorFarend().
-//
-//                        Note that CreateDelayEstimator does not take
-//                        ownership of `farend_handle`, which has to be torn
-//                        down properly after this instance.
-//
-//      - max_lookahead : Maximum amount of non-causal lookahead allowed. The
-//                        actual amount of lookahead used can be controlled by
-//                        set_lookahead(...). The default `lookahead` is
-//                        set to `max_lookahead` at create time. Use
-//                        set_lookahead(...) before start if a different
-//                        value is desired.
-//
-//                        Using lookahead can detect cases in which a near-end
-//                        signal occurs before the corresponding far-end signal.
-//                        It will delay the estimate for the current block by an
-//                        equal amount, and the returned values will be offset
-//                        by it.
-//
-//                        A value of zero is the typical no-lookahead case.
-//                        This also represents the minimum delay which can be
-//                        estimated.
-//
-//                        Note that the effective range of delay estimates is
-//                        [-`lookahead`,... ,`history_size`-`lookahead`)
-//                        where `history_size` is set through
-//                        set_history_size().
-//
-// Return value:
-//      - void*         : Created `handle`. If the memory can't be allocated or
-//                        if any of the input parameters are invalid NULL is
-//                        returned.
-void* CreateDelayEstimator(void* farend_handle);
 
 // Initializes the delay estimation instance returned by
 // CreateDelayEstimator(...)

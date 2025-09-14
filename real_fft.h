@@ -17,7 +17,10 @@
 // WebRTC APM uses orders of only 7 and 8.
 enum { kMaxFFTOrder = 10 };
 
-struct RealFFT;
+// 実装は単純な order フィールドのみ（固定長化のため公開）。
+struct RealFFT {
+  int order;
+};
 
 #ifdef __cplusplus
 extern "C" {

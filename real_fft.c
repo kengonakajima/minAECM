@@ -14,10 +14,6 @@
 
 #include "signal_processing_library.h"
 
-struct RealFFT {
-  int order;
-};
-
 struct RealFFT* CreateRealFFT(int order) {
   struct RealFFT* self = NULL;
 

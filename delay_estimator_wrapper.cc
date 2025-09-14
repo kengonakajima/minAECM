@@ -10,7 +10,6 @@
 
 #include "delay_estimator_wrapper.h"
 
-#include <stdlib.h>
 #include <string.h>
 
 #include "delay_estimator.h"
@@ -87,56 +86,7 @@ static uint32_t BinarySpectrumFix(const uint16_t* spectrum,
   return out;
 }
 
-
-
-void FreeDelayEstimatorFarend(void* handle) {
-  DelayEstimatorFarend* self = (DelayEstimatorFarend*)handle;
-
-  if (handle == NULL) {
-    return;
-  }
-
-  free(self->mean_far_spectrum);
-  self->mean_far_spectrum = NULL;
-
-  FreeBinaryDelayEstimatorFarend(self->binary_farend);
-  self->binary_farend = NULL;
-
-  free(self);
-}
-
-void* CreateDelayEstimatorFarend() {
-  DelayEstimatorFarend* self = NULL;
-
-  // Check if the sub band used in the delay estimation is small enough to fit
-  // the binary spectra in a uint32_t.
-  static_assert(kBandLast - kBandFirst < 32, "");
-
-  self = static_cast<DelayEstimatorFarend*>(
-      malloc(sizeof(DelayEstimatorFarend)));
-
-  if (self != NULL) {
-    int memory_fail = 0;
-
-    // Allocate memory for the binary far-end spectrum handling.
-    self->binary_farend = CreateBinaryDelayEstimatorFarend(MAX_DELAY);
-    memory_fail |= (self->binary_farend == NULL);
-
-    // Allocate memory for spectrum buffers.
-    self->mean_far_spectrum = static_cast<SpectrumType*>(
-        malloc(PART_LEN1 * sizeof(SpectrumType)));
-    memory_fail |= (self->mean_far_spectrum == NULL);
-
-    self->spectrum_size = PART_LEN1;
-
-    if (memory_fail) {
-      FreeDelayEstimatorFarend(self);
-      self = NULL;
-    }
-  }
-
-  return self;
-}
+// Create/Freeは廃止。固定長の値型をInitのみで使用する。
 
 int InitDelayEstimatorFarend(void* handle) {
   DelayEstimatorFarend* self = (DelayEstimatorFarend*)handle;
@@ -146,11 +96,11 @@ int InitDelayEstimatorFarend(void* handle) {
   }
 
   // Initialize far-end part of binary delay estimator.
-  InitBinaryDelayEstimatorFarend(self->binary_farend);
+  InitBinaryDelayEstimatorFarend(&self->binary_farend);
 
   // Set averaged far and near end spectra to zero.
-  memset(self->mean_far_spectrum, 0,
-         sizeof(SpectrumType) * self->spectrum_size);
+  self->spectrum_size = PART_LEN1;
+  memset(self->mean_far_spectrum, 0, sizeof(self->mean_far_spectrum));
   // Reset initialization indicators.
   self->far_spectrum_initialized = 0;
 
@@ -180,59 +130,9 @@ int AddFarSpectrumFix(void* handle,
   // Get binary spectrum.
   binary_spectrum = BinarySpectrumFix(far_spectrum, self->mean_far_spectrum,
                                       far_q, &(self->far_spectrum_initialized));
-  AddBinaryFarSpectrum(self->binary_farend, binary_spectrum);
+  AddBinaryFarSpectrum(&self->binary_farend, binary_spectrum);
 
   return 0;
-}
-
-
-
-void FreeDelayEstimator(void* handle) {
-  DelayEstimator* self = (DelayEstimator*)handle;
-
-  if (handle == NULL) {
-    return;
-  }
-
-  free(self->mean_near_spectrum);
-  self->mean_near_spectrum = NULL;
-
-  FreeBinaryDelayEstimator(self->binary_handle);
-  self->binary_handle = NULL;
-
-  free(self);
-}
-
-void* CreateDelayEstimator(void* farend_handle) {
-  DelayEstimator* self = NULL;
-  DelayEstimatorFarend* farend = (DelayEstimatorFarend*)farend_handle;
-
-  if (farend_handle != NULL) {
-    self = static_cast<DelayEstimator*>(malloc(sizeof(DelayEstimator)));
-  }
-
-  if (self != NULL) {
-    int memory_fail = 0;
-
-    // Allocate memory for the farend spectrum handling.
-    self->binary_handle =
-        CreateBinaryDelayEstimator(farend->binary_farend, 0);
-    memory_fail |= (self->binary_handle == NULL);
-
-    // Allocate memory for spectrum buffers.
-    self->mean_near_spectrum = static_cast<SpectrumType*>(
-        malloc(farend->spectrum_size * sizeof(SpectrumType)));
-    memory_fail |= (self->mean_near_spectrum == NULL);
-
-    self->spectrum_size = farend->spectrum_size;
-
-    if (memory_fail) {
-      FreeDelayEstimator(self);
-      self = NULL;
-    }
-  }
-
-  return self;
 }
 
 int InitDelayEstimator(void* handle) {
@@ -242,12 +142,17 @@ int InitDelayEstimator(void* handle) {
     return -1;
   }
 
+  // Farend（ラッパ）をバイナリエンジンへ接続
+  if (self->farend_wrapper) {
+    self->binary_handle.farend = &self->farend_wrapper->binary_farend;
+  }
   // Initialize binary delay estimator.
-  InitBinaryDelayEstimator(self->binary_handle);
+  InitBinaryDelayEstimator(&self->binary_handle);
 
   // Set averaged far and near end spectra to zero.
-  memset(self->mean_near_spectrum, 0,
-         sizeof(SpectrumType) * self->spectrum_size);
+  // spectrum_size は Farend に合わせて PART_LEN1（固定）
+  self->spectrum_size = PART_LEN1;
+  memset(self->mean_near_spectrum, 0, sizeof(self->mean_near_spectrum));
   // Reset initialization indicators.
   self->near_spectrum_initialized = 0;
 
@@ -283,7 +188,7 @@ int DelayEstimatorProcessFix(void* handle,
       BinarySpectrumFix(near_spectrum, self->mean_near_spectrum, near_q,
                         &(self->near_spectrum_initialized));
 
-  return ProcessBinarySpectrum(self->binary_handle, binary_spectrum);
+  return ProcessBinarySpectrum(&self->binary_handle, binary_spectrum);
 }
 
 

@@ -66,9 +66,10 @@ typedef struct {
   int16_t echoMode;
 
   // Structures
-  RingBuffer* farendBuf;
+  RingBuffer farendBuf;
+  int16_t farendBufData[kBufSizeSamp];
 
-  AecmCore* aecmCore;
+  AecmCore aecmCore;
 } AecMobile;
 
  
@@ -82,36 +83,26 @@ static int Aecm_DelayComp(AecMobile* aecm);
 
 // 単一インスタンス実体
 static AecMobile g_aecm;
-static int g_created = 0;  // サブ構造（Core/Buffer）確保済み
 
 int32_t Aecm_Init() {
   AecMobile* aecm = &g_aecm;
   AecmConfig aecConfig;
 
-  // 初回のみサブ構造を確保
-  if (!g_created) {
-    memset(aecm, 0, sizeof(*aecm));
-    aecm->aecmCore = Aecm_CreateCore();
-    if (!aecm->aecmCore) {
-      return -1;
-    }
-    aecm->farendBuf = CreateBuffer(kBufSizeSamp, sizeof(int16_t));
-    if (!aecm->farendBuf) {
-      return -1;
-    }
-    g_created = 1;
-  }
+  // サブ構造を初期化
+  memset(aecm, 0, sizeof(*aecm));
+  InitBufferWith(&aecm->farendBuf, aecm->farendBufData,
+                 kBufSizeSamp, sizeof(int16_t));
 
   // 16 kHz 固定
   aecm->sampFreq = 16000;
 
   // Initialize AECM core
-  if (Aecm_InitCore(aecm->aecmCore) == -1) {
+  if (Aecm_InitCore(&aecm->aecmCore) == -1) {
     return AECM_UNSPECIFIED_ERROR;
   }
 
   // Initialize farend buffer
-  InitBuffer(aecm->farendBuf);
+  InitBuffer(&aecm->farendBuf);
 
   aecm->initFlag = kInitCheck;  // indicates that initialization has been done
 
@@ -155,7 +146,7 @@ int32_t Aecm_BufferFarend(const int16_t* farend) {
     Aecm_DelayComp(aecm);
   }
 
-  WriteBuffer(aecm->farendBuf, farend, 160);
+  WriteBuffer(&aecm->farendBuf, farend, 160);
 
   return 0;
 }
@@ -202,7 +193,7 @@ int32_t Aecm_Process(const int16_t* nearend,
     }
 
     nmbrOfFilledBuffers =
-        (short)available_read(aecm->farendBuf) / FRAME_LEN;
+        (short)available_read(&aecm->farendBuf) / FRAME_LEN;
     // The AECM is in the start up mode
     // AECM is disabled until the soundcard buffer and farend buffers are OK
 
@@ -258,8 +249,8 @@ int32_t Aecm_Process(const int16_t* nearend,
       if (nmbrOfFilledBuffers == aecm->bufSizeStart) {
         aecm->ECstartup = 0;  // Enable the AECM
       } else if (nmbrOfFilledBuffers > aecm->bufSizeStart) {
-        MoveReadPtr(aecm->farendBuf,
-                           (int)available_read(aecm->farendBuf) -
+        MoveReadPtr(&aecm->farendBuf,
+                           (int)available_read(&aecm->farendBuf) -
                                (int)aecm->bufSizeStart * FRAME_LEN);
         aecm->ECstartup = 0;
       }
@@ -274,12 +265,12 @@ int32_t Aecm_Process(const int16_t* nearend,
       const int16_t* farend_ptr = NULL;
 
       nmbrOfFilledBuffers =
-          (short)available_read(aecm->farendBuf) / FRAME_LEN;
+          (short)available_read(&aecm->farendBuf) / FRAME_LEN;
 
       // Check that there is data in the far end buffer
       if (nmbrOfFilledBuffers > 0) {
         // Get the next 80 samples from the farend buffer
-        ReadBuffer(aecm->farendBuf, (void**)&farend_ptr, farend,
+        ReadBuffer(&aecm->farendBuf, (void**)&farend_ptr, farend,
                           FRAME_LEN);
 
         // Always store the last frame for use when we run out of data
@@ -296,10 +287,10 @@ int32_t Aecm_Process(const int16_t* nearend,
       }
 
       // Call the AECM
-      /*Aecm_ProcessFrame(aecm->aecmCore, farend, &nearend[FRAME_LEN * i],
+      /*Aecm_ProcessFrame(&aecm->aecmCore, farend, &nearend[FRAME_LEN * i],
        &out[FRAME_LEN * i], aecm->knownDelay);*/
       if (Aecm_ProcessFrame(
-              aecm->aecmCore, farend_ptr, &nearend[FRAME_LEN * i],
+              &aecm->aecmCore, farend_ptr, &nearend[FRAME_LEN * i],
               &out[FRAME_LEN * i]) == -1)
         return -1;
     }
@@ -323,49 +314,49 @@ int32_t Aecm_set_config(AecmConfig config) {
   aecm->echoMode = config.echoMode;
 
   if (aecm->echoMode == 0) {
-    aecm->aecmCore->supGain = SUPGAIN_DEFAULT >> 3;
-    aecm->aecmCore->supGainOld = SUPGAIN_DEFAULT >> 3;
-    aecm->aecmCore->supGainErrParamA = SUPGAIN_ERROR_PARAM_A >> 3;
-    aecm->aecmCore->supGainErrParamD = SUPGAIN_ERROR_PARAM_D >> 3;
-    aecm->aecmCore->supGainErrParamDiffAB =
+    aecm->aecmCore.supGain = SUPGAIN_DEFAULT >> 3;
+    aecm->aecmCore.supGainOld = SUPGAIN_DEFAULT >> 3;
+    aecm->aecmCore.supGainErrParamA = SUPGAIN_ERROR_PARAM_A >> 3;
+    aecm->aecmCore.supGainErrParamD = SUPGAIN_ERROR_PARAM_D >> 3;
+    aecm->aecmCore.supGainErrParamDiffAB =
         (SUPGAIN_ERROR_PARAM_A >> 3) - (SUPGAIN_ERROR_PARAM_B >> 3);
-    aecm->aecmCore->supGainErrParamDiffBD =
+    aecm->aecmCore.supGainErrParamDiffBD =
         (SUPGAIN_ERROR_PARAM_B >> 3) - (SUPGAIN_ERROR_PARAM_D >> 3);
   } else if (aecm->echoMode == 1) {
-    aecm->aecmCore->supGain = SUPGAIN_DEFAULT >> 2;
-    aecm->aecmCore->supGainOld = SUPGAIN_DEFAULT >> 2;
-    aecm->aecmCore->supGainErrParamA = SUPGAIN_ERROR_PARAM_A >> 2;
-    aecm->aecmCore->supGainErrParamD = SUPGAIN_ERROR_PARAM_D >> 2;
-    aecm->aecmCore->supGainErrParamDiffAB =
+    aecm->aecmCore.supGain = SUPGAIN_DEFAULT >> 2;
+    aecm->aecmCore.supGainOld = SUPGAIN_DEFAULT >> 2;
+    aecm->aecmCore.supGainErrParamA = SUPGAIN_ERROR_PARAM_A >> 2;
+    aecm->aecmCore.supGainErrParamD = SUPGAIN_ERROR_PARAM_D >> 2;
+    aecm->aecmCore.supGainErrParamDiffAB =
         (SUPGAIN_ERROR_PARAM_A >> 2) - (SUPGAIN_ERROR_PARAM_B >> 2);
-    aecm->aecmCore->supGainErrParamDiffBD =
+    aecm->aecmCore.supGainErrParamDiffBD =
         (SUPGAIN_ERROR_PARAM_B >> 2) - (SUPGAIN_ERROR_PARAM_D >> 2);
   } else if (aecm->echoMode == 2) {
-    aecm->aecmCore->supGain = SUPGAIN_DEFAULT >> 1;
-    aecm->aecmCore->supGainOld = SUPGAIN_DEFAULT >> 1;
-    aecm->aecmCore->supGainErrParamA = SUPGAIN_ERROR_PARAM_A >> 1;
-    aecm->aecmCore->supGainErrParamD = SUPGAIN_ERROR_PARAM_D >> 1;
-    aecm->aecmCore->supGainErrParamDiffAB =
+    aecm->aecmCore.supGain = SUPGAIN_DEFAULT >> 1;
+    aecm->aecmCore.supGainOld = SUPGAIN_DEFAULT >> 1;
+    aecm->aecmCore.supGainErrParamA = SUPGAIN_ERROR_PARAM_A >> 1;
+    aecm->aecmCore.supGainErrParamD = SUPGAIN_ERROR_PARAM_D >> 1;
+    aecm->aecmCore.supGainErrParamDiffAB =
         (SUPGAIN_ERROR_PARAM_A >> 1) - (SUPGAIN_ERROR_PARAM_B >> 1);
-    aecm->aecmCore->supGainErrParamDiffBD =
+    aecm->aecmCore.supGainErrParamDiffBD =
         (SUPGAIN_ERROR_PARAM_B >> 1) - (SUPGAIN_ERROR_PARAM_D >> 1);
   } else if (aecm->echoMode == 3) {
-    aecm->aecmCore->supGain = SUPGAIN_DEFAULT;
-    aecm->aecmCore->supGainOld = SUPGAIN_DEFAULT;
-    aecm->aecmCore->supGainErrParamA = SUPGAIN_ERROR_PARAM_A;
-    aecm->aecmCore->supGainErrParamD = SUPGAIN_ERROR_PARAM_D;
-    aecm->aecmCore->supGainErrParamDiffAB =
+    aecm->aecmCore.supGain = SUPGAIN_DEFAULT;
+    aecm->aecmCore.supGainOld = SUPGAIN_DEFAULT;
+    aecm->aecmCore.supGainErrParamA = SUPGAIN_ERROR_PARAM_A;
+    aecm->aecmCore.supGainErrParamD = SUPGAIN_ERROR_PARAM_D;
+    aecm->aecmCore.supGainErrParamDiffAB =
         SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
-    aecm->aecmCore->supGainErrParamDiffBD =
+    aecm->aecmCore.supGainErrParamDiffBD =
         SUPGAIN_ERROR_PARAM_B - SUPGAIN_ERROR_PARAM_D;
   } else if (aecm->echoMode == 4) {
-    aecm->aecmCore->supGain = SUPGAIN_DEFAULT << 1;
-    aecm->aecmCore->supGainOld = SUPGAIN_DEFAULT << 1;
-    aecm->aecmCore->supGainErrParamA = SUPGAIN_ERROR_PARAM_A << 1;
-    aecm->aecmCore->supGainErrParamD = SUPGAIN_ERROR_PARAM_D << 1;
-    aecm->aecmCore->supGainErrParamDiffAB =
+    aecm->aecmCore.supGain = SUPGAIN_DEFAULT << 1;
+    aecm->aecmCore.supGainOld = SUPGAIN_DEFAULT << 1;
+    aecm->aecmCore.supGainErrParamA = SUPGAIN_ERROR_PARAM_A << 1;
+    aecm->aecmCore.supGainErrParamD = SUPGAIN_ERROR_PARAM_D << 1;
+    aecm->aecmCore.supGainErrParamDiffAB =
         (SUPGAIN_ERROR_PARAM_A << 1) - (SUPGAIN_ERROR_PARAM_B << 1);
-    aecm->aecmCore->supGainErrParamDiffBD =
+    aecm->aecmCore.supGainErrParamDiffBD =
         (SUPGAIN_ERROR_PARAM_B << 1) - (SUPGAIN_ERROR_PARAM_D << 1);
   }
 
@@ -376,7 +367,7 @@ int32_t Aecm_set_config(AecmConfig config) {
 
 static int Aecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf) {
   short delayNew, nSampSndCard;
-  short nSampFar = (short)available_read(aecm->farendBuf);
+  short nSampFar = (short)available_read(&aecm->farendBuf);
   short diff;
 
   nSampSndCard = msInSndCardBuf * kSamplesPerMs16k;
@@ -384,7 +375,7 @@ static int Aecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf) {
   delayNew = nSampSndCard - nSampFar;
 
   if (delayNew < FRAME_LEN) {
-    MoveReadPtr(aecm->farendBuf, FRAME_LEN);
+    MoveReadPtr(&aecm->farendBuf, FRAME_LEN);
     delayNew += FRAME_LEN;
   }
 
@@ -416,7 +407,7 @@ static int Aecm_EstBufDelay(AecMobile* aecm, short msInSndCardBuf) {
 }
 
 static int Aecm_DelayComp(AecMobile* aecm) {
-  int nSampFar = (int)available_read(aecm->farendBuf);
+  int nSampFar = (int)available_read(&aecm->farendBuf);
   int nSampSndCard, delayNew, nSampAdd;
   const int maxStuffSamp = 10 * FRAME_LEN;
 
@@ -430,7 +421,7 @@ static int Aecm_DelayComp(AecMobile* aecm) {
         (int)(MAX(((nSampSndCard >> 1) - nSampFar), FRAME_LEN));
     nSampAdd = MIN(nSampAdd, maxStuffSamp);
 
-    MoveReadPtr(aecm->farendBuf, -nSampAdd);
+    MoveReadPtr(&aecm->farendBuf, -nSampAdd);
     aecm->delayChange = 1;  // the delay needs to be updated
   }
 

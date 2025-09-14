@@ -56,7 +56,7 @@ static void WindowAndFFT(AecmCore* aecm,
 
   // Do forward FFT, then take only the first PART_LEN complex samples,
   // and change signs of the imaginary parts.
-  RealForwardFFT(aecm->real_fft, fft, (int16_t*)freq_signal);
+  RealForwardFFT(&aecm->real_fft, fft, (int16_t*)freq_signal);
   for (i = 0; i < PART_LEN; i++) {
     freq_signal[i].imag = -freq_signal[i].imag;
   }
@@ -84,7 +84,7 @@ static void InverseFFTAndWindow(AecmCore* aecm,
   fft[PART_LEN2 + 1] = -efw[PART_LEN].imag;
 
   // Inverse FFT. Keep outCFFT to scale the samples in the next block.
-  outCFFT = RealInverseFFT(aecm->real_fft, fft, ifft_out);
+  outCFFT = RealInverseFFT(&aecm->real_fft, fft, ifft_out);
   for (i = 0; i < PART_LEN; i++) {
     ifft_out[i] = (int16_t)MUL_16_16_RSFT_WITH_ROUND(
         ifft_out[i], Aecm_kSqrtHanning[i], 14);
@@ -249,11 +249,11 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   // Get the delay
   // Save far-end history and estimate delay
   Aecm_UpdateFarHistory(aecm, xfa, far_q);
-  if (AddFarSpectrumFix(aecm->delay_estimator_farend, xfa,
+  if (AddFarSpectrumFix(&aecm->delay_estimator_farend, xfa,
                                far_q) == -1) {
     return -1;
   }
-  delay = DelayEstimatorProcessFix(aecm->delay_estimator, dfaNoisy,
+  delay = DelayEstimatorProcessFix(&aecm->delay_estimator, dfaNoisy,
                                           zerosDBufNoisy);
   if (delay == -1) {
     return -1;
