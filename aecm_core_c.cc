@@ -85,15 +85,15 @@ static void InverseFFTAndWindow(AecmCore* aecm,
   for (int i = 0; i < PART_LEN; i++) {
     ifft_out[i] = (int16_t)MUL_16_16_RSFT_WITH_ROUND(
         ifft_out[i], Aecm_kSqrtHanning[i], 14);
-    int32_t tmp32no1 = SHIFT_W32((int32_t)ifft_out[i],
-                                 outCFFT - aecm->dfaCleanQDomain);
+    // 固定Q=0のため、出力シフトは outCFFT のみを考慮
+    int32_t tmp32no1 = SHIFT_W32((int32_t)ifft_out[i], outCFFT);
     output[i] = (int16_t)SAT(WORD16_MAX,
                                         tmp32no1 + aecm->outBuf[i],
                                         WORD16_MIN);
 
-    tmp32no1 =
-        (ifft_out[PART_LEN + i] * Aecm_kSqrtHanning[PART_LEN - i]) >> 14;
-    tmp32no1 = SHIFT_W32(tmp32no1, outCFFT - aecm->dfaCleanQDomain);
+    tmp32no1 = (ifft_out[PART_LEN + i] *
+                Aecm_kSqrtHanning[PART_LEN - i]) >> 14;
+    tmp32no1 = SHIFT_W32(tmp32no1, outCFFT);
     aecm->outBuf[i] = (int16_t)SAT(WORD16_MAX, tmp32no1,
                                               WORD16_MIN);
   }
@@ -181,7 +181,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   int16_t hnl[PART_LEN1];
   int16_t numPosCoef = 0;
   int delay;
-  int16_t zerosDBufNoisy, zerosXBuf;
+  int16_t zerosDBufNoisy;
   int far_q;
 
   const int kMinPrefBand = 4;
@@ -242,13 +242,12 @@ int Aecm_ProcessBlock(AecmCore* aecm,
 
   // Get aligned far end spectrum
   far_spectrum_ptr = Aecm_AlignedFarend(aecm, &far_q, delay);
-  zerosXBuf = (int16_t)far_q;
   if (far_spectrum_ptr == NULL) {
     return -1;
   }
 
   // Calculate log(energy) and update energy threshold levels
-  Aecm_CalcEnergies(aecm, far_spectrum_ptr, zerosXBuf, dfaNoisySum,
+  Aecm_CalcEnergies(aecm, far_spectrum_ptr, 0 /*far_q*/, dfaNoisySum,
                           echoEst32);
 
   // Calculate stepsize
@@ -260,7 +259,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   // This is the channel estimation algorithm.
   // It is base on NLMS but has a variable step length,
   // which was calculated above.
-  Aecm_UpdateChannel(aecm, far_spectrum_ptr, zerosXBuf, dfaNoisy, mu,
+  Aecm_UpdateChannel(aecm, far_spectrum_ptr, 0 /*far_q*/, dfaNoisy, mu,
                            echoEst32);
   int16_t supGain = Aecm_CalcSuppressionGain(aecm);
 
@@ -283,12 +282,10 @@ int Aecm_ProcessBlock(AecmCore* aecm,
       echoEst32Gained =
           UMUL_32_16((uint32_t)aecm->echoFilt[i], (uint16_t)supGain);
       resolutionDiff = 14 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
-      resolutionDiff += (aecm->dfaCleanQDomain - zerosXBuf);
     } else {
       int16_t tmp16no1 = 17 - zeros32 - zeros16;
       resolutionDiff =
           14 + tmp16no1 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
-      resolutionDiff += (aecm->dfaCleanQDomain - zerosXBuf);
       if (zeros32 > tmp16no1) {
         echoEst32Gained = UMUL_32_16((uint32_t)aecm->echoFilt[i],
                                                 supGain >> tmp16no1);

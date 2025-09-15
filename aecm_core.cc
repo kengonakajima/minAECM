@@ -52,8 +52,7 @@ void Aecm_UpdateFarHistory(AecmCore* self,
   if (self->far_history_pos >= MAX_DELAY) {
     self->far_history_pos = 0;
   }
-  // Update Q-domain buffer
-  self->far_q_domains[self->far_history_pos] = far_q;
+  // Q-domain は固定Q=0のため保持不要
   // Update far end spectrum buffer
   memcpy(&(self->far_history[self->far_history_pos * PART_LEN1]), far_spectrum,
          sizeof(uint16_t) * PART_LEN1);
@@ -87,8 +86,8 @@ const uint16_t* Aecm_AlignedFarend(AecmCore* self,
   if (buffer_position < 0) {
     buffer_position += MAX_DELAY;
   }
-  // Get Q-domain
-  *far_q = self->far_q_domains[buffer_position];
+  // 固定Q=0
+  *far_q = 0;
   // Return far end spectrum
   return &(self->far_history[buffer_position * PART_LEN1]);
 }
