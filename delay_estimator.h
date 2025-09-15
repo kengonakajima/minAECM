@@ -30,8 +30,7 @@ typedef struct {
   int last_delay_probability;
   int last_delay;
 
-  // 堅牢性（ヒストグラム）
-  int robust_validation_enabled;
+  // 堅牢性（ヒストグラム）は常時有効（フラグ廃止）
   int allowed_offset;
   int last_candidate_delay;
   int compare_delay;

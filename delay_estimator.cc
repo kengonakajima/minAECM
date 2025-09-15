@@ -308,8 +308,6 @@ void InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
   self->candidate_hits = 0;
   self->last_delay_histogram = 0.f;
 
-  // 堅牢な遅延推定をデフォルト有効化。
-  self->robust_validation_enabled = 1;
   self->allowed_offset = 0;
 }
 
@@ -320,7 +318,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
   int i = 0;
   int candidate_delay = -1;
   int valid_candidate = 0;
-  int hist_valid_dbg = -1;  // -1: N/A (robust disabled), 0/1: histogram validity
+  int hist_valid_dbg = 0;  // 0/1: histogram validity
 
   int32_t value_best_candidate = kMaxBitCountsQ9;
   int32_t value_worst_candidate = 0;
@@ -420,7 +418,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
                                      value_best_candidate);
   }
 
-  if (self->robust_validation_enabled) {
+  {
     int is_histogram_valid = HistogramBasedValidation(self, candidate_delay);
     hist_valid_dbg = is_histogram_valid;
     valid_candidate = RobustValidation(self, candidate_delay, valid_candidate,
