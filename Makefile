@@ -19,7 +19,7 @@ WARN_C=-Wall -Wextra -Wunreachable-code -Wunused-function -Wunused-const-variabl
 CPPFLAGS=$(INCFLAGS) $(PFFLAGS)
 CXXFLAGS=-std=c++20 -g -O3 -mmacosx-version-min=10.13 \
   -ffunction-sections -fdata-sections $(WARN_CXX)
-CFLAGS=-std=c11 -g -O3 -mmacosx-version-min=10.13 \
+CFLAGS=-g -O3 -mmacosx-version-min=10.13 \
   -ffunction-sections -fdata-sections $(WARN_C)
 LDFLAGS=-Wl,-dead_strip
 
@@ -93,4 +93,3 @@ clean:
 	# Debug symbol bundles and temp files
 	rm -rf *.dSYM
 	rm -f *.tmp
-

@@ -11,7 +11,8 @@
 #ifndef MODULES_AUDIO_PROCESSING_AECM_AECM_DEFINES_H_
 #define MODULES_AUDIO_PROCESSING_AECM_AECM_DEFINES_H_
 
-#define AECM_DYNAMIC_Q /* Turn on/off dynamic Q-domain. */
+/* AECM_DYNAMIC_Q を無効化（教育用に定数Qで簡略化） */
+/* #define AECM_DYNAMIC_Q */
 
 /* Algorithm parameters */
 // 教育用にフレームとパーティションを一致させる: 64サンプル固定

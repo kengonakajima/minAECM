@@ -28,50 +28,46 @@
 
 int ComplexFFT(int16_t frfi[], int stages, int mode)
 {
-    int i, j, l, k, istep, n, m;
-    int16_t wr, wi;
-    int32_t tr32, ti32, qr32, qi32;
-
     /* The 1024-value is a constant given from the size of kSinTable1024[],
      * and should not be changed depending on the input parameter 'stages'
      */
-    n = 1 << stages;
+    const int n = 1 << stages;
     if (n > 1024)
         return -1;
 
-    l = 1;
-    k = 10 - 1; /* Constant for given kSinTable1024[]. Do not change
+    int l = 1;
+    int k = 10 - 1; /* Constant for given kSinTable1024[]. Do not change
          depending on the input parameter 'stages' */
 
     // 高精度モードのみを残す
     while (l < n)
     {
-        istep = l << 1;
+        int istep = l << 1;
 
-        for (m = 0; m < l; ++m)
+        for (int m = 0; m < l; ++m)
         {
-            j = m << k;
+            int j = m << k;
 
             /* The 256-value is a constant given as 1/4 of the size of
              * kSinTable1024[], and should not be changed depending on the input
              * parameter 'stages'. It will result in 0 <= j < N_SINE_WAVE/2
              */
-            wr = kSinTable1024[j + 256];
-            wi = -kSinTable1024[j];
+            int16_t wr = kSinTable1024[j + 256];
+            int16_t wi = -kSinTable1024[j];
 
-            for (i = m; i < n; i += istep)
+            for (int i = m; i < n; i += istep)
             {
                 j = i + l;
                 
-                tr32 = wr * frfi[2 * j] - wi * frfi[2 * j + 1] + CFFTRND;
+                int32_t tr32 = wr * frfi[2 * j] - wi * frfi[2 * j + 1] + CFFTRND;
 
-                ti32 = wr * frfi[2 * j + 1] + wi * frfi[2 * j] + CFFTRND;
+                int32_t ti32 = wr * frfi[2 * j + 1] + wi * frfi[2 * j] + CFFTRND;
 
                 tr32 >>= 15 - CFFTSFT;
                 ti32 >>= 15 - CFFTSFT;
 
-                qr32 = ((int32_t)frfi[2 * i]) * (1 << CFFTSFT);
-                qi32 = ((int32_t)frfi[2 * i + 1]) * (1 << CFFTSFT);
+                int32_t qr32 = ((int32_t)frfi[2 * i]) * (1 << CFFTSFT);
+                int32_t qi32 = ((int32_t)frfi[2 * i + 1]) * (1 << CFFTSFT);
 
                 frfi[2 * j] = (int16_t)(
                     (qr32 - tr32 + CFFTRND2) >> (1 + CFFTSFT));
@@ -92,32 +88,26 @@ int ComplexFFT(int16_t frfi[], int stages, int mode)
 
 int ComplexIFFT(int16_t frfi[], int stages, int mode)
 {
-    size_t i, j, l, istep, n, m;
-    int k, scale, shift;
-    int16_t wr, wi;
-    int32_t tr32, ti32, qr32, qi32;
-    int32_t tmp32, round2;
-
     /* The 1024-value is a constant given from the size of kSinTable1024[],
      * and should not be changed depending on the input parameter 'stages'
      */
-    n = ((size_t)1) << stages;
+    const size_t n = ((size_t)1) << stages;
     if (n > 1024)
         return -1;
 
-    scale = 0;
+    int scale = 0;
 
-    l = 1;
-    k = 10 - 1; /* Constant for given kSinTable1024[]. Do not change
+    size_t l = 1;
+    int k = 10 - 1; /* Constant for given kSinTable1024[]. Do not change
          depending on the input parameter 'stages' */
 
     while (l < n)
     {
         // variable scaling, depending upon data
-        shift = 0;
-        round2 = 8192;
+        int shift = 0;
+        int32_t round2 = 8192;
 
-        tmp32 = MaxAbsValueW16(frfi, 2 * n);
+        int32_t tmp32 = MaxAbsValueW16(frfi, 2 * n);
         if (tmp32 > 13573)
         {
             shift++;
@@ -131,32 +121,32 @@ int ComplexIFFT(int16_t frfi[], int stages, int mode)
             round2 <<= 1;
         }
 
-        istep = l << 1;
+        size_t istep = l << 1;
 
         // 高精度モードのみを残す
-        for (m = 0; m < l; ++m)
+        for (size_t m = 0; m < l; ++m)
         {
-            j = m << k;
+            size_t j = m << k;
 
             /* The 256-value is a constant given as 1/4 of the size of
              * kSinTable1024[], and should not be changed depending on the input
              * parameter 'stages'. It will result in 0 <= j < N_SINE_WAVE/2
              */
-            wr = kSinTable1024[j + 256];
-            wi = kSinTable1024[j];
+            int16_t wr = kSinTable1024[j + 256];
+            int16_t wi = kSinTable1024[j];
 
-            for (i = m; i < n; i += istep)
+            for (size_t i = m; i < n; i += istep)
             {
                 j = i + l;
                 
-                tr32 = wr * frfi[2 * j] - wi * frfi[2 * j + 1] + CIFFTRND;
+                int32_t tr32 = wr * frfi[2 * j] - wi * frfi[2 * j + 1] + CIFFTRND;
 
-                ti32 = wr * frfi[2 * j + 1] + wi * frfi[2 * j] + CIFFTRND;
+                int32_t ti32 = wr * frfi[2 * j + 1] + wi * frfi[2 * j] + CIFFTRND;
                 tr32 >>= 15 - CIFFTSFT;
                 ti32 >>= 15 - CIFFTSFT;
 
-                qr32 = ((int32_t)frfi[2 * i]) * (1 << CIFFTSFT);
-                qi32 = ((int32_t)frfi[2 * i + 1]) * (1 << CIFFTSFT);
+                int32_t qr32 = ((int32_t)frfi[2 * i]) * (1 << CIFFTSFT);
+                int32_t qi32 = ((int32_t)frfi[2 * i + 1]) * (1 << CIFFTSFT);
 
                 frfi[2 * j] = (int16_t)(
                     (qr32 - tr32 + round2) >> (shift + CIFFTSFT));

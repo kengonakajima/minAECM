@@ -26,13 +26,12 @@
 
 // Maximum absolute value of word16 vector. C version for generic platforms.
 int16_t MaxAbsValueW16C(const int16_t* vector, size_t length) {
-  size_t i = 0;
-  int absolute = 0, maximum = 0;
+  int maximum = 0;
 
   /* length > 0 を期待 */
 
-  for (i = 0; i < length; i++) {
-    absolute = abs((int)vector[i]);
+  for (size_t i = 0; i < length; i++) {
+    int absolute = abs((int)vector[i]);
 
     if (absolute > maximum) {
       maximum = absolute;
@@ -46,4 +45,3 @@ int16_t MaxAbsValueW16C(const int16_t* vector, size_t length) {
 
   return (int16_t)maximum;
 }
-

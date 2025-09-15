@@ -34,12 +34,11 @@ static const int16_t index_7[112] = {
 void ComplexBitReverse(int16_t* __restrict complex_data, int stages) {
   (void)stages;  // 16k/64pt固定のため未使用
 
-  int m = 0;
   const int length = 112;
   const int16_t* index = index_7;
 
   /* Decimation in time. Swap the elements with bit-reversed indexes. */
-  for (m = 0; m < length; m += 2) {
+  for (int m = 0; m < length; m += 2) {
     /* 16-bitの実部/虚部をまとめて32-bitとして交換する */
     int32_t* complex_data_ptr = (int32_t*)complex_data;
     int32_t temp = complex_data_ptr[index[m]];  /* Real and imaginary */

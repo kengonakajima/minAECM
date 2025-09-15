@@ -54,7 +54,8 @@
 
 int32_t SqrtFloor(int32_t value)
 {
-  int32_t root = 0, try1;
+  int32_t root = 0;
+  int32_t try1;
 
   SQRT_ITER (15);
   SQRT_ITER (14);

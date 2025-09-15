@@ -63,10 +63,11 @@ typedef struct {
 
   uint32_t totCount;
 
-  int16_t dfaCleanQDomain;
-  int16_t dfaCleanQDomainOld;
-  int16_t dfaNoisyQDomain;
-  int16_t dfaNoisyQDomainOld;
+  // Q ドメインは教育用に固定（0）で運用。
+  int16_t dfaCleanQDomain;     // 常に 0
+  int16_t dfaCleanQDomainOld;  // 常に 0（差分も 0）
+  int16_t dfaNoisyQDomain;     // 常に 0
+  int16_t dfaNoisyQDomainOld;  // 常に 0
 
   int16_t nearLogEnergy[MAX_BUF_LEN];
   int16_t farLogEnergy;
@@ -191,12 +192,12 @@ void Aecm_FetchFarFrame(AecmCore* const aecm,
 
 ////////////////////////////////////////////////////////////////////////////////
 // Moves the pointer to the next entry and inserts `far_spectrum` and
-// corresponding Q-domain in its buffer.
+// corresponding Q-domain in its buffer（固定Q=0だが引数は互換のため維持）。
 //
 // Inputs:
 //      - self          : Pointer to the delay estimation instance
 //      - far_spectrum  : Pointer to the far end spectrum
-//      - far_q         : Q-domain of far end spectrum
+//      - far_q         : Q-domain of far end spectrum（固定Q=0）
 //
 void Aecm_UpdateFarHistory(AecmCore* self,
                                  uint16_t* far_spectrum,
@@ -214,7 +215,7 @@ void Aecm_UpdateFarHistory(AecmCore* self,
 //      - delay             : Current delay estimate.
 //
 // Output:
-//      - far_q             : The Q-domain of the aligned far end spectrum
+//      - far_q             : The Q-domain of the aligned far end spectrum（固定Q=0）
 //
 // Return value:
 //      - far_spectrum      : Pointer to the aligned far end spectrum
@@ -244,8 +245,7 @@ int16_t Aecm_CalcSuppressionGain(AecmCore* const aecm);
 //      - aecm              : Pointer to the AECM instance.
 //      - far_spectrum      : Pointer to farend spectrum.
 //      - far_q             : Q-domain of farend spectrum.
-//      - nearEner          : Near end energy for current block in
-//                            Q(aecm->dfaQDomain).
+//      - nearEner          : Near end energy for current block（固定Q=0）。
 //
 // Output:
 //     - echoEst            : Estimated echo in Q(xfa_q+RESOLUTION_CHANNEL16).
@@ -271,8 +271,7 @@ int16_t Aecm_CalcStepSize(AecmCore* const aecm);
 //      - aecm              : Pointer to the AECM instance.
 //      - far_spectrum      : Absolute value of the farend signal in Q(far_q)
 //      - far_q             : Q-domain of the farend signal
-//      - dfa               : Absolute value of the nearend signal
-//                            (Q[aecm->dfaQDomain])
+//      - dfa               : Absolute value of the nearend signal（固定Q=0）
 //      - mu                : NLMS step size.
 // Input/Output:
 //      - echoEst           : Estimated echo in Q(far_q+RESOLUTION_CHANNEL16).
