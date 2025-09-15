@@ -188,20 +188,13 @@ static void ResetAdaptiveChannelC(AecmCore* aecm) {
 //
 int Aecm_InitCore(AecmCore* const aecm) {
   // 16kHz 固定
-  aecm->mult = 2;
 
   aecm->farBufWritePos = 0;
   aecm->farBufReadPos = 0;
   aecm->knownDelay = 0;
   aecm->lastKnownDelay = 0;
 
-  // 固定長リングバッファのバッキングを設定
-  InitBufferWith(&aecm->farFrameBuf, aecm->farFrameBufData,
-                 FRAME_LEN + PART_LEN, sizeof(int16_t));
-  InitBufferWith(&aecm->nearNoisyFrameBuf, aecm->nearNoisyFrameBufData,
-                 FRAME_LEN + PART_LEN, sizeof(int16_t));
-  InitBufferWith(&aecm->outFrameBuf, aecm->outFrameBufData,
-                 FRAME_LEN + PART_LEN, sizeof(int16_t));
+  // FRAME_LEN=PART_LENのため、中間フレーム用リングバッファは不要
 
   memset(aecm->xBuf, 0, sizeof(aecm->xBuf));
   memset(aecm->dBufNoisy, 0, sizeof(aecm->dBufNoisy));
@@ -222,7 +215,7 @@ int Aecm_InitCore(AecmCore* const aecm) {
   memset(aecm->far_q_domains, 0, sizeof(int) * MAX_DELAY);
   aecm->far_history_pos = MAX_DELAY;
 
-  aecm->nlpFlag = 1;
+  // NLP は常時有効（フラグ不要）
   aecm->fixedDelay = -1;
 
   aecm->dfaCleanQDomain = 0;
@@ -280,55 +273,16 @@ int Aecm_ProcessFrame(AecmCore* aecm,
                             const int16_t* farend,
                             const int16_t* nearend,
                             int16_t* out) {
-  int16_t outBlock[PART_LEN];
-
   int16_t farFrame[FRAME_LEN];
-  const int16_t* out_ptr = NULL;
-  int size = 0;
 
-  // Buffer the current frame.
-  // Fetch an older one corresponding to the delay.
+  // 現在フレームをバッファし、既知遅延に対応するフレームを取得
   Aecm_BufferFarFrame(aecm, farend);
   Aecm_FetchFarFrame(aecm, farFrame, aecm->knownDelay);
 
-  // Buffer the synchronized far and near frames,
-  // to pass the smaller blocks individually.
-  WriteBuffer(&aecm->farFrameBuf, farFrame, FRAME_LEN);
-  WriteBuffer(&aecm->nearNoisyFrameBuf, nearend, FRAME_LEN);
-
-  // Process as many blocks as possible.
-  while (available_read(&aecm->farFrameBuf) >= PART_LEN) {
-    int16_t far_block[PART_LEN];
-    const int16_t* far_block_ptr = NULL;
-    int16_t near_noisy_block[PART_LEN];
-    const int16_t* near_noisy_block_ptr = NULL;
-
-    ReadBuffer(&aecm->farFrameBuf, (void**)&far_block_ptr, far_block,
-                      PART_LEN);
-    ReadBuffer(&aecm->nearNoisyFrameBuf, (void**)&near_noisy_block_ptr,
-                      near_noisy_block, PART_LEN);
-    if (Aecm_ProcessBlock(aecm, far_block_ptr, near_noisy_block_ptr,
-                                outBlock) == -1) {
-      return -1;
-    }
-
-    WriteBuffer(&aecm->outFrameBuf, outBlock, PART_LEN);
+  // FRAME_LEN と PART_LEN を一致させたため、1ブロックで直接処理
+  if (Aecm_ProcessBlock(aecm, farFrame, nearend, out) == -1) {
+    return -1;
   }
-
-  // Stuff the out buffer if we have less than a frame to output.
-  // This should only happen for the first frame.
-  size = (int)available_read(&aecm->outFrameBuf);
-  if (size < FRAME_LEN) {
-    MoveReadPtr(&aecm->outFrameBuf, size - FRAME_LEN);
-  }
-
-  // Obtain an output frame.
-  ReadBuffer(&aecm->outFrameBuf, (void**)&out_ptr, out, FRAME_LEN);
-  if (out_ptr != out) {
-    // ReadBuffer() hasn't copied to `out` in this case.
-    memcpy(out, out_ptr, FRAME_LEN * sizeof(int16_t));
-  }
-
   return 0;
 }
 

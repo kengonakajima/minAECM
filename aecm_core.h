@@ -14,7 +14,6 @@
 #define MODULES_AUDIO_PROCESSING_AECM_AECM_CORE_H_
 
 extern "C" {
-#include "ring_buffer.h"
 #include "signal_processing_library.h"
 #include "real_fft.h"
 }
@@ -43,17 +42,11 @@ typedef struct {
   int lastKnownDelay;
   int firstVAD;  // Parameter to control poorly initialized channels
 
-  // 固定長リングバッファ（外部確保なし）
-  RingBuffer farFrameBuf;
-  RingBuffer nearNoisyFrameBuf;
-  RingBuffer outFrameBuf;
-  int16_t farFrameBufData[FRAME_LEN + PART_LEN];
-  int16_t nearNoisyFrameBufData[FRAME_LEN + PART_LEN];
-  int16_t outFrameBufData[FRAME_LEN + PART_LEN];
+  // フレーム/ブロック一致のため、中間フレーム用リングバッファは不要
 
   int16_t farBuf[FAR_BUF_LEN];
 
-  int16_t mult;
+  // mult は 16k 固定運用のため不要
   
 
   // Delay estimation variables（固定長値型）
@@ -65,7 +58,7 @@ typedef struct {
   int far_history_pos;
   int far_q_domains[MAX_DELAY];
 
-  int16_t nlpFlag;
+  // NLP は常時有効。フラグは不要。
   int16_t fixedDelay;
 
   uint32_t totCount;

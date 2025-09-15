@@ -380,65 +380,52 @@ int Aecm_ProcessBlock(AecmCore* aecm,
       numPosCoef++;
     }
   }
-  // Only in wideband. Prevent the gain in upper band from being larger than
-  // in lower band.
-  if (aecm->mult == 2) {
-    // TODO(bjornv): Investigate if the scaling of hnl[i] below can cause
-    //               speech distortion in double-talk.
-    for (i = 0; i < PART_LEN1; i++) {
-      hnl[i] = (int16_t)((hnl[i] * hnl[i]) >> 14);
-    }
+  // Wideband前提（16k固定）。上帯域のゲインが下帯域を上回らないよう制限。
+  // TODO(bjornv): Investigate if the scaling of hnl[i] below can cause
+  //               speech distortion in double-talk.
+  for (i = 0; i < PART_LEN1; i++) {
+    hnl[i] = (int16_t)((hnl[i] * hnl[i]) >> 14);
+  }
 
-    for (i = kMinPrefBand; i <= kMaxPrefBand; i++) {
-      avgHnl32 += (int32_t)hnl[i];
-    }
-    avgHnl32 /= (kMaxPrefBand - kMinPrefBand + 1);
+  for (i = kMinPrefBand; i <= kMaxPrefBand; i++) {
+    avgHnl32 += (int32_t)hnl[i];
+  }
+  avgHnl32 /= (kMaxPrefBand - kMinPrefBand + 1);
 
-    for (i = kMaxPrefBand; i < PART_LEN1; i++) {
-      if (hnl[i] > (int16_t)avgHnl32) {
-        hnl[i] = (int16_t)avgHnl32;
-      }
+  for (i = kMaxPrefBand; i < PART_LEN1; i++) {
+    if (hnl[i] > (int16_t)avgHnl32) {
+      hnl[i] = (int16_t)avgHnl32;
     }
   }
 
-  // Calculate NLP gain, result is in Q14
-  if (aecm->nlpFlag) {
-    for (i = 0; i < PART_LEN1; i++) {
-      // Truncate values close to zero and one.
-      if (hnl[i] > NLP_COMP_HIGH) {
-        hnl[i] = ONE_Q14;
-      } else if (hnl[i] < NLP_COMP_LOW) {
-        hnl[i] = 0;
-      }
-
-      // Remove outliers
-      if (numPosCoef < 3) {
-        nlpGain = 0;
-      } else {
-        nlpGain = ONE_Q14;
-      }
-
-      // NLP
-      if ((hnl[i] == ONE_Q14) && (nlpGain == ONE_Q14)) {
-        hnl[i] = ONE_Q14;
-      } else {
-        hnl[i] = (int16_t)((hnl[i] * nlpGain) >> 14);
-      }
-
-      // multiply with Wiener coefficients
-      efw[i].real = (int16_t)(
-          MUL_16_16_RSFT_WITH_ROUND(dfw[i].real, hnl[i], 14));
-      efw[i].imag = (int16_t)(
-          MUL_16_16_RSFT_WITH_ROUND(dfw[i].imag, hnl[i], 14));
+  // NLP は常に有効（教育用簡略化）。NLPゲイン計算と乗算を常時実行。
+  for (i = 0; i < PART_LEN1; i++) {
+    // Truncate values close to zero and one.
+    if (hnl[i] > NLP_COMP_HIGH) {
+      hnl[i] = ONE_Q14;
+    } else if (hnl[i] < NLP_COMP_LOW) {
+      hnl[i] = 0;
     }
-  } else {
+
+    // Remove outliers
+    if (numPosCoef < 3) {
+      nlpGain = 0;
+    } else {
+      nlpGain = ONE_Q14;
+    }
+
+    // NLP
+    if ((hnl[i] == ONE_Q14) && (nlpGain == ONE_Q14)) {
+      hnl[i] = ONE_Q14;
+    } else {
+      hnl[i] = (int16_t)((hnl[i] * nlpGain) >> 14);
+    }
+
     // multiply with Wiener coefficients
-    for (i = 0; i < PART_LEN1; i++) {
-      efw[i].real = (int16_t)(
-          MUL_16_16_RSFT_WITH_ROUND(dfw[i].real, hnl[i], 14));
-      efw[i].imag = (int16_t)(
-          MUL_16_16_RSFT_WITH_ROUND(dfw[i].imag, hnl[i], 14));
-    }
+    efw[i].real = (int16_t)(
+        MUL_16_16_RSFT_WITH_ROUND(dfw[i].real, hnl[i], 14));
+    efw[i].imag = (int16_t)(
+        MUL_16_16_RSFT_WITH_ROUND(dfw[i].imag, hnl[i], 14));
   }
 
   

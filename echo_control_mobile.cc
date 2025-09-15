@@ -48,7 +48,7 @@ typedef struct {
   int knownDelay;
 
   // Stores the last frame added to the farend buffer
-  short farendOld[2][FRAME_LEN];
+  short farendOld[FRAME_LEN];
   short initFlag;  // indicates if AEC has been initialized
 
   // Variables used for averaging far end buffer size
@@ -148,7 +148,7 @@ int32_t Aecm_BufferFarend(const int16_t* farend) {
     Aecm_DelayComp(aecm);
   }
 
-  WriteBuffer(&aecm->farendBuf, farend, 160);
+  WriteBuffer(&aecm->farendBuf, farend, FRAME_LEN);
 
   return 0;
 }
@@ -172,12 +172,12 @@ int32_t Aecm_Process(const int16_t* nearend,
     return AECM_UNINITIALIZED_ERROR;
   }
 
-  // 16kHz固定のため、160サンプル固定
-  const size_t nrOfSamples = 160;
+  // 16kHz固定。I/Oブロック=FRAME_LEN（FRAME_LEN=PART_LEN=64 -> 64サンプル）
+  const size_t nrOfSamples = FRAME_LEN;
 
   // サウンドカードバッファ遅延は固定
 
-  nFrames = nrOfSamples / FRAME_LEN; // 160/80=2（16kHz固定）
+  nFrames = nrOfSamples / FRAME_LEN; // 64/64=1（16kHz固定）
 
   if (aecm->ECstartup) {
     if (out != nearend) {
@@ -211,11 +211,11 @@ int32_t Aecm_Process(const int16_t* nearend,
       }
 
       if (aecm->counter >= 6) {
-        // The farend buffer size is determined in blocks of 80 samples
+        // The farend buffer size is determined in blocks of FRAME_LEN samples
         // Use 75% of the average value of the soundcard buffer
-        // 16k: 10msは80サンプル×2ブロック -> 0.75 * 平均ms * 2 / 10ms
+        // 16k: 1msあたり16サンプル, FRAME_LEN=64 -> 0.75 * 平均ms * 16 / 64
         aecm->bufSizeStart = MIN(
-            (3 * aecm->sum * 2) / (aecm->counter * 40),
+            (3 * aecm->sum) / (aecm->counter * 16),
             BUF_SIZE_FRAMES);
         // buffersize has now been determined
         aecm->checkBuffSize = 0;
@@ -225,7 +225,7 @@ int32_t Aecm_Process(const int16_t* nearend,
         // for really bad sound cards, don't disable echocanceller for more than
         // 0.5 sec
         aecm->bufSizeStart = MIN(
-            (3 * kFixedMsInSndCardBuf * 2) / 40,
+            (3 * kFixedMsInSndCardBuf) / 16,
             BUF_SIZE_FRAMES);
         aecm->checkBuffSize = 0;
       }
@@ -251,7 +251,7 @@ int32_t Aecm_Process(const int16_t* nearend,
   } else {
     // AECM is enabled
 
-    // 16kHz: 10msは80サンプル×2ブロック
+    // 1フレーム=1ブロック（FRAME_LEN=64）
     for (i = 0; i < nFrames; i++) {
       int16_t farend[FRAME_LEN];
       const int16_t* farend_ptr = NULL;
@@ -261,19 +261,19 @@ int32_t Aecm_Process(const int16_t* nearend,
 
       // Check that there is data in the far end buffer
       if (nmbrOfFilledBuffers > 0) {
-        // Get the next 80 samples from the farend buffer
+        // Get the next FRAME_LEN samples from the farend buffer
         ReadBuffer(&aecm->farendBuf, (void**)&farend_ptr, farend,
                           FRAME_LEN);
 
         // Always store the last frame for use when we run out of data
-        memcpy(&(aecm->farendOld[i][0]), farend_ptr, FRAME_LEN * sizeof(short));
+        memcpy(aecm->farendOld, farend_ptr, FRAME_LEN * sizeof(short));
       } else {
         // We have no data so we use the last played frame
-        memcpy(farend, &(aecm->farendOld[i][0]), FRAME_LEN * sizeof(short));
+        memcpy(farend, aecm->farendOld, FRAME_LEN * sizeof(short));
         farend_ptr = farend;
       }
 
-      // 10ms（2ブロック）取り出し終わりのタイミングで1回だけ遅延推定
+      // フレーム終端で1回だけ遅延推定
       if (i == nFrames - 1) {
         Aecm_EstBufDelay(aecm);
       }
@@ -393,7 +393,7 @@ static int Aecm_EstBufDelay(AecMobile* aecm) {
   aecm->lastDelayDiff = diff;
 
   if (aecm->timeForDelayChange > 25) {
-    aecm->knownDelay = MAX((int)aecm->filtDelay - 160, 0);
+    aecm->knownDelay = MAX((int)aecm->filtDelay - (2 * FRAME_LEN), 0);
   }
   return 0;
 }

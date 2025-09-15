@@ -3,7 +3,7 @@
 //   ./echoback [--passthrough]
 // 前提:
 //   - 16 kHz モノラル固定, 16-bit I/O (PortAudio デフォルトデバイス)
-//   - AECM は 10ms（160サンプル）単位で処理
+//   - AECM は 4ms（64サンプル）単位で処理
 //   - 参照信号は直前にスピーカへ出したブロック（ローカル・ループバック相当）
 
 #include <portaudio.h>
@@ -23,7 +23,7 @@
 
 struct State {
   int dev_sr = 16000;              // 16k固定
-  int block_size = 160;            // 10ms @16kHz （PortAudio framesPerBuffer と一致）
+  int block_size = 64;             // 4ms @16kHz（FRAME_LEN=PART_LEN=64）
   // 1ch 固定（PortAudioデバイス設定も1ch）
   // ジッタバッファは固定遅延（最小構成: 内部固定値）
 
@@ -31,7 +31,7 @@ struct State {
   std::deque<int16_t> rec_dev;     // mic captured samples
   std::deque<int16_t> out_dev;     // to speaker
 
-  // AECM domain = device domain (same sr). 160-sample blocks
+  // AECM domain = device domain (same sr). 64-sample blocks
 
   // Jitter buffer (device domain). Local echo path accumulator, mixes into speaker
   std::deque<int16_t> jitter;      // accumulate processed to emulate loopback latency
@@ -43,8 +43,8 @@ struct State {
 };
 
 static void aec3_init_at_sr(State& s){
-  // 16k固定、160サンプル
-  s.block_size = 160;
+  // 16k固定、64サンプル
+  s.block_size = 64;
 }
 
 static size_t pop_samples(std::deque<int16_t>& q, int16_t* dst, size_t n){
@@ -58,7 +58,7 @@ static void push_block(std::deque<int16_t>& q, const int16_t* src, size_t n){
 }
 
 static void process_available_blocks(State& s){
-  // Run as many 160-sample blocks as possible
+  // Run as many 64-sample blocks as possible
   while (s.rec_dev.size() >= (size_t)s.block_size) {
     std::vector<int16_t> near_blk(s.block_size), far_blk(s.block_size), out_blk(s.block_size);
     // 1) pop near block
@@ -116,7 +116,7 @@ static int pa_callback(const void* inputBuffer,
 int main(int argc, char** argv){
   State s;
   // 16k固定
-  s.dev_sr = 16000; s.block_size = 160;
+  s.dev_sr = 16000; s.block_size = 64;
 
   // 引数パース
   for (int i = 1; i < argc; ++i) {

@@ -48,7 +48,7 @@ int main(int argc, char** argv){
     std::fprintf(stderr, "Failed to read 16k-mono wavs\n");
     return 1;
   }
-  const size_t kBlockSize = 160; // 10ms @16kHz
+  const size_t kBlockSize = 64; // FRAME_LEN=PART_LEN=64
   size_t N = std::min(x.samples.size(), y.samples.size()) / kBlockSize;
   if (Aecm_Init() != 0){ std::fprintf(stderr, "AECM init failed\n"); return 1; }
   AecmConfig cfg{}; cfg.echoMode = 3; Aecm_set_config(cfg);
