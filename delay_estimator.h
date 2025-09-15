@@ -72,7 +72,6 @@ void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self);
 void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* self,
                                  uint32_t binary_far_spectrum);
 
-//
 
 // Initializes the delay estimation instance created with
 // CreateBinaryDelayEstimator(...).

@@ -112,45 +112,32 @@ typedef struct {
 } AecmCore;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Aecm_InitCore(...)
-//
 // This function initializes the AECM instant created with
 // Aecm_CreateCore()
 // Input:
 //      - aecm          : Pointer to the AECM instance
 //      - samplingFreq  : Sampling Frequency
-//
 // Output:
 //      - aecm          : Initialized instance
-//
 // Return value         :  0 - Ok
 //                        -1 - Error
-//
 int Aecm_InitCore(AecmCore* const aecm);
 
 // Create/Freeは不要（単一インスタンス、固定長バッファ）。
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// Aecm_InitEchoPathCore(...)
-//
 // This function resets the echo channel adaptation with the specified channel.
 // Input:
 //      - aecm          : Pointer to the AECM instance
 //      - echo_path     : Pointer to the data that should initialize the echo
 //                        path
-//
 // Output:
 //      - aecm          : Initialized instance
-//
 void Aecm_InitEchoPathCore(AecmCore* aecm, const int16_t* echo_path);
 
 ////////////////////////////////////////////////////////////////////////////////
-// Aecm_ProcessFrame(...)
-//
 // This function processes frames and sends blocks to
-// Aecm_ProcessBlock(...)
-//
 // Inputs:
 //      - aecm          : Pointer to the AECM instance
 //      - farend        : In buffer containing one frame of echo signal
@@ -158,22 +145,16 @@ void Aecm_InitEchoPathCore(AecmCore* aecm, const int16_t* echo_path);
 //                        without NS
 //      - nearendClean  : In buffer containing one frame of nearend+echo signal
 //                        with NS
-//
 // Output:
 //      - out           : Out buffer, one frame of nearend signal          :
-//
-//
 int Aecm_ProcessFrame(AecmCore* aecm,
                             const int16_t* farend,
                             const int16_t* nearend,
                             int16_t* out);
 
 ////////////////////////////////////////////////////////////////////////////////
-// Aecm_ProcessBlock(...)
-//
 // This function is called for every block within one frame
 // This function is called by Aecm_ProcessFrame(...)
-//
 // Inputs:
 //      - aecm          : Pointer to the AECM instance
 //      - farend        : In buffer containing one block of echo signal
@@ -181,49 +162,34 @@ int Aecm_ProcessFrame(AecmCore* aecm,
 //                        without NS
 //      - nearendClean  : In buffer containing one frame of nearend+echo signal
 //                        with NS
-//
 // Output:
 //      - out           : Out buffer, one block of nearend signal          :
-//
-//
 int Aecm_ProcessBlock(AecmCore* aecm,
                             const int16_t* farend,
                             const int16_t* nearend,
                             int16_t* out);
 
 ////////////////////////////////////////////////////////////////////////////////
-// Aecm_BufferFarFrame()
-//
 // Inserts a frame of data into farend buffer.
-//
 // Inputs:
 //      - aecm          : Pointer to the AECM instance
 //      - farend        : In buffer containing one frame of farend signal
 //      - farLen        : Length of frame
-//
 void Aecm_BufferFarFrame(AecmCore* const aecm,
                                const int16_t* const farend);
 
 ////////////////////////////////////////////////////////////////////////////////
-// Aecm_FetchFarFrame()
-//
 // Read the farend buffer to account for known delay
-//
 // Inputs:
 //      - aecm          : Pointer to the AECM instance
 //      - farend        : In buffer containing one frame of farend signal
 //      - farLen        : Length of frame
 //      - knownDelay    : known delay
-//
 void Aecm_FetchFarFrame(AecmCore* const aecm,
                               int16_t* const farend,
                               int knownDelay);
 
-// All the functions below are intended to be private
-
 ////////////////////////////////////////////////////////////////////////////////
-// Aecm_UpdateFarHistory()
-//
 // Moves the pointer to the next entry and inserts `far_spectrum` and
 // corresponding Q-domain in its buffer.
 //
@@ -237,8 +203,6 @@ void Aecm_UpdateFarHistory(AecmCore* self,
                                  int far_q);
 
 ////////////////////////////////////////////////////////////////////////////////
-// Aecm_AlignedFarend()
-//
 // Returns a pointer to the far end spectrum aligned to current near end
 // spectrum. The function DelayEstimatorProcessFix(...) should have been
 // called before AlignedFarend(...). Otherwise, you get the pointer to the
@@ -259,8 +223,6 @@ void Aecm_UpdateFarHistory(AecmCore* self,
 const uint16_t* Aecm_AlignedFarend(AecmCore* self, int* far_q, int delay);
 
 ///////////////////////////////////////////////////////////////////////////////
-// Aecm_CalcSuppressionGain()
-//
 // This function calculates the suppression gain that is used in the
 // Wiener filter.
 //
@@ -274,8 +236,6 @@ const uint16_t* Aecm_AlignedFarend(AecmCore* self, int* far_q, int delay);
 int16_t Aecm_CalcSuppressionGain(AecmCore* const aecm);
 
 ///////////////////////////////////////////////////////////////////////////////
-// Aecm_CalcEnergies()
-//
 // This function calculates the log of energies for nearend, farend and
 // estimated echoes. There is also an update of energy decision levels,
 // i.e. internal VAD.
@@ -297,24 +257,16 @@ void Aecm_CalcEnergies(AecmCore* aecm,
                              int32_t* echoEst);
 
 ///////////////////////////////////////////////////////////////////////////////
-// Aecm_CalcStepSize()
-//
 // This function calculates the step size used in channel estimation
-//
 // Inputs:
 //      - aecm              : Pointer to the AECM instance.
-//
 // Return value:
 //      - mu                : Stepsize in log2(), i.e. number of shifts.
-//
 int16_t Aecm_CalcStepSize(AecmCore* const aecm);
 
 ///////////////////////////////////////////////////////////////////////////////
-// Aecm_UpdateChannel(...)
-//
 // This function performs channel estimation.
 // NLMS and decision on channel storage.
-//
 // Inputs:
 //      - aecm              : Pointer to the AECM instance.
 //      - far_spectrum      : Absolute value of the farend signal in Q(far_q)
@@ -324,7 +276,6 @@ int16_t Aecm_CalcStepSize(AecmCore* const aecm);
 //      - mu                : NLMS step size.
 // Input/Output:
 //      - echoEst           : Estimated echo in Q(far_q+RESOLUTION_CHANNEL16).
-//
 void Aecm_UpdateChannel(AecmCore* aecm,
                               const uint16_t* far_spectrum,
                               int16_t far_q,

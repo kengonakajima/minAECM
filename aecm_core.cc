@@ -173,10 +173,8 @@ static void ResetAdaptiveChannelC(AecmCore* aecm) {
 
 
 
-// Aecm_InitCore(...)
-//
 // This function initializes the AECM instant created with
-// Aecm_CreateCore(...) Input:
+// Input:
 //      - aecm            : Pointer to the Echo Suppression instance
 //      - samplingFreq   : Sampling Frequency
 //
@@ -286,8 +284,6 @@ int Aecm_ProcessFrame(AecmCore* aecm,
   return 0;
 }
 
-// Aecm_AsymFilt(...)
-//
 // Performs asymmetric filtering.
 //
 // Inputs:
@@ -342,8 +338,6 @@ static int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain) {
   return log_energy_q8;
 }
 
-// Aecm_CalcEnergies(...)
-//
 // This function calculates the log of energies for nearend, farend and
 // estimated echoes. There is also an update of energy decision levels, i.e.
 // internal VAD.
@@ -469,8 +463,6 @@ void Aecm_CalcEnergies(AecmCore* aecm,
   }
 }
 
-// Aecm_CalcStepSize(...)
-//
 // This function calculates the step size used in channel estimation
 //
 //
@@ -508,8 +500,6 @@ int16_t Aecm_CalcStepSize(AecmCore* const aecm) {
   return mu;
 }
 
-// Aecm_UpdateChannel(...)
-//
 // This function performs channel estimation. NLMS and decision on channel
 // storage.
 //
@@ -704,8 +694,7 @@ void Aecm_UpdateChannel(AecmCore* aecm,
   // END: Determine if we should store or reset channel estimate.
 }
 
-// CalcSuppressionGain(...)
-//
+
 // This function calculates the suppression gain that is used in the Wiener
 // filter.
 //
