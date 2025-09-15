@@ -10,6 +10,7 @@
 
 #include <stddef.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "aecm_core.h"
 
@@ -431,6 +432,16 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   
 
   InverseFFTAndWindow(aecm, fft, efw, output);
+
+  // Debug: print startupState periodically for education/metrics
+  {
+    static int dbg_ss_counter = 0;
+    dbg_ss_counter++;
+    if (dbg_ss_counter % 100 == 0) {
+      fprintf(stderr, "[AECM] block=%d startupState=%d\n",
+              dbg_ss_counter, (int)aecm->startupState);
+    }
+  }
 
   return 0;
 }

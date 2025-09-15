@@ -698,13 +698,10 @@ void Aecm_UpdateChannel(AecmCore* aecm,
 // This function calculates the suppression gain that is used in the Wiener
 // filter.
 //
-//
 // @param  aecm     [i/n]   Handle of the AECM instance.
 // @param  supGain  [out]   (Return value) Suppression gain with which to scale
 // the noise
 //                          level (Q14).
-//
-//
 int16_t Aecm_CalcSuppressionGain(AecmCore* const aecm) {
   int32_t tmp32no1;
 
