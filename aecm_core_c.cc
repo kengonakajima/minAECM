@@ -380,7 +380,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
       numPosCoef++;
     }
   }
-  // Wideband前提（16k固定）。上帯域のゲインが下帯域を上回らないよう制限。
+  // 上帯域のゲインが下帯域を上回らないよう制限。
   // TODO(bjornv): Investigate if the scaling of hnl[i] below can cause
   //               speech distortion in double-talk.
   for (i = 0; i < PART_LEN1; i++) {
@@ -398,7 +398,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
     }
   }
 
-  // NLP は常に有効（教育用簡略化）。NLPゲイン計算と乗算を常時実行。
+  // NLPゲイン計算と乗算を常時実行。
   for (i = 0; i < PART_LEN1; i++) {
     // Truncate values close to zero and one.
     if (hnl[i] > NLP_COMP_HIGH) {
