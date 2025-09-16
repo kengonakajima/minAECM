@@ -1,11 +1,5 @@
-/*
- * This file contains the function ComplexFFT().
- * The description header can be found in signal_processing_library.h
- *
- */
-
 #include "complex_fft_tables.h"
-#include "signal_processing_library.h"
+#include "util.h"
 
 #define CFFTSFT 14
 #define CFFTRND 1

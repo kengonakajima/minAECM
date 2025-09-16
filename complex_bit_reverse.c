@@ -1,4 +1,4 @@
-#include "signal_processing_library.h"
+#include <stdint.h>
 
 /* Tables for data buffer indexes that are bit reversed and thus need to be
  * swapped. Note that, index_7[{0, 2, 4, ...}] are for the left side of the swap

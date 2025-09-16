@@ -1,8 +1,9 @@
 #include "real_fft.h"
 
 #include <stdlib.h>
+#include <string.h>
 
-#include "signal_processing_library.h"
+#include "util.h"
 
 // The C version FFT functions (i.e. RealForwardFFT and
 // RealInverseFFT) are real-valued FFT wrappers for complex-valued

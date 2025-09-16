@@ -2,7 +2,7 @@
 // グローバル既定インスタンス `g_aecm` を内部参照し、
 // すべての API をポインタ無しで利用できる。
 
-#include "signal_processing_library.h"
+#include "util.h"
 #include "real_fft.h"
 #include "aecm_defines.h"
 #include "delay_estimator_internal.h"

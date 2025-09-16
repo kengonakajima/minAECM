@@ -42,7 +42,8 @@ AECM_CC_SRCS= \
   aecm_core.cc \
   aecm_core_c.cc \
   delay_estimator_wrapper.cc \
-  delay_estimator.cc
+  delay_estimator.cc \
+  util.cc
 
 # AECM の動作に必要な最小限の SPL/C 実装のみをビルド
 # （未使用のLPC/フィルタ/ダウンサンプル/ユーティリティ群は除外）
@@ -50,10 +51,7 @@ AECM_C_SRCS= \
   ring_buffer.c \
   complex_bit_reverse.c \
   complex_fft.c \
-  real_fft.c \
-  min_max_operations.c \
-  division_operations.c \
-  spl_sqrt_floor.c
+  real_fft.c
  
 
 AECM_OBJS=$(AECM_CC_SRCS:.cc=.o) $(AECM_C_SRCS:.c=.o)
