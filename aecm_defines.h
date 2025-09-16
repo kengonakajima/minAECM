@@ -27,6 +27,10 @@
 #define FAR_BUF_LEN PART_LEN4     /* Length of buffers. */
 #define MAX_DELAY 100
 
+/* Public constants for application integration */
+#define AECM_SAMPLE_RATE_HZ 16000
+#define AECM_BLOCK_SIZE FRAME_LEN  /* Equal to FRAME_LEN (64) */
+
 /* Counter parameters */
 #define CONV_LEN 512              /* Convergence length used at startup. */
 #define CONV_LEN2 (CONV_LEN << 1) /* Used at startup. */

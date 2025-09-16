@@ -55,7 +55,6 @@ static uint32_t BinarySpectrumFix(const uint16_t* spectrum,
                                   SpectrumType* threshold_spectrum,
                                   int q_domain,
                                   int* threshold_initialized) {
-  int i = kBandFirst;
   uint32_t out = 0;
 
   // expect q_domain < 16
@@ -63,7 +62,7 @@ static uint32_t BinarySpectrumFix(const uint16_t* spectrum,
   if (!(*threshold_initialized)) {
     // Set the `threshold_spectrum` to half the input `spectrum` as starting
     // value. This speeds up the convergence.
-    for (i = kBandFirst; i <= kBandLast; i++) {
+    for (int i = kBandFirst; i <= kBandLast; i++) {
       if (spectrum[i] > 0) {
         // Convert input spectrum from Q(`q_domain`) to Q15.
         int32_t spectrum_q15 = ((int32_t)spectrum[i]) << (15 - q_domain);
@@ -72,7 +71,7 @@ static uint32_t BinarySpectrumFix(const uint16_t* spectrum,
       }
     }
   }
-  for (i = kBandFirst; i <= kBandLast; i++) {
+  for (int i = kBandFirst; i <= kBandLast; i++) {
     // Convert input spectrum from Q(`q_domain`) to Q15.
     int32_t spectrum_q15 = ((int32_t)spectrum[i]) << (15 - q_domain);
     // Update the `threshold_spectrum`.

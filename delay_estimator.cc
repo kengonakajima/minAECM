@@ -71,10 +71,8 @@ static void BitCountComparison(uint32_t binary_vector,
                                const uint32_t* binary_matrix,
                                int matrix_size,
                                int32_t* bit_counts) {
-  int n = 0;
-
   // Compare `binary_vector` with all rows of the `binary_matrix`
-  for (; n < matrix_size; n++) {
+  for (int n = 0; n < matrix_size; n++) {
     bit_counts[n] = (int32_t)BitCount(binary_vector ^ binary_matrix[n]);
   }
 }
@@ -105,7 +103,6 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
   const int max_hits_for_slow_change = (candidate_delay < self->last_delay)
                                            ? kMaxHitsWhenPossiblyNonCausal
                                            : kMaxHitsWhenPossiblyCausal;
-  int i = 0;
 
   // Expect same history sizes.
   // Reset `candidate_hits` if we have a new candidate.
@@ -141,7 +138,7 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
   // 4. All other bins are decreased with `valley_depth`.
   // TODO(bjornv): Investigate how to make this loop more efficient.  Split up
   // the loop?  Remove parts that doesn't add too much.
-  for (i = 0; i < MAX_DELAY; ++i) {
+  for (int i = 0; i < MAX_DELAY; ++i) {
     int is_in_last_set = (i >= self->last_delay - 2) &&
                          (i <= self->last_delay + 1) && (i != candidate_delay);
     int is_in_candidate_set =
@@ -289,11 +286,9 @@ void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* handle,
   handle->far_bit_counts[0] = BitCount(binary_far_spectrum);
 }
 void InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
-  int i = 0;
-  
   memset(self->bit_counts, 0, sizeof(self->bit_counts));
   memset(self->binary_near_history, 0, sizeof(self->binary_near_history));
-  for (i = 0; i <= MAX_DELAY; ++i) {
+  for (int i = 0; i <= MAX_DELAY; ++i) {
     self->mean_bit_counts[i] = (20 << 9);  // 20 in Q9.
     self->histogram[i] = 0.f;
   }
@@ -315,7 +310,6 @@ void InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
 
 int ProcessBinarySpectrum(BinaryDelayEstimator* self,
                                  uint32_t binary_near_spectrum) {
-  int i = 0;
   int candidate_delay = -1;
   int valid_candidate = 0;
   int hist_valid_dbg = 0;  // 0/1: histogram validity
@@ -333,7 +327,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
                      MAX_DELAY, self->bit_counts);
 
   // Update `mean_bit_counts`, which is the smoothed version of `bit_counts`.
-  for (i = 0; i < MAX_DELAY; i++) {
+  for (int i = 0; i < MAX_DELAY; i++) {
     // `bit_counts` is constrained to [0, 32], meaning we can smooth with a
     // factor up to 2^26. We use Q9.
     int32_t bit_count = (self->bit_counts[i] << 9);  // Q9.
@@ -351,7 +345,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
 
   // Find `candidate_delay`, `value_best_candidate` and `value_worst_candidate`
   // of `mean_bit_counts`.
-  for (i = 0; i < MAX_DELAY; i++) {
+  for (int i = 0; i < MAX_DELAY; i++) {
     if (self->mean_bit_counts[i] < value_best_candidate) {
       value_best_candidate = self->mean_bit_counts[i];
       candidate_delay = i;

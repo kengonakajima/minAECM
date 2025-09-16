@@ -18,12 +18,13 @@
 #include <vector>
 
 #include "echo_control_mobile.h"
+extern "C" {
+#include "aecm_defines.h"
+}
 
  
 
 struct State {
-  int dev_sr = 16000;              // 16k固定
-  int block_size = 64;             // 4ms @16kHz（FRAME_LEN=PART_LEN=64）
   // 1ch 固定（PortAudioデバイス設定も1ch）
   // ジッタバッファは固定遅延（最小構成: 内部固定値）
 
@@ -42,11 +43,6 @@ struct State {
   // 単一インスタンス化API。個別インスタンスは不要。
 };
 
-static void aec3_init_at_sr(State& s){
-  // 16k固定、64サンプル
-  s.block_size = 64;
-}
-
 static size_t pop_samples(std::deque<int16_t>& q, int16_t* dst, size_t n){
   size_t m = q.size()<n ? q.size() : n;
   for (size_t i=0;i<m;i++){ dst[i]=q.front(); q.pop_front(); }
@@ -59,19 +55,19 @@ static void push_block(std::deque<int16_t>& q, const int16_t* src, size_t n){
 
 static void process_available_blocks(State& s){
   // Run as many 64-sample blocks as possible
-  while (s.rec_dev.size() >= (size_t)s.block_size) {
-    std::vector<int16_t> near_blk(s.block_size), far_blk(s.block_size), out_blk(s.block_size);
+  while (s.rec_dev.size() >= (size_t)AECM_BLOCK_SIZE) {
+    std::vector<int16_t> near_blk(AECM_BLOCK_SIZE), far_blk(AECM_BLOCK_SIZE), out_blk(AECM_BLOCK_SIZE);
     // 1) pop near block
-    pop_samples(s.rec_dev, near_blk.data(), s.block_size);
+    pop_samples(s.rec_dev, near_blk.data(), AECM_BLOCK_SIZE);
     // 2) pop far block（スピーカへ送る信号 = 参照）
-    if (s.jitter.size() >= (size_t)s.block_size) {
-      pop_samples(s.jitter, far_blk.data(), s.block_size);
+    if (s.jitter.size() >= (size_t)AECM_BLOCK_SIZE) {
+      pop_samples(s.jitter, far_blk.data(), AECM_BLOCK_SIZE);
     } else {
-      std::memset(far_blk.data(), 0, s.block_size * sizeof(int16_t));
+      std::memset(far_blk.data(), 0, AECM_BLOCK_SIZE * sizeof(int16_t));
     }
 
     if (s.passthrough) {
-      std::memcpy(out_blk.data(), near_blk.data(), s.block_size * sizeof(int16_t));
+      std::memcpy(out_blk.data(), near_blk.data(), AECM_BLOCK_SIZE * sizeof(int16_t));
     } else {
       // AECM: 先に far をバッファリングし、その後 near を処理
       Aecm_BufferFarend(far_blk.data());
@@ -80,10 +76,10 @@ static void process_available_blocks(State& s){
     }
 
     // ローカル・ループバック: 処理後の出力を蓄積して、次々回以降の far にする
-    push_block(s.jitter, out_blk.data(), s.block_size);
+    push_block(s.jitter, out_blk.data(), AECM_BLOCK_SIZE);
 
     // 今回のスピーカ出力は `far_blk`
-    push_block(s.out_dev, far_blk.data(), s.block_size);
+    push_block(s.out_dev, far_blk.data(), AECM_BLOCK_SIZE);
   }
 }
 
@@ -115,8 +111,7 @@ static int pa_callback(const void* inputBuffer,
 
 int main(int argc, char** argv){
   State s;
-  // 16k固定
-  s.dev_sr = 16000; s.block_size = 64;
+  // 16k/64サンプル固定
 
   // 引数パース
   for (int i = 1; i < argc; ++i) {
@@ -132,7 +127,7 @@ int main(int argc, char** argv){
   }
   const char* mode = s.passthrough ? "passthrough" : "aecm";
   std::fprintf(stderr, "echoback (16k mono): mode=%s\n", mode);
-  aec3_init_at_sr(s);
+  // 固定設定のため追加初期化不要
 
   PaError err = Pa_Initialize();
   if (err!=paNoError){ std::fprintf(stderr, "Pa_Initialize error %s\n", Pa_GetErrorText(err)); return 1; }
@@ -146,7 +141,7 @@ int main(int argc, char** argv){
   outP.channelCount = 1; outP.sampleFormat = paInt16;
   outP.suggestedLatency = Pa_GetDeviceInfo(outP.device)->defaultLowOutputLatency;
 
-  err = Pa_OpenStream(&stream, &inP, &outP, s.dev_sr, s.block_size, paClipOff, pa_callback, &s);
+  err = Pa_OpenStream(&stream, &inP, &outP, AECM_SAMPLE_RATE_HZ, AECM_BLOCK_SIZE, paClipOff, pa_callback, &s);
   if (err!=paNoError){ std::fprintf(stderr, "Pa_OpenStream error %s\n", Pa_GetErrorText(err)); Pa_Terminate(); return 1; }
   err = Pa_StartStream(stream);
   if (err!=paNoError){ std::fprintf(stderr, "Pa_StartStream error %s\n", Pa_GetErrorText(err)); Pa_CloseStream(stream); Pa_Terminate(); return 1; }

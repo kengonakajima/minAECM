@@ -156,9 +156,7 @@ int32_t Aecm_BufferFarend(const int16_t* farend) {
 int32_t Aecm_Process(const int16_t* nearend,
                            int16_t* out) {
   AecMobile* aecm = &g_aecm;
-  size_t i;
-  short nmbrOfFilledBuffers;
-  size_t nFrames;
+  // ループ変数や一時値は使用直前に宣言
   
   if (nearend == NULL) {
     return AECM_NULL_POINTER_ERROR;
@@ -177,14 +175,14 @@ int32_t Aecm_Process(const int16_t* nearend,
 
   // サウンドカードバッファ遅延は固定
 
-  nFrames = nrOfSamples / FRAME_LEN; // 64/64=1（16kHz固定）
+  const size_t nFrames = nrOfSamples / FRAME_LEN; // 64/64=1（16kHz固定）
 
   if (aecm->ECstartup) {
     if (out != nearend) {
       memcpy(out, nearend, sizeof(short) * nrOfSamples);
     }
 
-    nmbrOfFilledBuffers =
+    short nmbrOfFilledBuffers =
         (short)available_read(&aecm->farendBuf) / FRAME_LEN;
     // The AECM is in the start up mode
     // AECM is disabled until the soundcard buffer and farend buffers are OK
@@ -252,11 +250,11 @@ int32_t Aecm_Process(const int16_t* nearend,
     // AECM is enabled
 
     // 1フレーム=1ブロック（FRAME_LEN=64）
-    for (i = 0; i < nFrames; i++) {
+    for (size_t i = 0; i < nFrames; i++) {
       int16_t farend[FRAME_LEN];
       const int16_t* farend_ptr = NULL;
 
-      nmbrOfFilledBuffers =
+      short nmbrOfFilledBuffers =
           (short)available_read(&aecm->farendBuf) / FRAME_LEN;
 
       // Check that there is data in the far end buffer
@@ -358,13 +356,9 @@ int32_t Aecm_set_config(AecmConfig config) {
 
 
 static int Aecm_EstBufDelay(AecMobile* aecm) {
-  short delayNew, nSampSndCard;
   short nSampFar = (short)available_read(&aecm->farendBuf);
-  short diff;
-
-  nSampSndCard = kFixedMsInSndCardBuf * kSamplesPerMs16k;
-
-  delayNew = nSampSndCard - nSampFar;
+  short nSampSndCard = kFixedMsInSndCardBuf * kSamplesPerMs16k;
+  short delayNew = nSampSndCard - nSampFar;
 
   if (delayNew < FRAME_LEN) {
     MoveReadPtr(&aecm->farendBuf, FRAME_LEN);
@@ -374,7 +368,7 @@ static int Aecm_EstBufDelay(AecMobile* aecm) {
   aecm->filtDelay =
       MAX(0, (8 * aecm->filtDelay + 2 * delayNew) / 10);
 
-  diff = aecm->filtDelay - aecm->knownDelay;
+  short diff = aecm->filtDelay - aecm->knownDelay;
   if (diff > 224) {
     if (aecm->lastDelayDiff < 96) {
       aecm->timeForDelayChange = 0;
@@ -400,16 +394,15 @@ static int Aecm_EstBufDelay(AecMobile* aecm) {
 
 static int Aecm_DelayComp(AecMobile* aecm) {
   int nSampFar = (int)available_read(&aecm->farendBuf);
-  int nSampSndCard, delayNew, nSampAdd;
   const int maxStuffSamp = 10 * FRAME_LEN;
 
-  nSampSndCard = kFixedMsInSndCardBuf * kSamplesPerMs16k;
-  delayNew = nSampSndCard - nSampFar;
+  int nSampSndCard = kFixedMsInSndCardBuf * kSamplesPerMs16k;
+  int delayNew = nSampSndCard - nSampFar;
 
   if (delayNew > FAR_BUF_LEN - FRAME_LEN * 2) {
     // The difference of the buffer sizes is larger than the maximum
     // allowed known delay. Compensate by stuffing the buffer.
-    nSampAdd =
+    int nSampAdd =
         (int)(MAX(((nSampSndCard >> 1) - nSampFar), FRAME_LEN));
     nSampAdd = MIN(nSampAdd, maxStuffSamp);
 

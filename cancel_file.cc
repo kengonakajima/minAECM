@@ -7,6 +7,9 @@
 #include <cstring>
 
 #include "echo_control_mobile.h"
+extern "C" {
+#include "aecm_defines.h"
+}
 
 struct Wav {
   // モノラル16kHz固定。sr/chは保持しない。
@@ -48,21 +51,20 @@ int main(int argc, char** argv){
     std::fprintf(stderr, "Failed to read 16k-mono wavs\n");
     return 1;
   }
-  const size_t kBlockSize = 64; // FRAME_LEN=PART_LEN=64
-  size_t N = std::min(x.samples.size(), y.samples.size()) / kBlockSize;
+  size_t N = std::min(x.samples.size(), y.samples.size()) / (size_t)AECM_BLOCK_SIZE;
   if (Aecm_Init() != 0){ std::fprintf(stderr, "AECM init failed\n"); return 1; }
   AecmConfig cfg{}; cfg.echoMode = 3; Aecm_set_config(cfg);
   std::vector<int16_t> processed;
-  processed.resize(N * kBlockSize);
+  processed.resize(N * AECM_BLOCK_SIZE);
   for (size_t n=0;n<N;n++){
     // Farend/render
-    Aecm_BufferFarend(&x.samples[n*kBlockSize]);
+    Aecm_BufferFarend(&x.samples[n*AECM_BLOCK_SIZE]);
     // Nearend/capture -> processed
-    Aecm_Process(&y.samples[n*kBlockSize],
-                 &processed[n*kBlockSize]);
+    Aecm_Process(&y.samples[n*AECM_BLOCK_SIZE],
+                 &processed[n*AECM_BLOCK_SIZE]);
   }
   // Save processed signal as processed.wav (PCM16 mono 16kHz)
-  const uint32_t sr = 16000;
+  const uint32_t sr = AECM_SAMPLE_RATE_HZ;
   const uint16_t ch = 1;
   const uint16_t bps = 16;
   const uint32_t data_bytes = static_cast<uint32_t>(processed.size() * sizeof(int16_t));

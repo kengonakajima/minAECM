@@ -167,26 +167,13 @@ int Aecm_ProcessBlock(AecmCore* aecm,
                             const int16_t* farend,
                             const int16_t* nearend,
                             int16_t* output) {
+  // 周波数領域バッファ
+  ComplexInt16 dfw[PART_LEN2];
+  // 近端/遠端スペクトルの絶対値
   uint16_t xfa[PART_LEN1];
   uint16_t dfaNoisy[PART_LEN1];
-  uint16_t* ptrDfaClean = dfaNoisy;
-  const uint16_t* far_spectrum_ptr = NULL;
-
-  // シンプルなローカル配列（手動アラインメント不要）
-  int16_t fft[PART_LEN4 + 2];  // +2 to make a loop safe.
+  // エコー推定（Qスケール固定）
   int32_t echoEst32[PART_LEN1];
-  ComplexInt16 dfw[PART_LEN2];
-  ComplexInt16 efw[PART_LEN2];
-
-  int16_t hnl[PART_LEN1];
-  int16_t numPosCoef = 0;
-  int delay;
-  int16_t zerosDBufNoisy;
-  int far_q;
-
-  const int kMinPrefBand = 4;
-  const int kMaxPrefBand = 24;
-  int32_t avgHnl32 = 0;
 
   // Determine startup state. There are three states:
   // (0) the first CONV_LEN blocks
@@ -205,11 +192,11 @@ int Aecm_ProcessBlock(AecmCore* aecm,
 
   // Transform far end signal from time domain to frequency domain.
   uint32_t xfaSum = 0;
-  far_q = TimeToFrequencyDomain(aecm, aecm->xBuf, dfw, xfa, &xfaSum);
+  int far_q = TimeToFrequencyDomain(aecm, aecm->xBuf, dfw, xfa, &xfaSum);
 
   // Transform noisy near end signal from time domain to frequency domain.
   uint32_t dfaNoisySum = 0;
-  zerosDBufNoisy =
+  int16_t zerosDBufNoisy =
       TimeToFrequencyDomain(aecm, aecm->dBufNoisy, dfw, dfaNoisy, &dfaNoisySum);
   aecm->dfaNoisyQDomainOld = aecm->dfaNoisyQDomain;
   aecm->dfaNoisyQDomain = (int16_t)zerosDBufNoisy;
@@ -225,8 +212,8 @@ int Aecm_ProcessBlock(AecmCore* aecm,
                                far_q) == -1) {
     return -1;
   }
-  delay = DelayEstimatorProcessFix(&aecm->delay_estimator, dfaNoisy,
-                                          zerosDBufNoisy);
+  int delay = DelayEstimatorProcessFix(&aecm->delay_estimator, dfaNoisy,
+                                       zerosDBufNoisy);
   if (delay == -1) {
     return -1;
   } else if (delay == -2) {
@@ -241,7 +228,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   }
 
   // Get aligned far end spectrum
-  far_spectrum_ptr = Aecm_AlignedFarend(aecm, &far_q, delay);
+  const uint16_t* far_spectrum_ptr = Aecm_AlignedFarend(aecm, &far_q, delay);
   if (far_spectrum_ptr == NULL) {
     return -1;
   }
@@ -264,6 +251,9 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   int16_t supGain = Aecm_CalcSuppressionGain(aecm);
 
   // Calculate Wiener filter hnl[]
+  uint16_t* ptrDfaClean = dfaNoisy;
+  int16_t hnl[PART_LEN1];
+  int16_t numPosCoef = 0;
   for (int i = 0; i < PART_LEN1; i++) {
     // Far end signal through channel estimate in Q8
     // How much can we shift right to preserve resolution
@@ -361,6 +351,9 @@ int Aecm_ProcessBlock(AecmCore* aecm,
     hnl[i] = (int16_t)((hnl[i] * hnl[i]) >> 14);
   }
 
+  const int kMinPrefBand = 4;
+  const int kMaxPrefBand = 24;
+  int32_t avgHnl32 = 0;
   for (int i = kMinPrefBand; i <= kMaxPrefBand; i++) {
     avgHnl32 += (int32_t)hnl[i];
   }
@@ -373,6 +366,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   }
 
   // NLPゲイン計算と乗算を常時実行。
+  ComplexInt16 efw[PART_LEN2];
   for (int i = 0; i < PART_LEN1; i++) {
     // Truncate values close to zero and one.
     if (hnl[i] > NLP_COMP_HIGH) {
@@ -397,9 +391,8 @@ int Aecm_ProcessBlock(AecmCore* aecm,
     efw[i].imag = (int16_t)(
         MUL_16_16_RSFT_WITH_ROUND(dfw[i].imag, hnl[i], 14));
   }
-
-  
-
+  // 逆FFT用の作業バッファは使用直前に確保
+  int16_t fft[PART_LEN4 + 2];  // +2 to make a loop safe.
   InverseFFTAndWindow(aecm, fft, efw, output);
 
   // Debug: print startupState periodically for education/metrics

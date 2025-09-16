@@ -95,13 +95,11 @@ const uint16_t* Aecm_AlignedFarend(AecmCore* self,
 // Create/Freeは廃止。Aecm_InitCore()で内部状態を初期化する。
 
 void Aecm_InitEchoPathCore(AecmCore* aecm, const int16_t* echo_path) {
-  int i = 0;
-
   // Reset the stored channel
   memcpy(aecm->channelStored, echo_path, sizeof(int16_t) * PART_LEN1);
   // Reset the adapted channels
   memcpy(aecm->channelAdapt16, echo_path, sizeof(int16_t) * PART_LEN1);
-  for (i = 0; i < PART_LEN1; i++) {
+  for (int i = 0; i < PART_LEN1; i++) {
     aecm->channelAdapt32[i] = (int32_t)aecm->channelAdapt16[i] << 16;
   }
 
@@ -118,11 +116,9 @@ static void CalcLinearEnergiesC(AecmCore* aecm,
                                 uint32_t* far_energy,
                                 uint32_t* echo_energy_adapt,
                                 uint32_t* echo_energy_stored) {
-  int i;
-
   // Get energy for the delayed far end signal and estimated
   // echo using both stored and adapted channels.
-  for (i = 0; i < PART_LEN1; i++) {
+  for (int i = 0; i < PART_LEN1; i++) {
     echo_est[i] =
         MUL_16_U16(aecm->channelStored[i], far_spectrum[i]);
     (*far_energy) += (uint32_t)(far_spectrum[i]);
@@ -134,13 +130,11 @@ static void CalcLinearEnergiesC(AecmCore* aecm,
 static void StoreAdaptiveChannelC(AecmCore* aecm,
                                   const uint16_t* far_spectrum,
                                   int32_t* echo_est) {
-  int i;
-
   // During startup we store the channel every block.
   memcpy(aecm->channelStored, aecm->channelAdapt16,
          sizeof(int16_t) * PART_LEN1);
   // Recalculate echo estimate
-  for (i = 0; i < PART_LEN; i += 4) {
+  for (int i = 0; i < PART_LEN; i += 4) {
     echo_est[i] =
         MUL_16_U16(aecm->channelStored[i], far_spectrum[i]);
     echo_est[i + 1] =
@@ -150,24 +144,24 @@ static void StoreAdaptiveChannelC(AecmCore* aecm,
     echo_est[i + 3] =
         MUL_16_U16(aecm->channelStored[i + 3], far_spectrum[i + 3]);
   }
-  echo_est[i] = MUL_16_U16(aecm->channelStored[i], far_spectrum[i]);
+  // PART_LEN1 は PART_LEN + 1
+  echo_est[PART_LEN] = MUL_16_U16(aecm->channelStored[PART_LEN],
+                                  far_spectrum[PART_LEN]);
 }
 
 static void ResetAdaptiveChannelC(AecmCore* aecm) {
-  int i;
-
   // The stored channel has a significantly lower MSE than the adaptive one for
   // two consecutive calculations. Reset the adaptive channel.
   memcpy(aecm->channelAdapt16, aecm->channelStored,
          sizeof(int16_t) * PART_LEN1);
   // Restore the W32 channel
-  for (i = 0; i < PART_LEN; i += 4) {
+  for (int i = 0; i < PART_LEN; i += 4) {
     aecm->channelAdapt32[i] = (int32_t)aecm->channelStored[i] << 16;
     aecm->channelAdapt32[i + 1] = (int32_t)aecm->channelStored[i + 1] << 16;
     aecm->channelAdapt32[i + 2] = (int32_t)aecm->channelStored[i + 2] << 16;
     aecm->channelAdapt32[i + 3] = (int32_t)aecm->channelStored[i + 3] << 16;
   }
-  aecm->channelAdapt32[i] = (int32_t)aecm->channelStored[i] << 16;
+  aecm->channelAdapt32[PART_LEN] = (int32_t)aecm->channelStored[PART_LEN] << 16;
 }
 
 
@@ -359,8 +353,6 @@ void Aecm_CalcEnergies(AecmCore* aecm,
   uint32_t tmpStored = 0;
   uint32_t tmpFar = 0;
 
-  int i;
-
   int16_t tmp16;
   int16_t increase_max_shifts = 4;
   int16_t decrease_max_shifts = 11;
@@ -452,7 +444,7 @@ void Aecm_CalcEnergies(AecmCore* aecm,
       // The estimated echo has higher energy than the near end signal.
       // This means that the initialization was too aggressive. Scale
       // down by a factor 8
-      for (i = 0; i < PART_LEN1; i++) {
+      for (int i = 0; i < PART_LEN1; i++) {
         aecm->channelAdapt16[i] >>= 3;
       }
       // Compensate the adapted echo energy level accordingly.
@@ -522,8 +514,6 @@ void Aecm_UpdateChannel(AecmCore* aecm,
   int32_t mseStored;
   int32_t mseAdapt;
 
-  int i;
-
   int16_t zerosFar, zerosNum, zerosCh, zerosDfa;
   int16_t shiftChFar, shiftNum, shift2ResChan;
   int16_t tmp16no1;
@@ -532,7 +522,7 @@ void Aecm_UpdateChannel(AecmCore* aecm,
   // This is the channel estimation algorithm. It is base on NLMS but has a
   // variable step length, which was calculated above.
   if (mu) {
-    for (i = 0; i < PART_LEN1; i++) {
+    for (int i = 0; i < PART_LEN1; i++) {
       // Determine norm of channel and farend to make sure we don't get overflow
       // in multiplication
       zerosCh = NormU32(aecm->channelAdapt32[i]);
@@ -648,7 +638,7 @@ void Aecm_UpdateChannel(AecmCore* aecm,
       // It is actually not MSE, but average absolute error.
       mseStored = 0;
       mseAdapt = 0;
-      for (i = 0; i < MIN_MSE_COUNT; i++) {
+      for (int i = 0; i < MIN_MSE_COUNT; i++) {
         tmp32no1 = ((int32_t)aecm->echoStoredLogEnergy[i] -
                     (int32_t)aecm->nearLogEnergy[i]);
         tmp32no2 = ABS_W32(tmp32no1);
