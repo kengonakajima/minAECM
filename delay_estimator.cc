@@ -339,7 +339,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
       // Make number of right shifts piecewise linear w.r.t. `far_bit_counts`.
       int shifts = kShiftsAtZero;
       shifts -= (kShiftsLinearSlope * self->farend->far_bit_counts[i]) >> 4;
-      MeanEstimatorFix(bit_count, shifts, &(self->mean_bit_counts[i]));
+      MeanEstimator(bit_count, shifts, &(self->mean_bit_counts[i]));
     }
   }
 
@@ -463,9 +463,9 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
 
 
 
-void MeanEstimatorFix(int32_t new_value,
-                             int factor,
-                             int32_t* mean_value) {
+void MeanEstimator(int32_t new_value,
+                   int factor,
+                   int32_t* mean_value) {
   int32_t diff = new_value - *mean_value;
 
   // mean_new = mean_value + ((new_value - mean_value) >> factor);

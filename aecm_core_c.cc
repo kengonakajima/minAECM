@@ -203,12 +203,12 @@ int Aecm_ProcessBlock(const int16_t* farend,
 
   // Get the delay
   // Save far-end history and estimate delay
-  Aecm_UpdateFarHistory(xfa, far_q);
-  if (AddFarSpectrumFix(&g_aecm.delay_estimator_farend, xfa,
+  Aecm_UpdateFarHistory(xfa);
+  if (AddFarSpectrum(&g_aecm.delay_estimator_farend, xfa,
                                far_q) == -1) {
     return -1;
   }
-  int delay = DelayEstimatorProcessFix(&g_aecm.delay_estimator, dfaNoisy,
+  int delay = DelayEstimatorProcess(&g_aecm.delay_estimator, dfaNoisy,
                                        zerosDBufNoisy);
   if (delay == -1) {
     return -1;
@@ -224,7 +224,7 @@ int Aecm_ProcessBlock(const int16_t* farend,
   }
 
   // Get aligned far end spectrum
-  const uint16_t* far_spectrum_ptr = Aecm_AlignedFarend(&far_q, delay);
+  const uint16_t* far_spectrum_ptr = Aecm_AlignedFarend(delay);
   if (far_spectrum_ptr == NULL) {
     return -1;
   }

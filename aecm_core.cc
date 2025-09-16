@@ -47,8 +47,7 @@ static const int16_t kChannelStored16kHz[PART_LEN1] = {
 //      - far_spectrum  : Pointer to the far end spectrum
 //      - far_q         : Q-domain of far end spectrum
 //
-void Aecm_UpdateFarHistory(uint16_t* far_spectrum,
-                                 int far_q) {
+void Aecm_UpdateFarHistory(uint16_t* far_spectrum) {
   // Get new buffer position
   g_aecm.far_history_pos++;
   if (g_aecm.far_history_pos >= MAX_DELAY) {
@@ -61,10 +60,10 @@ void Aecm_UpdateFarHistory(uint16_t* far_spectrum,
 }
 
 // Returns a pointer to the far end spectrum aligned to current near end
-// spectrum. The function DelayEstimatorProcessFix(...) should have been
+// spectrum. The function DelayEstimatorProcess(...) should have been
 // called before AlignedFarend(...). Otherwise, you get the pointer to the
 // previous frame. The memory is only valid until the next call of
-// DelayEstimatorProcessFix(...).
+// DelayEstimatorProcess(...).
 //
 // Inputs:
 //      - self              : Pointer to the AECM instance.
@@ -77,7 +76,7 @@ void Aecm_UpdateFarHistory(uint16_t* far_spectrum,
 //      - far_spectrum      : Pointer to the aligned far end spectrum
 //                            NULL - Error
 //
-const uint16_t* Aecm_AlignedFarend(int* far_q, int delay) {
+const uint16_t* Aecm_AlignedFarend(int delay) {
   int buffer_position = 0;
   // sanity check was here in original (DCHECK). For minimal build, skip.
   buffer_position = g_aecm.far_history_pos - delay;
@@ -86,8 +85,6 @@ const uint16_t* Aecm_AlignedFarend(int* far_q, int delay) {
   if (buffer_position < 0) {
     buffer_position += MAX_DELAY;
   }
-  // 固定Q=0
-  *far_q = 0;
   // Return far end spectrum
   return &(g_aecm.far_history[buffer_position * PART_LEN1]);
 }

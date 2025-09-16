@@ -43,7 +43,7 @@ minAECM 遅延推定（Delay Estimator）コード解説
 定義: delay_estimator_wrapper.cc
 - 入力: `const uint16_t* spectrum`（Q[far_q] または Q[near_q]）、`SpectrumType* threshold_spectrum`（Q15 相当の基準）、`q_domain`
 - 初期化: `threshold_initialized` が 0 の場合、しきい値を「入力の半分」で初期化（Q[15] へ一度変換して格納）
-- 更新: 各ビン i で、`MeanEstimatorFix(spectrum_q15, 6, &threshold_spectrum[i].int32_)` により指数平均（2^-6）で更新
+- 更新: 各ビン i で、`MeanEstimator(spectrum_q15, 6, &threshold_spectrum[i].int32_)` により指数平均（2^-6）で更新
 - 2値化: `spectrum_q15 > threshold_spectrum[i].int32_` なら、そのビンのビット（out の i - kBandFirst）を 1 にセット
 - 出力: 32bit 整数（kBandFirst..kBandLast の 32 ビンの2値化結果）
 
@@ -66,7 +66,7 @@ minAECM 遅延推定（Delay Estimator）コード解説
   - 右シフト回数（= 平滑の「遅さ」）を `far_bit_counts[i]` に応じて可変化
     - `shifts = kShiftsAtZero(=13) - ((kShiftsLinearSlope(=3) * far_bit_counts[i]) >> 4)`
     - 遠端が非定常（1 ビットが多い）なほど早く追従（右シフト回数が減少）
-  - `MeanEstimatorFix(bit_count_q9, shifts, &mean_bit_counts[i])`
+  - `MeanEstimator(bit_count_q9, shifts, &mean_bit_counts[i])`
 - 候補遅延の選定
   - `value_best_candidate = min(mean_bit_counts)` の index が `candidate_delay`
   - `value_worst_candidate = max(mean_bit_counts)`
@@ -108,10 +108,10 @@ minAECM 遅延推定（Delay Estimator）コード解説
 9. AECM からの呼び出し（接続点）
 - aecm_core_c.cc（ブロック処理内）
   1) far/near の時間→周波数変換
-  2) `Aecm_UpdateFarHistory(...)` で far スペクトル履歴更新（AECM 内部用）
-  3) `AddFarSpectrumFix(delay_estimator_farend, xfa, far_q)` で遅延推定器側に far を登録
-  4) `DelayEstimatorProcessFix(delay_estimator, dfaNoisy, zerosDBufNoisy)` で near を処理し遅延を得る
-  5) 遅延に基づき `Aecm_AlignedFarend(...)` で near に整列した far スペクトルを取得し、以降の抑圧処理へ
+  2) `Aecm_UpdateFarHistory(...)` で far スペクトル履歴更新（固定Q=0のため Q は保持せずスペクトルのみ）
+  3) `AddFarSpectrum(delay_estimator_farend, xfa, far_q)` で遅延推定器側に far を登録
+  4) `DelayEstimatorProcess(delay_estimator, dfaNoisy, zerosDBufNoisy)` で near を処理し遅延を得る
+  5) 遅延に基づき `Aecm_AlignedFarend(delay)` で near に整列した far スペクトルを取得し、以降の抑圧処理へ
 
 
 10. 主な定数と注意事項
@@ -136,11 +136,11 @@ minAECM 遅延推定（Delay Estimator）コード解説
 
 
 12. 参照箇所（関数）
-- 2値化: `BinarySpectrumFix(...)`（delay_estimator_wrapper.cc）
+- 2値化: `BinarySpectrum(...)`（delay_estimator_wrapper.cc）
 - 遠端履歴更新: `AddBinaryFarSpectrum(...)`（delay_estimator.cc）
 - 主要推定: `ProcessBinarySpectrum(...)`（delay_estimator.cc）
-- 平滑: `MeanEstimatorFix(...)`（delay_estimator.h / .cc）
-- ラッパ API: `AddFarSpectrumFix(...)`, `DelayEstimatorProcessFix(...)`（delay_estimator_wrapper.cc）
+- 平滑: `MeanEstimator(...)`（delay_estimator.h / .cc）
+- ラッパ API: `AddFarSpectrum(...)`, `DelayEstimatorProcess(...)`（delay_estimator_wrapper.cc）
 - AECM 側接続: `Aecm_UpdateFarHistory(...)`, `Aecm_AlignedFarend(...)`（aecm_core.cc）
 
 --------------------------------------------------------------------------------

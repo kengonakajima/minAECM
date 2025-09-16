@@ -130,9 +130,9 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
 // Input/Output:
 //    - mean_value            : Pointer to the mean value.
 //
-void MeanEstimatorFix(int32_t new_value,
-                             int factor,
-                             int32_t* mean_value);
+void MeanEstimator(int32_t new_value,
+                   int factor,
+                   int32_t* mean_value);
 
  
 

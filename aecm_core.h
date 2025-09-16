@@ -158,15 +158,15 @@ void Aecm_FetchFarFrame(int16_t* const farend, int knownDelay);
 //      - far_spectrum  : Pointer to the far end spectrum
 //      - far_q         : Q-domain of far end spectrum（固定Q=0）
 //
-// Far スペクトル履歴（g_aecm）を更新。
-void Aecm_UpdateFarHistory(uint16_t* far_spectrum, int far_q);
+// Far スペクトル履歴（g_aecm）を更新（固定Q=0のため Q は保持しない）。
+void Aecm_UpdateFarHistory(uint16_t* far_spectrum);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Returns a pointer to the far end spectrum aligned to current near end
-// spectrum. The function DelayEstimatorProcessFix(...) should have been
+// spectrum. The function DelayEstimatorProcess(...) should have been
 // called before AlignedFarend(...). Otherwise, you get the pointer to the
 // previous frame. The memory is only valid until the next call of
-// DelayEstimatorProcessFix(...).
+// DelayEstimatorProcess(...).
 //
 // Inputs:
 //      - self              : Pointer to the AECM instance.
@@ -180,7 +180,8 @@ void Aecm_UpdateFarHistory(uint16_t* far_spectrum, int far_q);
 //                            NULL - Error
 //
 // 近端に整列済みの Far スペクトルを返す（g_aecm 内の履歴に基づく）。
-const uint16_t* Aecm_AlignedFarend(int* far_q, int delay);
+// 固定Q=0のため、Q出力は行わない。
+const uint16_t* Aecm_AlignedFarend(int delay);
 
 ///////////////////////////////////////////////////////////////////////////////
 // This function calculates the suppression gain that is used in the
