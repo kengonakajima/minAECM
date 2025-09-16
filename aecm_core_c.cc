@@ -175,15 +175,15 @@ int ProcessBlock(const int16_t* farend,
   }
   // END: Determine startup state
 
-  // Buffer near and far end signals
+  // Buffer near and far end signals (time-domain frame buffering)
   memcpy(g_aecm.xBuf + PART_LEN, farend, sizeof(int16_t) * PART_LEN);
   memcpy(g_aecm.dBufNoisy + PART_LEN, nearend, sizeof(int16_t) * PART_LEN);
 
-  // Transform far end signal from time domain to frequency domain.
+  // Transform far end signal X(k) = FFT{x(n)} (|X|とΣ|X|)
   uint32_t xfaSum = 0;
   TimeToFrequencyDomain(g_aecm.xBuf, dfw, xfa, &xfaSum);
 
-  // Transform noisy near end signal from time domain to frequency domain.
+  // Transform noisy near end signal D(k) = FFT{d(n)} (|D|とΣ|D|)
   uint32_t dfaNoisySum = 0;
   TimeToFrequencyDomain(g_aecm.dBufNoisy, dfw, dfaNoisy, &dfaNoisySum);
   g_aecm.dfaNoisyQDomainOld = g_aecm.dfaNoisyQDomain;
@@ -193,8 +193,7 @@ int ProcessBlock(const int16_t* farend,
   g_aecm.dfaCleanQDomainOld = g_aecm.dfaNoisyQDomainOld;
   g_aecm.dfaCleanQDomain = g_aecm.dfaNoisyQDomain;
 
-  // Get the delay
-  // Save far-end history and estimate delay
+  // Update far-history and estimate delay via binary spectra matching
   UpdateFarHistory(xfa);
   if (AddFarSpectrum(&g_aecm.delay_estimator_farend, xfa) == -1) {
     return -1;
@@ -208,20 +207,20 @@ int ProcessBlock(const int16_t* farend,
     delay = 0;
   }
 
-  // Get aligned far end spectrum
+  // Align far spectrum according to estimated delay
   const uint16_t* far_spectrum_ptr = AlignedFarend(delay);
   if (far_spectrum_ptr == NULL) {
     return -1;
   }
 
-  // Calculate log(energy) and update energy threshold levels
+  // Update energy logs (log |X|, log |Y_hat|) for VAD/thresholds
   CalcEnergies(far_spectrum_ptr, dfaNoisySum,
                           echoEst32);
 
-  // Calculate stepsize
+  // NLMS step size μ based on far energy dynamics
   int16_t mu = CalcStepSize();
 
-  // Update counters
+  // Increment processed-block counter
   g_aecm.totCount++;
 
   // This is the channel estimation algorithm.
@@ -231,15 +230,15 @@ int ProcessBlock(const int16_t* farend,
                            echoEst32);
   int16_t supGain = CalcSuppressionGain();
 
-  // Calculate Wiener filter hnl[]
-  uint16_t* ptrDfaClean = dfaNoisy;
+  // Calculate Wiener filter H(k)
+  uint16_t* ptrDfaClean = dfaNoisy;  // |D_clean| proxy
   int16_t hnl[PART_LEN1];
   int16_t numPosCoef = 0;
   for (int i = 0; i < PART_LEN1; i++) {
     // Far end signal through channel estimate in Q8
     // How much can we shift right to preserve resolution
     int32_t tmp32no1 = echoEst32[i] - g_aecm.echoFilt[i];
-    g_aecm.echoFilt[i] += (int32_t)(((int64_t)tmp32no1 * 50) >> 8);
+    g_aecm.echoFilt[i] += (int32_t)(((int64_t)tmp32no1 * 50) >> 8);  // ζ = 50/256 update (EMA)
 
     int16_t zeros32 = NormW32(g_aecm.echoFilt[i]) + 1;
     int16_t zeros16 = NormW16(supGain) + 1;
@@ -247,9 +246,7 @@ int ProcessBlock(const int16_t* farend,
     int16_t resolutionDiff;
     if (zeros32 + zeros16 > 16) {
       // Multiplication is safe
-      // Result in
-      // Q(RESOLUTION_CHANNEL+RESOLUTION_SUPGAIN+
-      //   aecm->xfaQDomainBuf[diff])
+      // Result in Q(RESOLUTION_CHANNEL + RESOLUTION_SUPGAIN)
       echoEst32Gained = UMUL_32_16((uint32_t)g_aecm.echoFilt[i], (uint16_t)supGain);
       resolutionDiff = 14 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
     } else {
@@ -260,7 +257,7 @@ int ProcessBlock(const int16_t* farend,
         echoEst32Gained = UMUL_32_16((uint32_t)g_aecm.echoFilt[i],
                                                 supGain >> tmp16no1);
       } else {
-        // Result in Q-(RESOLUTION_CHANNEL+RESOLUTION_SUPGAIN-16)
+        // Result in Q(RESOLUTION_CHANNEL + RESOLUTION_SUPGAIN - tmp16no1)
         echoEst32Gained = (g_aecm.echoFilt[i] >> tmp16no1) * supGain;
       }
     }
@@ -292,14 +289,13 @@ int ProcessBlock(const int16_t* farend,
                                            : tmp16no2 >> qDomainDiff;
     }
 
-    // Wiener filter coefficients, resulting hnl in Q14
+    // Wiener filter coefficients, resulting hnl in Q14 (H(k) = 1 - |Ŷ|/|D|)
     if (echoEst32Gained == 0) {
       hnl[i] = ONE_Q14;
     } else if (g_aecm.nearFilt[i] == 0) {
       hnl[i] = 0;
     } else {
-      // Multiply the suppression gain
-      // Rounding
+      // Multiply the suppression gain and apply rounding
       echoEst32Gained += (uint32_t)(g_aecm.nearFilt[i] >> 1);
       uint32_t tmpU32 = DivU32U16(echoEst32Gained, (uint16_t)g_aecm.nearFilt[i]);
 
@@ -330,7 +326,7 @@ int ProcessBlock(const int16_t* farend,
     hnl[i] = (int16_t)((hnl[i] * hnl[i]) >> 14);
   }
 
-  const int kMinPrefBand = 4;
+  const int kMinPrefBand = 4;   // Prefilter band (4..24) per spec
   const int kMaxPrefBand = 24;
   int32_t avgHnl32 = 0;
   for (int i = kMinPrefBand; i <= kMaxPrefBand; i++) {
@@ -345,7 +341,7 @@ int ProcessBlock(const int16_t* farend,
   }
 
   // NLPゲイン計算と乗算を常時実行。
-  ComplexInt16 efw[PART_LEN2];
+  ComplexInt16 efw[PART_LEN2];  // Error spectrum E(k)
   for (int i = 0; i < PART_LEN1; i++) {
     // Truncate values close to zero and one.
     if (hnl[i] > NLP_COMP_HIGH) {
@@ -355,7 +351,7 @@ int ProcessBlock(const int16_t* farend,
     }
 
     // Remove outliers
-    int16_t nlpGain = (numPosCoef < 3) ? 0 : ONE_Q14;
+    int16_t nlpGain = (numPosCoef < 3) ? 0 : ONE_Q14;  // double-talk guard
 
     // NLP
     if ((hnl[i] == ONE_Q14) && (nlpGain == ONE_Q14)) {
