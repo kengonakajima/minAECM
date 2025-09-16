@@ -193,11 +193,7 @@ static int InitCoreImpl() {
   }
   // Set far end histories to zero
   memset(g_aecm.far_history, 0, sizeof(uint16_t) * PART_LEN1 * MAX_DELAY);
-  memset(g_aecm.far_q_domains, 0, sizeof(int) * MAX_DELAY);
   g_aecm.far_history_pos = MAX_DELAY;
-
-  // NLP は常時有効（フラグ不要）
-  g_aecm.fixedDelay = -1;
 
   g_aecm.dfaCleanQDomain = 0;
   g_aecm.dfaCleanQDomainOld = 0;

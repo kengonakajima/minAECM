@@ -218,11 +218,6 @@ int Aecm_ProcessBlock(const int16_t* farend,
     delay = 0;
   }
 
-  if (g_aecm.fixedDelay >= 0) {
-    // Use fixed delay
-    delay = g_aecm.fixedDelay;
-  }
-
   // Get aligned far end spectrum
   const uint16_t* far_spectrum_ptr = Aecm_AlignedFarend(delay);
   if (far_spectrum_ptr == NULL) {

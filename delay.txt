@@ -43,8 +43,8 @@ minAECM 遅延推定（Delay Estimator）コード解説
 定義: delay_estimator_wrapper.cc
 - 入力: `const uint16_t* spectrum`（Q[far_q] または Q[near_q]）、`SpectrumType* threshold_spectrum`（Q15 相当の基準）、`q_domain`
 - 初期化: `threshold_initialized` が 0 の場合、しきい値を「入力の半分」で初期化（Q[15] へ一度変換して格納）
-- 更新: 各ビン i で、`MeanEstimator(spectrum_q15, 6, &threshold_spectrum[i].int32_)` により指数平均（2^-6）で更新
-- 2値化: `spectrum_q15 > threshold_spectrum[i].int32_` なら、そのビンのビット（out の i - kBandFirst）を 1 にセット
+- 更新: 各ビン i で、`MeanEstimator(spectrum_q15, 6, &threshold_spectrum[i])` により指数平均（2^-6）で更新
+- 2値化: `spectrum_q15 > threshold_spectrum[i]` なら、そのビンのビット（out の i - kBandFirst）を 1 にセット
 - 出力: 32bit 整数（kBandFirst..kBandLast の 32 ビンの2値化結果）
 
 

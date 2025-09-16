@@ -29,7 +29,7 @@ enum { AecmFalse = 0, AecmTrue };
 #define AECM_BAD_PARAMETER_WARNING 12100
 
 typedef struct {
-  int16_t echoMode;  // 0, 1, 2, 3 (default), 4
+  int16_t echoMode;  // 3 のみサポート
 } AecmConfig;
 
 #ifdef __cplusplus

@@ -66,7 +66,7 @@ static uint32_t BinarySpectrum(const uint16_t* spectrum,
       if (spectrum[i] > 0) {
         // Convert input spectrum from Q(`q_domain`) to Q15.
         int32_t spectrum_q15 = ((int32_t)spectrum[i]) << (15 - q_domain);
-        threshold_spectrum[i].int32_ = (spectrum_q15 >> 1);
+        threshold_spectrum[i] = (spectrum_q15 >> 1);
         *threshold_initialized = 1;
       }
     }
@@ -75,9 +75,9 @@ static uint32_t BinarySpectrum(const uint16_t* spectrum,
     // Convert input spectrum from Q(`q_domain`) to Q15.
     int32_t spectrum_q15 = ((int32_t)spectrum[i]) << (15 - q_domain);
     // Update the `threshold_spectrum`.
-    MeanEstimator(spectrum_q15, 6, &(threshold_spectrum[i].int32_));
+    MeanEstimator(spectrum_q15, 6, &(threshold_spectrum[i]));
     // Convert `spectrum` at current frequency bin to a binary value.
-    if (spectrum_q15 > threshold_spectrum[i].int32_) {
+    if (spectrum_q15 > threshold_spectrum[i]) {
       out = SetBit(out, i - kBandFirst);
     }
   }

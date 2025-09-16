@@ -74,16 +74,6 @@
 /* (Should be the same as Default) (1 in Q8). */
 #define SUPGAIN_EPC_DT 200 /* SUPGAIN_ERROR_PARAM_C * ENERGY_DEV_TOL */
 
-/* Defines for "check delay estimation" */
-#define CORR_WIDTH 31 /* Number of samples to correlate over. */
-#define CORR_MAX 16   /* Maximum correlation offset. */
-#define CORR_MAX_BUF 63
-#define CORR_DEV 4
-#define CORR_MAX_LEVEL 20
-#define CORR_MAX_LOW 4
-#define CORR_BUF_LEN (CORR_MAX << 1) + 1
-/* Note that CORR_WIDTH + 2*CORR_MAX <= MAX_BUF_LEN. */
-
 #define ONE_Q14 (1 << 14)
 
 /* NLP defines */

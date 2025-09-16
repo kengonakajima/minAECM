@@ -18,10 +18,7 @@
 
  
 
-typedef union {
-  float float_;
-  int32_t int32_;
-} SpectrumType;
+typedef int32_t SpectrumType;
 
 typedef struct {
   // 平均スペクトル（固定長）。

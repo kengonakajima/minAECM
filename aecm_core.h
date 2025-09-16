@@ -58,10 +58,6 @@ typedef struct {
   // TODO(bjornv): Replace `far_history` with ring_buffer.
   uint16_t far_history[PART_LEN1 * MAX_DELAY];
   int far_history_pos;
-  int far_q_domains[MAX_DELAY];
-
-  // NLP は常時有効。フラグは不要。
-  int16_t fixedDelay;
 
   uint32_t totCount;
 
