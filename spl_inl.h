@@ -1,48 +1,28 @@
 // This header file includes the inline functions in
 // the fix point signal processing library.
 
-extern const int8_t kWebRtcSpl_CountLeadingZeros32_Table[64];
-
-// Don't call this directly except in tests!
-static __inline int CountLeadingZeros32_NotBuiltin(uint32_t n) {
-  // Normalize n by rounding up to the nearest number that is a sequence of 0
-  // bits followed by a sequence of 1 bits. This number has the same number of
-  // leading zeros as the original n. There are exactly 33 such values.
-  n |= n >> 1;
-  n |= n >> 2;
-  n |= n >> 4;
-  n |= n >> 8;
-  n |= n >> 16;
-
-  // Multiply the modified n with a constant selected (by exhaustive search)
-  // such that each of the 33 possible values of n give a product whose 6 most
-  // significant bits are unique. Then look up the answer in the table.
-  return kWebRtcSpl_CountLeadingZeros32_Table[(n * 0x8c0b2891) >> 26];
-}
-
-// Don't call this directly except in tests!
-static __inline int CountLeadingZeros64_NotBuiltin(uint64_t n) {
-  const int leading_zeros = n >> 32 == 0 ? 32 : 0;
-  return leading_zeros + CountLeadingZeros32_NotBuiltin(
-                             (uint32_t)(n >> (32 - leading_zeros)));
-}
-
-// Returns the number of leading zero bits in the argument.
 static __inline int CountLeadingZeros32(uint32_t n) {
-#ifdef __GNUC__
-  return n == 0 ? 32 : __builtin_clz(n);
-#else
-  return CountLeadingZeros32_NotBuiltin(n);
-#endif
+  if (n == 0) {
+    return 32;
+  }
+  int count = 0;
+  while ((n & 0x80000000u) == 0) {
+    n <<= 1;
+    ++count;
+  }
+  return count;
 }
 
-// Returns the number of leading zero bits in the argument.
 static __inline int CountLeadingZeros64(uint64_t n) {
-#ifdef __GNUC__
-  return n == 0 ? 64 : __builtin_clzll(n);
-#else
-  return CountLeadingZeros64_NotBuiltin(n);
-#endif
+  if (n == 0) {
+    return 64;
+  }
+  int count = 0;
+  while ((n & 0x8000000000000000ULL) == 0) {
+    n <<= 1;
+    ++count;
+  }
+  return count;
 }
 
 // Generic C implementation
