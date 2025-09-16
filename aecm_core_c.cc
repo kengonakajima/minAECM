@@ -225,7 +225,7 @@ int ProcessBlock(const int16_t* farend,
   }
 
   // Calculate log(energy) and update energy threshold levels
-  CalcEnergies(far_spectrum_ptr, 0 /*far_q*/, dfaNoisySum,
+  CalcEnergies(far_spectrum_ptr, dfaNoisySum,
                           echoEst32);
 
   // Calculate stepsize

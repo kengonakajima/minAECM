@@ -152,7 +152,6 @@ void FetchFarFrame(int16_t* const farend, int knownDelay);
 // Inputs:
 //      - self          : Pointer to the delay estimation instance
 //      - far_spectrum  : Pointer to the far end spectrum
-//      - far_q         : Q-domain of far end spectrum（固定Q=0）
 //
 // Far スペクトル履歴（g_aecm）を更新（固定Q=0のため Q は保持しない）。
 void UpdateFarHistory(uint16_t* far_spectrum);
@@ -167,9 +166,6 @@ void UpdateFarHistory(uint16_t* far_spectrum);
 // Inputs:
 //      - self              : Pointer to the AECM instance.
 //      - delay             : Current delay estimate.
-//
-// Output:
-//      - far_q             : The Q-domain of the aligned far end spectrum（固定Q=0）
 //
 // Return value:
 //      - far_spectrum      : Pointer to the aligned far end spectrum
@@ -201,7 +197,6 @@ int16_t CalcSuppressionGain();
 // Inputs:
 //      - aecm              : Pointer to the AECM instance.
 //      - far_spectrum      : Pointer to farend spectrum.
-//      - far_q             : Q-domain of farend spectrum.
 //      - nearEner          : Near end energy for current block（固定Q=0）。
 //
 // Output:
@@ -209,7 +204,6 @@ int16_t CalcSuppressionGain();
 //
 // 近端/遠端/推定エコーのエネルギーを計算し、VAD 閾値などを更新（g_aecm）。
 void CalcEnergies(const uint16_t* far_spectrum,
-                       int16_t far_q,
                        uint32_t nearEner,
                        int32_t* echoEst);
 

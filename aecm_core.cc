@@ -326,15 +326,13 @@ static int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain) {
 //
 // @param  aecm         [i/o]   Handle of the AECM instance.
 // @param  far_spectrum [in]    Pointer to farend spectrum.
-// @param  far_q        [in]    Q-domain of farend spectrum.
 // @param  nearEner     [in]    Near end energy for current block in
 //                              Q(aecm->dfaQDomain).
 // @param  echoEst      [out]   Estimated echo in Q(xfa_q+RESOLUTION_CHANNEL16).
 //
 void CalcEnergies(const uint16_t* far_spectrum,
-                             const int16_t far_q,
-                             const uint32_t nearEner,
-                             int32_t* echoEst) {
+                       const uint32_t nearEner,
+                       int32_t* echoEst) {
   // Local variables
   uint32_t tmpAdapt = 0;
   uint32_t tmpStored = 0;
@@ -365,15 +363,15 @@ void CalcEnergies(const uint16_t* far_spectrum,
           sizeof(int16_t) * (MAX_BUF_LEN - 1));
 
   // Logarithm of delayed far end energy
-  g_aecm.farLogEnergy = LogOfEnergyInQ8(tmpFar, far_q);
+  g_aecm.farLogEnergy = LogOfEnergyInQ8(tmpFar, 0);
 
   // Logarithm of estimated echo energy through adapted channel
   g_aecm.echoAdaptLogEnergy[0] =
-      LogOfEnergyInQ8(tmpAdapt, RESOLUTION_CHANNEL16 + far_q);
+      LogOfEnergyInQ8(tmpAdapt, RESOLUTION_CHANNEL16);
 
   // Logarithm of estimated echo energy through stored channel
   g_aecm.echoStoredLogEnergy[0] =
-      LogOfEnergyInQ8(tmpStored, RESOLUTION_CHANNEL16 + far_q);
+      LogOfEnergyInQ8(tmpStored, RESOLUTION_CHANNEL16);
 
   // Update farend energy levels (min, max, vad, mse)
   if (g_aecm.farLogEnergy > FAR_ENERGY_MIN) {
