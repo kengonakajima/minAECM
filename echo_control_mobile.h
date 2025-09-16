@@ -39,3 +39,7 @@ int32_t Process(const int16_t* nearend,
 
 /* 動作モードの設定。0で成功。*/
 int32_t SetConfig(AecmConfig config);
+
+/* デバッグ用: Wiener 抑圧/NLP のバイパス切替（0=有効, 非0=バイパス）。*/
+void SetBypassWiener(int enable);
+void SetBypassNlp(int enable);

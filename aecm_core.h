@@ -120,6 +120,10 @@ int ProcessBlock(const int16_t* x_block,
                       const int16_t* y_block,
                       int16_t* e_block);
 
+// デバッグ/調整用: 抑圧ステージをバイパスするフラグを設定。
+void AecmCoreSetBypassWiener(int enable);
+void AecmCoreSetBypassNlp(int enable);
+
 ////////////////////////////////////////////////////////////////////////////////
 // 遠端参照信号フレーム（x[n], FRAME_LEN サンプル）を g_aecm 側のバッファへ投入。
 void BufferFarFrame(const int16_t* const x_frame);

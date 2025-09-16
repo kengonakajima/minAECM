@@ -25,25 +25,25 @@ minAECM 遅延推定（Delay Estimator）コード解説
 
 3. データ構造とハンドル
 - BinaryDelayEstimatorFarend（delay_estimator.h）
-  - binary_far_history: 遠端ビット列の履歴（最新が index 0）
-  - far_bit_counts: 各履歴ビット列の 1 の個数（非定常性や平滑の強さ指標に利用）
-  - history_size: 履歴長（MAX_DELAY 相当）
+  - `binary_far_history[MAX_DELAY]`: 遠端ビット列の履歴（最新が index 0）
+  - `far_bit_counts[MAX_DELAY]`: 各履歴ビット列の 1 の個数（非定常性や平滑係数の調整に利用）
 - BinaryDelayEstimator（delay_estimator.h）
-  - mean_bit_counts: 遅延ごとの「不一致ビット数」の平滑値（Q9）
-  - bit_counts: 直近の不一致ビット数（一時領域、Q0→Q9 へ変換して平滑）
-  - binary_near_history, near_history_size, lookahead: 近端の2値化履歴（ルックアヘッド用）
-  - robust_validation_enabled, histogram 等: ロバスト検証用の状態
-  - last_delay, last_delay_probability, minimum_probability など: 推定の状態
-- DelayEstimatorFarend/DelayEstimator（delay_estimator_internal.h）
-  - mean_far_spectrum/mean_near_spectrum: スペクトルの移動平均（SpectrumType: union {float, int32_t}）
-  - binary_farend/binary_handle: 上記 Binary* 構造体へのポインタ
+  - `mean_bit_counts[MAX_DELAY + 1]`: 遅延ごとの不一致ビット数の指数平均（Q9）
+  - `bit_counts[MAX_DELAY]`: 直近の不一致ビット数（Q0）
+  - `binary_near_history[1]`: 近端2値化の履歴（本プロジェクトでは lookahead=0 固定）
+  - `minimum_probability`, `last_delay_probability`, `last_delay`: 遅延更新のための閾値・状態
+  - `candidate_hits`, `histogram`, `compare_delay`, `last_delay_histogram`: ロバスト検証用の統計
+  - `farend`: `BinaryDelayEstimatorFarend` へのポインタ
+- DelayEstimatorFarend / DelayEstimator（delay_estimator_internal.h）
+  - `mean_far_spectrum`, `mean_near_spectrum`: スペクトルの移動平均（`SpectrumType` は `int32_t` Q15）
+  - `binary_farend`, `binary_handle`: 上記 Binary* 構造体を埋め込んだ実体（ポインタではなく値）
 
 
-4. 2値化（BinarySpectrumFix）
+4. 2値化（BinarySpectrum）
 定義: delay_estimator_wrapper.cc
-- 入力: `const uint16_t* spectrum`（Q0固定）、`SpectrumType* threshold_spectrum`（Q15 相当の基準）
-- 初期化: `threshold_initialized` が 0 の場合、しきい値を「入力の半分」で初期化（Q[15] へ一度変換して格納）
-- 更新: 各ビン i で、`MeanEstimator(spectrum_q15, 6, &threshold_spectrum[i])` により指数平均（2^-6）で更新
+- 入力: `const uint16_t* spectrum`（Q0固定）、`SpectrumType* threshold_spectrum`（Q15 相当の基準値）
+- 初期化: `threshold_initialized` が 0 の場合、しきい値を「入力の半分」で初期化（Q0→Q15 へ左シフトして格納）
+- 更新: 各ビン i で `MeanEstimator(spectrum_q15, 6, &threshold_spectrum[i])` により指数平均（2^-6）で追従
 - 2値化: `spectrum_q15 > threshold_spectrum[i]` なら、そのビンのビット（out の i - kBandFirst）を 1 にセット
 - 出力: 32bit 整数（kBandFirst..kBandLast の 32 ビンの2値化結果）
 
@@ -57,10 +57,10 @@ minAECM 遅延推定（Delay Estimator）コード解説
 
 6. 近端処理と一致度計算（ProcessBinarySpectrum）
 定義: delay_estimator.cc
-- ルックアヘッド: `near_history_size > 1` の場合、近端ビット列も履歴シフトし、指定 lookahead を取り出す
+- 近端履歴: lookahead を廃止したため `binary_near_history[0]` へ今回のビット列を格納するだけ
 - 一致度（不一致ビット数）
-  - `BitCountComparison(ne, far_history, history_size, bit_counts)`
-  - 内部は `bit_counts[d] = popcount(ne ^ far_history[d])`
+  - `BitCountComparison(binary_near_spectrum, far_history, MAX_DELAY, bit_counts)`
+  - 内部で `bit_counts[d] = popcount(binary_near_spectrum ^ far_history[d])`
 - 平滑（Q9 で指数移動平均）
   - `bit_count_q9 = bit_counts[i] << 9`
   - 右シフト回数（= 平滑の「遅さ」）を `far_bit_counts[i]` に応じて可変化
@@ -77,10 +77,10 @@ minAECM 遅延推定（Delay Estimator）コード解説
     `value_best_candidate < min(minimum_probability, last_delay_probability)` なら「即時に信頼できる候補」
 - ロバスト検証（非定常 farend のときのみ統計更新）
   - `UpdateRobustValidationStatistics(self, candidate_delay, valley_depth, value_best_candidate)`
-  - `robust_validation_enabled` のとき: `HistogramBasedValidation` と `RobustValidation` で最終可否を決定
+  - `HistogramBasedValidation` の結果と `RobustValidation` の組合せで最終採用可否を決定
 - 出力
-  - 妥当であれば `last_delay = candidate_delay` を更新し返す
-  - エラー時: `-1`、データ不足: `-2`
+  - 妥当であれば `last_delay = candidate_delay` を更新し返す（非定常 farend が前提）
+  - エラー時は `-1`、データ不足時は `-2`
 
 
 7. ロバスト統計（UpdateRobustValidationStatistics / HistogramBasedValidation / RobustValidation）
@@ -94,15 +94,15 @@ minAECM 遅延推定（Delay Estimator）コード解説
   - 非因果（candidate < last）になり得る場合は変化をやや速める等の調整
 
 
-8. メモリアロケーション／初期化フロー
+8. 初期化フロー（最小構成）
 - Farend 側
-  - `CreateBinaryDelayEstimatorFarend(history_size)` → `AllocateFarendBufferMemory` → `InitBinaryDelayEstimatorFarend`
+  - `InitBinaryDelayEstimatorFarend(&binary_farend)` を呼び出し、履歴とビット数をゼロ初期化
 - Estimator 側
-  - `CreateBinaryDelayEstimator(farend, max_lookahead)` → `AllocateHistoryBufferMemory` → `InitBinaryDelayEstimator`
+  - `InitBinaryDelayEstimator(&binary_handle)` で Q9 平滑値やヒストグラムを初期化し、`farend` ポインタを後で接続
 - ラッパ（wrapper）
-  - `CreateDelayEstimatorFarend()` → `InitDelayEstimatorFarend()`
-  - `CreateDelayEstimator(farend_handle)` → `InitDelayEstimator()`
-  - 本最小構成では `max_lookahead=0`（ルックアヘッド無し）
+  - `InitDelayEstimatorFarend(handle)` で上記 Farend を初期化
+  - `InitDelayEstimator(handle)` で BinaryDelayEstimator と Farend のバインドを行う
+  - 本リポジトリではすべてスタック上の固定長構造体を使い、Create/Free 系の動的確保は削除済み
 
 
 9. AECM からの呼び出し（接続点）
@@ -148,12 +148,12 @@ ASCII Diagram — XOR-based Core Estimation (English)
 
 Context
 - We use 32 binary features extracted from FFT bins k = 12..43 per frame.
-- Near frame: N (32-bit). Far-end history: F[d] for delays d = 0..history_size-1.
+- Near frame: N (32-bit). Far-end history: F[d] for delays d = 0..MAX_DELAY-1.
 - Cost per delay: cost(d) = popcount(N XOR F[d]). Pick argmin_d cost(d).
 
 High-level Pipeline
-  spectrum_near  -->  BinarySpectrumFix  -->  N (32-bit)
-  spectrum_far   -->  BinarySpectrumFix  -->  F[0] (most recent)
+  spectrum_near  -->  BinarySpectrum     -->  N (32-bit)
+  spectrum_far   -->  BinarySpectrum     -->  F[0] (most recent)
                                            F[1], F[2], ..., F[d]
 
 Core Matching (per frame)
@@ -190,7 +190,7 @@ Smoothing and Validation (sketch)
 - Validate using histogram/number of hits before committing last_delay.
 
 Notes
-- BinarySpectrumFix derives N and F[d] from band-limited magnitudes by comparing
+- BinarySpectrum derives N and F[d] from band-limited magnitudes by comparing
   to an adaptive threshold (EMA in Q15); phase info is not used.
 - popcount/BitCountComparison provides a robust, scale-insensitive similarity.
 
@@ -206,8 +206,55 @@ Notes
   - 0 → 完全一致（全ビット同じ）
   - 32 → 完全不一致（全ビット異なる）
 - 平滑と選択:
-  - 生の `bit_counts[d]` を Q9 に拡張して `MeanEstimatorFix` で指数移動平均→ `mean_bit_counts[d]`。
+  - 生の `bit_counts[d]` を Q9 に拡張して `MeanEstimator` で指数移動平均→ `mean_bit_counts[d]`。
   - 選択は主に `mean_bit_counts` の最小（= 最良一致）を用いる。谷の深さ `valley_depth = max(mean) - min(mean)` も信頼性評価に使用。
 - ハミング距離の定義（一般）
   - 同じ長さの2つのビット列に対し、対応するビットが異なる位置の個数。
   - 等価に、`HammingDistance(A, B) = popcount(A XOR B)`。
+
+
+
+## 比較する長さ
+
+> AECM では遠端ビット列の履歴を MAX_DELAY（コード上では 100）本まで保持しており、各フレームで近端の 2 値スペクトル
+  を最新〜100 ブロック前まで（0〜99 ブロック遅れ）順に比較します。つまり最大で約 100 ブロック分（≒400 ms）を候補と
+  して評価し、その中から最も不一致が小さい遅延を選んでいます。
+
+
+## 谷について
+
+  valley_depth = max(mean_bit_counts) - min(mean_bit_counts) として最良候補と最悪候補の差を測り、この差が大きいほど
+  「特定の遅延だけ明確に不一致が小さい」=信頼できるとみなします。
+  - 仕組みは単純で、各候補遅延 d について「近端 2 値スペクトル XOR 遠端履歴 d」のハミング距離を算出し、指数平均した
+  曲線を作ります。エコーが正しい遅延 d₀ に揃っていれば、d₀ のコストだけが大幅に低下し、周囲より深い谷ができます。逆
+  に遠端が静か・雑音で支配されていると全候補で似た値になり谷が浅くなるので、そのフレームでは更新を控えます。
+  - この「谷の深さ」を使って
+      1. minimum_probability の更新（ハード閾値を徐々に下げ、谷が十分深いときだけ許容）、
+      2. valid_candidate の判定（valley_depth > kProbabilityOffset が必須条件）、
+      3. ヒストグラムの増減（深い谷ほど candidate_delay のビンを大きく強化）
+         を行います。
+         これにより、「明確な最小値があるときだけ遅延を更新し、曖昧なときは現状を維持する」という振る舞いが得られ
+  ます。
+  - 直感的には、ハミング距離の曲線を地形に例えたとき、エコーが揃っている遅延では“谷底”まで落ちる、誤った遅延では平
+  坦/山が続く……そのコントラストを数値化したのが valley_depth です。谷が深い＝信号同士が強く対応している証拠なので、
+  これを採用基準にすると振幅の変動やノイズに対して比較的頑健に遅延を検出できます。
+
+
+> - 理想的には、真の遅延を表す遅延インデックスが 1 点だけ鋭く落ち込む（幅 1 ブロック相当の）谷になります。実際の
+  mean_bit_counts[d] は指数平滑とバイナリ特徴の性質から少し広がり、真の遅延前後 ±1 ブロックほどが緩やかな「底」にな
+  ることが多いです。
+  - そのためロバスト統計でも candidate_delay ± {0,±1,±2} を特別扱いし（UpdateRobustValidationStatistics の
+  「candidate set」「last set」）、真の谷が 1 ビンではなく数ビンにまたがるケースを吸収しています。
+  - もし音声が十分リッチで遠端／近端の対応が明確なら、谷は 1 ブロック幅に収束します。逆にスペクトルが乏しい・ノイズ
+  が多い・近端に大きな独立成分があると、谷が浅く広がる（時には平坦になる）ため、valley_depth が小さくなり遅延更新が
+  抑制されます。
+  - まとめると「教科書的には幅 1 ブロック程度、現実には条件次第で ±1〜2 ブロック程度の広がりを持つ」と考えておくと
+  挙動の読みやすさにつながります。
+
+
+
+[Valley] ---^--_-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+[Valley] ---^--_-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+こんな感じでログできた。ソースは消した
+

@@ -192,6 +192,14 @@ int32_t Process(const int16_t* nearend,
   return 0;
 }
 
+void SetBypassWiener(int enable) {
+  AecmCoreSetBypassWiener(enable);
+}
+
+void SetBypassNlp(int enable) {
+  AecmCoreSetBypassNlp(enable);
+}
+
 int32_t SetConfig(AecmConfig config) {
   if (am.initFlag != kInitCheck) {
     return AECM_UNINITIALIZED_ERROR;

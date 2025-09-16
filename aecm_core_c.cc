@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 #include "aecm_core.h"
 
@@ -21,6 +22,15 @@ static const ALIGN8_BEG int16_t kSqrtHanning[] ALIGN8_END = {
     15947, 16034, 16111, 16179, 16237, 16286, 16325, 16354, 16373, 16384};
 
 // 近似版の振幅計算は使わず、sqrtベースのみを使用
+
+
+
+static bool g_bypass_wiener = false;
+static bool g_bypass_nlp = false;
+
+void AecmCoreSetBypassWiener(int enable) { g_bypass_wiener = (enable != 0); }
+
+void AecmCoreSetBypassNlp(int enable) { g_bypass_nlp = (enable != 0); }
 
 
 
@@ -166,7 +176,7 @@ int ProcessBlock(const int16_t* x_block,
   uint32_t X_mag_sum = 0;
   TimeToFrequencyDomain(g_aecm.xBuf, Y_freq, X_mag, &X_mag_sum);
 
-  // 近端信号 D(k) = FFT{d(n)} を算出し（|D| と Σ|D| を求める）
+  // 近端信号 Y(k) = FFT{y(n)} を算出し（|Y| と Σ|Y| を求める）
   uint32_t Y_mag_sum = 0;
   TimeToFrequencyDomain(g_aecm.yBuf, Y_freq, Y_mag, &Y_mag_sum);
   g_aecm.dfaNoisyQDomainOld = g_aecm.dfaNoisyQDomain;
@@ -216,6 +226,7 @@ int ProcessBlock(const int16_t* x_block,
   uint16_t* Y_mag_clean = Y_mag;  // |Y_clean(k)| proxy
   int16_t H_gain[PART_LEN1];
   int16_t numPosCoef = 0;
+  double sum_gain = 0.0;
   for (int i = 0; i < PART_LEN1; i++) {
     // 遠端信号をチャネル推定で通した値（Q8 表現）
     // 解像度を保つための右シフト量を決定
@@ -273,7 +284,7 @@ int ProcessBlock(const int16_t* x_block,
                                            : tmp16no2 >> qDomainDiff;
     }
 
-    // Wienerフィルタ係数 H(k) = 1 - |Ŷ(k)| / |D(k)| （結果は Q14）
+    // Wienerフィルタ係数 H(k) = 1 - |Ŝ(k)| / |Y(k)| （結果は Q14）
     if (sMagGained == 0) {
       H_gain[i] = ONE_Q14;
     } else if (g_aecm.yMagSmooth[i] == 0) {
@@ -302,6 +313,12 @@ int ProcessBlock(const int16_t* x_block,
     if (H_gain[i]) {
       numPosCoef++;
     }
+  }
+  if (g_bypass_wiener) {
+    for (int i = 0; i < PART_LEN1; ++i) {
+      H_gain[i] = ONE_Q14;
+    }
+    numPosCoef = PART_LEN1;
   }
   // 上帯域のゲインが下帯域を上回らないよう制限。
   for (int i = 0; i < PART_LEN1; i++) {
@@ -334,6 +351,9 @@ int ProcessBlock(const int16_t* x_block,
 
     // 外れ値を抑制
     int16_t nlpGain = (numPosCoef < 3) ? 0 : ONE_Q14;  // ダブルトーク抑止
+    if (g_bypass_nlp) {
+      nlpGain = ONE_Q14;
+    }
 
     // NLP ステップ
     if ((H_gain[i] == ONE_Q14) && (nlpGain == ONE_Q14)) {
@@ -347,7 +367,43 @@ int ProcessBlock(const int16_t* x_block,
         MUL_16_16_RSFT_WITH_ROUND(Y_freq[i].real, H_gain[i], 14));
     E_freq[i].imag = (int16_t)(
         MUL_16_16_RSFT_WITH_ROUND(Y_freq[i].imag, H_gain[i], 14));
+    double gain_normalized = static_cast<double>(H_gain[i]) / static_cast<double>(ONE_Q14);
+    sum_gain += gain_normalized;
   }
+  double avg_gain = sum_gain / PART_LEN1;
+  double suppression_db;
+  if (avg_gain <= 0.0) {
+    avg_gain = 0.0;
+  }
+  double clamped_gain = avg_gain;
+  const double kMinGain = 1e-3;  // -60 dB floor
+  if (clamped_gain < kMinGain) {
+    clamped_gain = kMinGain;
+  }
+  suppression_db = 20.0 * log10(clamped_gain);
+  {
+    static int dbg_sup_counter = 0;
+    static double best_gain = 1.0;
+    static double best_db = 0.0;
+    static int initialized = 0;
+    dbg_sup_counter++;
+    if (!initialized || suppression_db < best_db) {
+      best_db = suppression_db;
+      best_gain = clamped_gain;
+      initialized = 1;
+    }
+    if (dbg_sup_counter % 100 == 0) {
+      fprintf(stderr,
+              "[Suppression] window=%d avg_gain=%.3f (%.1f dB)%s%s\n",
+              dbg_sup_counter,
+              best_gain,
+              best_db,
+              g_bypass_wiener ? " wiener-off" : "",
+              g_bypass_nlp ? " nlp-off" : "");
+      initialized = 0;
+    }
+  }
+
   // 逆FFT用の作業バッファは使用直前に確保
   int16_t fft[PART_LEN4 + 2];  // ループ境界を安全にするため +2 余裕を持つ。
   InverseFFTAndWindow(fft, E_freq, e_block);

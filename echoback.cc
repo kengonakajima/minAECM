@@ -37,6 +37,8 @@ struct State {
 
   // --passthrough: AEC を行わず素通し再生
   bool passthrough = false;
+  bool bypass_wiener = false;
+  bool bypass_nlp = false;
   
   // 単一インスタンス化API。個別インスタンスは不要。
 };
@@ -116,15 +118,27 @@ int main(int argc, char** argv){
     std::string arg(argv[i] ? argv[i] : "");
     if (arg == "--passthrough" || arg == "-p") {
       s.passthrough = true;
+    } else if (arg == "--no-wiener" || arg == "--no-suppress") {
+      s.bypass_wiener = true;
+    } else if (arg == "--no-nlp") {
+      s.bypass_nlp = true;
     } else if (arg == "--help" || arg == "-h") {
       std::fprintf(stderr,
-                   "Usage: %s [--passthrough]\n",
+                   "Usage: %s [--passthrough] [--no-wiener|--no-suppress] [--no-nlp]\n",
                    argv[0]);
       return 0;
     }
   }
   const char* mode = s.passthrough ? "passthrough" : "aecm";
-  std::fprintf(stderr, "echoback (16k mono): mode=%s\n", mode);
+  if (s.passthrough) {
+    std::fprintf(stderr, "echoback (16k mono): mode=%s\n", mode);
+  } else {
+    std::fprintf(stderr,
+                 "echoback (16k mono): mode=%s (wiener=%s, nlp=%s)\n",
+                 mode,
+                 s.bypass_wiener ? "off" : "on",
+                 s.bypass_nlp ? "off" : "on");
+  }
   // 固定設定のため追加初期化不要
 
   PaError err = Pa_Initialize();
@@ -153,6 +167,8 @@ int main(int argc, char** argv){
     }
     AecmConfig cfg{}; cfg.echoMode = 3;
     SetConfig(cfg);
+    SetBypassWiener(s.bypass_wiener ? 1 : 0);
+    SetBypassNlp(s.bypass_nlp ? 1 : 0);
   }
   while (Pa_IsStreamActive(stream)==1) {
     Pa_Sleep(100);

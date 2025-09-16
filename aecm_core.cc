@@ -3,6 +3,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include "echo_control_mobile.h"
 #include "delay_estimator_wrapper.h"
@@ -564,6 +565,7 @@ void UpdateChannel(const uint16_t* X_mag,
     }
   }
   // 適応チャネル更新ここまで
+
 
   // チャネルを保存するか復元するかを判定
   if ((g_aecm.startupState == 0) & (g_aecm.currentVADValue)) {
