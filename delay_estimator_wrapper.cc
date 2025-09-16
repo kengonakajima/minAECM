@@ -53,27 +53,22 @@ static __inline uint32_t SetBit(uint32_t in, int pos) {
 //
 static uint32_t BinarySpectrum(const uint16_t* spectrum,
                                SpectrumType* threshold_spectrum,
-                               int q_domain,
                                int* threshold_initialized) {
   uint32_t out = 0;
-
-  // expect q_domain < 16
 
   if (!(*threshold_initialized)) {
     // Set the `threshold_spectrum` to half the input `spectrum` as starting
     // value. This speeds up the convergence.
     for (int i = kBandFirst; i <= kBandLast; i++) {
       if (spectrum[i] > 0) {
-        // Convert input spectrum from Q(`q_domain`) to Q15.
-        int32_t spectrum_q15 = ((int32_t)spectrum[i]) << (15 - q_domain);
+        int32_t spectrum_q15 = ((int32_t)spectrum[i]) << 15;
         threshold_spectrum[i] = (spectrum_q15 >> 1);
         *threshold_initialized = 1;
       }
     }
   }
   for (int i = kBandFirst; i <= kBandLast; i++) {
-    // Convert input spectrum from Q(`q_domain`) to Q15.
-    int32_t spectrum_q15 = ((int32_t)spectrum[i]) << (15 - q_domain);
+    int32_t spectrum_q15 = ((int32_t)spectrum[i]) << 15;
     // Update the `threshold_spectrum`.
     MeanEstimator(spectrum_q15, 6, &(threshold_spectrum[i]));
     // Convert `spectrum` at current frequency bin to a binary value.
@@ -109,8 +104,7 @@ int InitDelayEstimatorFarend(void* handle) {
 
 
 int AddFarSpectrum(void* handle,
-                   const uint16_t* far_spectrum,
-                   int far_q) {
+                   const uint16_t* far_spectrum) {
   DelayEstimatorFarend* self = (DelayEstimatorFarend*)handle;
   uint32_t binary_spectrum = 0;
 
@@ -121,14 +115,10 @@ int AddFarSpectrum(void* handle,
     // Empty far end spectrum.
     return -1;
   }
-  if (far_q > 15) {
-    // If `far_q` is larger than 15 we cannot guarantee no wrap around.
-    return -1;
-  }
 
   // Get binary spectrum.
   binary_spectrum = BinarySpectrum(far_spectrum, self->mean_far_spectrum,
-                                   far_q, &(self->far_spectrum_initialized));
+                                   &(self->far_spectrum_initialized));
   AddBinaryFarSpectrum(&self->binary_farend, binary_spectrum);
 
   return 0;
@@ -165,8 +155,7 @@ int InitDelayEstimator(void* handle) {
 
 
 int DelayEstimatorProcess(void* handle,
-                          const uint16_t* near_spectrum,
-                          int near_q) {
+                          const uint16_t* near_spectrum) {
   DelayEstimator* self = (DelayEstimator*)handle;
   uint32_t binary_spectrum = 0;
 
@@ -177,14 +166,10 @@ int DelayEstimatorProcess(void* handle,
     // Empty near end spectrum.
     return -1;
   }
-  if (near_q > 15) {
-    // If `near_q` is larger than 15 we cannot guarantee no wrap around.
-    return -1;
-  }
 
   // Get binary spectra.
   binary_spectrum =
-      BinarySpectrum(near_spectrum, self->mean_near_spectrum, near_q,
+      BinarySpectrum(near_spectrum, self->mean_near_spectrum,
                      &(self->near_spectrum_initialized));
 
   return ProcessBinarySpectrum(&self->binary_handle, binary_spectrum);

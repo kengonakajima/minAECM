@@ -41,7 +41,7 @@ minAECM 遅延推定（Delay Estimator）コード解説
 
 4. 2値化（BinarySpectrumFix）
 定義: delay_estimator_wrapper.cc
-- 入力: `const uint16_t* spectrum`（Q[far_q] または Q[near_q]）、`SpectrumType* threshold_spectrum`（Q15 相当の基準）、`q_domain`
+- 入力: `const uint16_t* spectrum`（Q0固定）、`SpectrumType* threshold_spectrum`（Q15 相当の基準）
 - 初期化: `threshold_initialized` が 0 の場合、しきい値を「入力の半分」で初期化（Q[15] へ一度変換して格納）
 - 更新: 各ビン i で、`MeanEstimator(spectrum_q15, 6, &threshold_spectrum[i])` により指数平均（2^-6）で更新
 - 2値化: `spectrum_q15 > threshold_spectrum[i]` なら、そのビンのビット（out の i - kBandFirst）を 1 にセット
@@ -109,8 +109,8 @@ minAECM 遅延推定（Delay Estimator）コード解説
 - aecm_core_c.cc（ブロック処理内）
   1) far/near の時間→周波数変換
   2) `UpdateFarHistory(...)` で far スペクトル履歴更新（固定Q=0のため Q は保持せずスペクトルのみ）
-  3) `AddFarSpectrum(delay_estimator_farend, xfa, far_q)` で遅延推定器側に far を登録
-  4) `DelayEstimatorProcess(delay_estimator, dfaNoisy, zerosDBufNoisy)` で near を処理し遅延を得る
+  3) `AddFarSpectrum(delay_estimator_farend, xfa)` で遅延推定器側に far を登録
+  4) `DelayEstimatorProcess(delay_estimator, dfaNoisy)` で near を処理し遅延を得る
   5) 遅延に基づき `AlignedFarend(delay)` で near に整列した far スペクトルを取得し、以降の抑圧処理へ
 
 
@@ -122,8 +122,7 @@ minAECM 遅延推定（Delay Estimator）コード解説
   - `kShiftsLinearSlope = 3`（far_bit_counts に対する調整）
   - `kMaxBitCountsQ9 = 32<<9`（Q9 での最大不一致）
 - Q ドメイン
-  - 入力スペクトルは Q[near_q]/Q[far_q]、2値化前に Q15 へ変換
-  - `far_q`/`near_q` が 15 を超えるとエラー（ラッパ側でチェック）
+- 入力スペクトルは Q0 として扱い、2値化前に Q15 へ変換
 - 戻り値
   - 正常: 0 以上の遅延
   - `-1`: エラー、`-2`: データ不足（履歴が十分でない等）

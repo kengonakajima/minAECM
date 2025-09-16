@@ -187,9 +187,8 @@ int ProcessBlock(const int16_t* farend,
   // Transform noisy near end signal from time domain to frequency domain.
   uint32_t dfaNoisySum = 0;
   TimeToFrequencyDomain(g_aecm.dBufNoisy, dfw, dfaNoisy, &dfaNoisySum);
-  int16_t zerosDBufNoisy = 0;
   g_aecm.dfaNoisyQDomainOld = g_aecm.dfaNoisyQDomain;
-  g_aecm.dfaNoisyQDomain = (int16_t)zerosDBufNoisy;
+  g_aecm.dfaNoisyQDomain = 0;
 
   
   g_aecm.dfaCleanQDomainOld = g_aecm.dfaNoisyQDomainOld;
@@ -198,12 +197,10 @@ int ProcessBlock(const int16_t* farend,
   // Get the delay
   // Save far-end history and estimate delay
   UpdateFarHistory(xfa);
-  if (AddFarSpectrum(&g_aecm.delay_estimator_farend, xfa,
-                               0) == -1) {
+  if (AddFarSpectrum(&g_aecm.delay_estimator_farend, xfa) == -1) {
     return -1;
   }
-  int delay = DelayEstimatorProcess(&g_aecm.delay_estimator, dfaNoisy,
-                                       zerosDBufNoisy);
+  int delay = DelayEstimatorProcess(&g_aecm.delay_estimator, dfaNoisy);
   if (delay == -1) {
     return -1;
   } else if (delay == -2) {
