@@ -81,16 +81,38 @@ https://blog.csdn.net/qq_44085437/article/details/124494041
 
 - 堅牢な遅延推定(ヒストグラム)は削減しない。
 
-## さらなるコード削減に向けて
+## コードの解説に向けた変数名の調整
 
-  - signal_processing_library.h の必要最小限化
-      - AECMが実際に使う関数/マクロ（NormW16/NormW32/NormU32/AddSat/SubSat/DivW32W16/DivU32U16/SHIFT/SAT/MUL_* な
-  ど）だけを抽出し、ヘッダ内の未使用宣言と関連C実装（min_max_operations.c, division_operations.c, spl_sqrt_floor.c
-  など）の未使用部分を削る。
+これは教育用のコードサンプルなので、アルゴリズムの数学的説明で使う、x,y,e,s,h などをコードでも、できるだけそのまま使うようにしたい。
+大文字が周波数領域で、 小文字が時間領域で、以下のようなようにしたい。
 
+遠端 (ref,参照信号): x, X = FFT[x]
+近端 (rec,録音信号): y, Y = FFT[y]
+フィルタ係数 H,h
+推定信号 S,s
+誤差信号 E, e = IFFT[E]
 
-  ほかの縮約（動的Q固定化、ABS近似/√片側固定、遅延推定の堅牢性ロジック削除）も続けますか？
+以下はcodexの案。
 
+  - x[n] / X[k]: 遠端スピーカに出す参照信号。時間側は `g_aecm.xBuf` にバッファし（aecm_core_c.cc:179）、
+    FFT 後の振幅 `|X|` は `X_mag` に格納します（aecm_core_c.cc:182-188）。
+  - y[n] / Y[k]: 近端マイクで観測する信号（=近端話者+エコー）。時間側は `g_aecm.yBuf`（aecm_core_c.cc:180）、
+    FFT で得た複素スペクトル/振幅は `Y_freq` / `Y_mag` を利用します（aecm_core_c.cc:183-188, 355-373）。
+  - h[n] / H[k]: エコーパス推定。周波数領域の係数は `g_aecm.hAdapt16/32` で保持し、NLMS 更新に使います
+    （aecm_core.cc:89-150, 486-637）。既知パスは `g_aecm.hStored`。
+  - ŝ[n] / Ŝ[k]: 推定エコー。振幅は `S_mag` とその平滑値 `g_aecm.sMagSmooth`（aecm_core_c.cc:156-311）。
+    複素位相までは再構成していないので、振幅ベースの推定である点に注意。
+  - e[n] / E[k]: 出力（残留誤差）。周波数側は `E_freq = H_gain · Y_freq`（aecm_core_c.cc:326-373）、
+    逆FFTの `e_block` と `g_aecm.eOverlapBuf` で時間領域の e[n] を生成します（aecm_core_c.cc:371-373）。
+  - g[k]: サプレッション／NLP ゲイン。フレームスカラは `CalcSuppressionGain()` の戻り値 `gGain`
+    （aecm_core_c.cc:221-232）、周波数ビンのマスクは `H_gain`（aecm_core_c.cc:233-373）。
+  - μ: NLMS のステップサイズ。`CalcStepSize()` で算出（aecm_core.cc:445-471）。
+  - τ: 推定遅延。`DelayEstimatorProcess` から得た値で `AlignedFarX()` を呼び、`X_mag` を整列します
+    （aecm_core_c.cc:196-214）。
+  - |X|, |Y| などのパワー・ログ: `X_mag_sum`、`Y_mag_sum` や `CalcEnergies` 内のログ蓄積を参照
+    （aecm_core_c.cc:182-219, aecm_core.cc:328-435）。
 
-
+  理論説明を補強したいなら、マイク信号の分解 y[n] = v[n] + s[n] に出てくる近端固有音 v[n] / V[k] を記号として追加
+  し、コードでは推定していない旨だけ注記すると分かりやすくなります。また振幅のみ扱っている Ŝ を本当に S と同一視す
+  るか（必要なら複素推定を導入するか）も併せて説明で触れると、記号と実装の対応が明確に伝えられます。
 

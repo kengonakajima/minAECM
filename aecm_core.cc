@@ -39,28 +39,28 @@ static const int16_t kChannelStored16kHz[PART_LEN1] = {
 
 
 
-// Moves the pointer to the next entry and inserts `far_spectrum` in its buffer
+// Moves the pointer to the next entry and inserts `x_spectrum` in its buffer
 // （Qは固定0）。
 //
 // Inputs:
 //      - self          : Pointer to the delay estimation instance
-//      - far_spectrum  : Pointer to the far end spectrum
+//      - x_spectrum    : Pointer to the far end spectrum
 //
-void UpdateFarHistory(uint16_t* far_spectrum) {
+void UpdateFarHistory(uint16_t* x_spectrum) {
   // Get new buffer position
-  g_aecm.far_history_pos++;
-  if (g_aecm.far_history_pos >= MAX_DELAY) {
-    g_aecm.far_history_pos = 0;
+  g_aecm.xHistoryPos++;
+  if (g_aecm.xHistoryPos >= MAX_DELAY) {
+    g_aecm.xHistoryPos = 0;
   }
   // Q-domain は固定Q=0のため保持不要
   // Update far end spectrum buffer
-  memcpy(&(g_aecm.far_history[g_aecm.far_history_pos * PART_LEN1]), far_spectrum,
+  memcpy(&(g_aecm.xHistory[g_aecm.xHistoryPos * PART_LEN1]), x_spectrum,
          sizeof(uint16_t) * PART_LEN1);
 }
 
 // Returns a pointer to the far end spectrum aligned to current near end
 // spectrum. The function DelayEstimatorProcess(...) should have been
-// called before AlignedFarend(...). Otherwise, you get the pointer to the
+// called before AlignedFarX(...). Otherwise, you get the pointer to the
 // previous frame. The memory is only valid until the next call of
 // DelayEstimatorProcess(...).
 //
@@ -68,31 +68,31 @@ void UpdateFarHistory(uint16_t* far_spectrum) {
 //      - self              : Pointer to the AECM instance.
 //      - delay             : Current delay estimate.
 // Return value:
-//      - far_spectrum      : Pointer to the aligned far end spectrum
+//      - x_spectrum        : Pointer to the aligned far end spectrum
 //                            NULL - Error
 //
-const uint16_t* AlignedFarend(int delay) {
+const uint16_t* AlignedFarX(int delay) {
   int buffer_position = 0;
   // sanity check was here in original (DCHECK). For minimal build, skip.
-  buffer_position = g_aecm.far_history_pos - delay;
+  buffer_position = g_aecm.xHistoryPos - delay;
 
   // Check buffer position
   if (buffer_position < 0) {
     buffer_position += MAX_DELAY;
   }
   // Return far end spectrum
-  return &(g_aecm.far_history[buffer_position * PART_LEN1]);
+  return &(g_aecm.xHistory[buffer_position * PART_LEN1]);
 }
 
 // Create/Freeは廃止。InitCore()で内部状態を初期化する。
 
 void InitEchoPathCore(const int16_t* echo_path) {
   // Reset the stored channel
-  memcpy(g_aecm.channelStored, echo_path, sizeof(int16_t) * PART_LEN1);
+  memcpy(g_aecm.hStored, echo_path, sizeof(int16_t) * PART_LEN1);
   // Reset the adapted channels
-  memcpy(g_aecm.channelAdapt16, echo_path, sizeof(int16_t) * PART_LEN1);
+  memcpy(g_aecm.hAdapt16, echo_path, sizeof(int16_t) * PART_LEN1);
   for (int i = 0; i < PART_LEN1; i++) {
-    g_aecm.channelAdapt32[i] = (int32_t)g_aecm.channelAdapt16[i] << 16;
+    g_aecm.hAdapt32[i] = (int32_t)g_aecm.hAdapt16[i] << 16;
   }
 
   // Reset channel storing variables
@@ -102,51 +102,49 @@ void InitEchoPathCore(const int16_t* echo_path) {
   g_aecm.mseChannelCount = 0;
 }
 
-static void CalcLinearEnergiesC(const uint16_t* far_spectrum,
-                                int32_t* echo_est,
-                                uint32_t* far_energy,
-                                uint32_t* echo_energy_adapt,
-                                uint32_t* echo_energy_stored) {
-  // Get energy for the delayed far end signal and estimated
-  // echo using both stored and adapted channels.
+static void CalcLinearEnergiesC(const uint16_t* X_mag,
+                                int32_t* S_mag,
+                                uint32_t* X_energy,
+                                uint32_t* S_energy_adapt,
+                                uint32_t* S_energy_stored) {
+  // Get energy for the delayed far end signal and estimated echo using both
+  // stored and adapted channels.
   for (int i = 0; i < PART_LEN1; i++) {
-    echo_est[i] = MUL_16_U16(g_aecm.channelStored[i], far_spectrum[i]);
-    (*far_energy) += (uint32_t)(far_spectrum[i]);
-    *echo_energy_adapt += g_aecm.channelAdapt16[i] * far_spectrum[i];
-    (*echo_energy_stored) += (uint32_t)echo_est[i];
+    S_mag[i] = MUL_16_U16(g_aecm.hStored[i], X_mag[i]);
+    (*X_energy) += (uint32_t)(X_mag[i]);
+    *S_energy_adapt += g_aecm.hAdapt16[i] * X_mag[i];
+    (*S_energy_stored) += (uint32_t)S_mag[i];
   }
 }
 
-static void StoreAdaptiveChannelC(const uint16_t* far_spectrum,
-                                  int32_t* echo_est) {
+static void StoreAdaptiveChannelC(const uint16_t* X_mag,
+                                  int32_t* S_mag) {
   // During startup we store the channel every block.
-  memcpy(g_aecm.channelStored, g_aecm.channelAdapt16,
-         sizeof(int16_t) * PART_LEN1);
+  memcpy(g_aecm.hStored, g_aecm.hAdapt16, sizeof(int16_t) * PART_LEN1);
   // Recalculate echo estimate
   for (int i = 0; i < PART_LEN; i += 4) {
-    echo_est[i] = MUL_16_U16(g_aecm.channelStored[i], far_spectrum[i]);
-    echo_est[i + 1] = MUL_16_U16(g_aecm.channelStored[i + 1], far_spectrum[i + 1]);
-    echo_est[i + 2] = MUL_16_U16(g_aecm.channelStored[i + 2], far_spectrum[i + 2]);
-    echo_est[i + 3] = MUL_16_U16(g_aecm.channelStored[i + 3], far_spectrum[i + 3]);
+    S_mag[i] = MUL_16_U16(g_aecm.hStored[i], X_mag[i]);
+    S_mag[i + 1] = MUL_16_U16(g_aecm.hStored[i + 1], X_mag[i + 1]);
+    S_mag[i + 2] = MUL_16_U16(g_aecm.hStored[i + 2], X_mag[i + 2]);
+    S_mag[i + 3] = MUL_16_U16(g_aecm.hStored[i + 3], X_mag[i + 3]);
   }
   // PART_LEN1 は PART_LEN + 1
-  echo_est[PART_LEN] = MUL_16_U16(g_aecm.channelStored[PART_LEN],
-                                  far_spectrum[PART_LEN]);
+  S_mag[PART_LEN] = MUL_16_U16(g_aecm.hStored[PART_LEN], X_mag[PART_LEN]);
 }
 
 static void ResetAdaptiveChannelC() {
   // The stored channel has a significantly lower MSE than the adaptive one for
   // two consecutive calculations. Reset the adaptive channel.
-  memcpy(g_aecm.channelAdapt16, g_aecm.channelStored,
+  memcpy(g_aecm.hAdapt16, g_aecm.hStored,
          sizeof(int16_t) * PART_LEN1);
   // Restore the W32 channel
   for (int i = 0; i < PART_LEN; i += 4) {
-    g_aecm.channelAdapt32[i] = (int32_t)g_aecm.channelStored[i] << 16;
-    g_aecm.channelAdapt32[i + 1] = (int32_t)g_aecm.channelStored[i + 1] << 16;
-    g_aecm.channelAdapt32[i + 2] = (int32_t)g_aecm.channelStored[i + 2] << 16;
-    g_aecm.channelAdapt32[i + 3] = (int32_t)g_aecm.channelStored[i + 3] << 16;
+    g_aecm.hAdapt32[i] = (int32_t)g_aecm.hStored[i] << 16;
+    g_aecm.hAdapt32[i + 1] = (int32_t)g_aecm.hStored[i + 1] << 16;
+    g_aecm.hAdapt32[i + 2] = (int32_t)g_aecm.hStored[i + 2] << 16;
+    g_aecm.hAdapt32[i + 3] = (int32_t)g_aecm.hStored[i + 3] << 16;
   }
-  g_aecm.channelAdapt32[PART_LEN] = (int32_t)g_aecm.channelStored[PART_LEN] << 16;
+  g_aecm.hAdapt32[PART_LEN] = (int32_t)g_aecm.hStored[PART_LEN] << 16;
 }
 
 
@@ -165,16 +163,16 @@ static void ResetAdaptiveChannelC() {
 static int InitCoreImpl() {
   // 16kHz 固定
 
-  g_aecm.farBufWritePos = 0;
-  g_aecm.farBufReadPos = 0;
+  g_aecm.xBufWritePos = 0;
+  g_aecm.xBufReadPos = 0;
   g_aecm.knownDelay = 0;
   g_aecm.lastKnownDelay = 0;
 
   // FRAME_LEN=PART_LENのため、中間フレーム用リングバッファは不要
 
   memset(g_aecm.xBuf, 0, sizeof(g_aecm.xBuf));
-  memset(g_aecm.dBufNoisy, 0, sizeof(g_aecm.dBufNoisy));
-  memset(g_aecm.outBuf, 0, sizeof(g_aecm.outBuf));
+  memset(g_aecm.yBuf, 0, sizeof(g_aecm.yBuf));
+  memset(g_aecm.eOverlapBuf, 0, sizeof(g_aecm.eOverlapBuf));
 
   g_aecm.totCount = 0;
 
@@ -187,8 +185,8 @@ static int InitCoreImpl() {
     return -1;
   }
   // Set far end histories to zero
-  memset(g_aecm.far_history, 0, sizeof(uint16_t) * PART_LEN1 * MAX_DELAY);
-  g_aecm.far_history_pos = MAX_DELAY;
+  memset(g_aecm.xHistory, 0, sizeof(uint16_t) * PART_LEN1 * MAX_DELAY);
+  g_aecm.xHistoryPos = MAX_DELAY;
 
   g_aecm.dfaCleanQDomain = 0;
   g_aecm.dfaCleanQDomainOld = 0;
@@ -203,8 +201,8 @@ static int InitCoreImpl() {
   // Initialize the echo channels with a stored shape (16 kHz 固定)。
   InitEchoPathCore(kChannelStored16kHz);
 
-  memset(g_aecm.echoFilt, 0, sizeof(g_aecm.echoFilt));
-  memset(g_aecm.nearFilt, 0, sizeof(g_aecm.nearFilt));
+  memset(g_aecm.sMagSmooth, 0, sizeof(g_aecm.sMagSmooth));
+  memset(g_aecm.yMagSmooth, 0, sizeof(g_aecm.yMagSmooth));
 
   g_aecm.farEnergyMin = WORD16_MAX;
   g_aecm.farEnergyMax = WORD16_MIN;
@@ -244,17 +242,17 @@ int InitCore() { return InitCoreImpl(); }
 
 // Freeは不要
 
-int ProcessFrame(const int16_t* farend,
-                      const int16_t* nearend,
-                      int16_t* out) {
-  int16_t farFrame[FRAME_LEN];
+int ProcessFrame(const int16_t* x_frame,
+                      const int16_t* y_frame,
+                      int16_t* e_frame) {
+  int16_t x_block[FRAME_LEN];
 
   // デフォルトインスタンスに対して Far をバッファし、既知遅延位置を取得
-  BufferFarFrame(farend);
-  FetchFarFrame(farFrame, g_aecm.knownDelay);
+  BufferFarFrame(x_frame);
+  FetchFarFrame(x_block, g_aecm.knownDelay);
 
   // FRAME_LEN と PART_LEN を一致させたため、1ブロックで直接処理
-  if (ProcessBlock(farFrame, nearend, out) == -1) {
+  if (ProcessBlock(x_block, y_frame, e_frame) == -1) {
     return -1;
   }
   return 0;
@@ -320,14 +318,14 @@ static int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain) {
 //
 //
 // @param  aecm         [i/o]   Handle of the AECM instance.
-// @param  far_spectrum [in]    Pointer to farend spectrum.
-// @param  nearEner     [in]    Near end energy for current block in
-//                              Q(aecm->dfaQDomain).
-// @param  echoEst      [out]   Estimated echo in Q(xfa_q+RESOLUTION_CHANNEL16).
+// @param  X_mag        [in]    Pointer to farend spectrum magnitude.
+// @param  Y_energy     [in]    Near end energy for current block in
+//                              Q(aecm->dfaNoisyQDomain).
+// @param  S_mag        [out]   Estimated echo in Q(xfa_q+RESOLUTION_CHANNEL16).
 //
-void CalcEnergies(const uint16_t* far_spectrum,
-                       const uint32_t nearEner,
-                       int32_t* echoEst) {
+void CalcEnergies(const uint16_t* X_mag,
+                       const uint32_t Y_energy,
+                       int32_t* S_mag) {
   // Local variables
   uint32_t tmpAdapt = 0;
   uint32_t tmpStored = 0;
@@ -346,10 +344,9 @@ void CalcEnergies(const uint16_t* far_spectrum,
           sizeof(int16_t) * (MAX_BUF_LEN - 1));
 
   // Logarithm of integrated magnitude spectrum (nearEner)
-  g_aecm.nearLogEnergy[0] = LogOfEnergyInQ8(nearEner, g_aecm.dfaNoisyQDomain);
+  g_aecm.nearLogEnergy[0] = LogOfEnergyInQ8(Y_energy, g_aecm.dfaNoisyQDomain);
 
-  CalcLinearEnergiesC(far_spectrum, echoEst, &tmpFar, &tmpAdapt,
-                                 &tmpStored);
+  CalcLinearEnergiesC(X_mag, S_mag, &tmpFar, &tmpAdapt, &tmpStored);
 
   // Shift buffers
   memmove(g_aecm.echoAdaptLogEnergy + 1, g_aecm.echoAdaptLogEnergy,
@@ -425,7 +422,7 @@ void CalcEnergies(const uint16_t* far_spectrum,
       // This means that the initialization was too aggressive. Scale
       // down by a factor 8
       for (int i = 0; i < PART_LEN1; i++) {
-        g_aecm.channelAdapt16[i] >>= 3;
+        g_aecm.hAdapt16[i] >>= 3;
       }
       // Compensate the adapted echo energy level accordingly.
       g_aecm.echoAdaptLogEnergy[0] -= (3 << 8);
@@ -476,18 +473,18 @@ int16_t CalcStepSize() {
 //
 //
 // @param  aecm         [i/o]   Handle of the AECM instance.
-// @param  far_spectrum [in]    Absolute value of the farend signal（Q0）
-// @param  far_q        [in]    Q-domain of the farend signal（常に0）
-// @param  dfa          [in]    Absolute value of the nearend signal
-// (Q[aecm->dfaNoisyQDomain] = Q0)
+// @param  X_mag        [in]    Absolute value of the farend signal（Q0）
+// @param  x_q          [in]    Q-domain of the farend signal（常に0）
+// @param  Y_mag        [in]    Absolute value of the nearend signal
+//                              (Q[aecm->dfaNoisyQDomain] = Q0)
 // @param  mu           [in]    NLMS step size.
-// @param  echoEst      [i/o]   Estimated echo in Q(RESOLUTION_CHANNEL16)。
+// @param  S_mag        [i/o]   Estimated echo in Q(RESOLUTION_CHANNEL16)。
 //
-void UpdateChannel(const uint16_t* far_spectrum,
-                              const int16_t far_q,
-                              const uint16_t* const dfa,
+void UpdateChannel(const uint16_t* X_mag,
+                              const int16_t x_q,
+                              const uint16_t* const Y_mag,
                               const int16_t mu,
-                              int32_t* echoEst) {
+                              int32_t* S_mag) {
   uint32_t tmpU32no1, tmpU32no2;
   int32_t tmp32no1, tmp32no2;
   int32_t mseStored;
@@ -496,7 +493,7 @@ void UpdateChannel(const uint16_t* far_spectrum,
   int16_t zerosFar, zerosNum, zerosCh, zerosDfa;
   int16_t shiftChFar, shiftNum, shift2ResChan;
   int16_t tmp16no1;
-  int16_t xfaQ, dfaQ;
+  int16_t xfaQ, yMagQ;
 
   // This is the channel estimation algorithm. It is base on NLMS but has a
   // variable step length, which was calculated above.
@@ -504,11 +501,11 @@ void UpdateChannel(const uint16_t* far_spectrum,
     for (int i = 0; i < PART_LEN1; i++) {
       // Determine norm of channel and farend to make sure we don't get overflow
       // in multiplication
-      zerosCh = NormU32(g_aecm.channelAdapt32[i]);
-      zerosFar = NormU32((uint32_t)far_spectrum[i]);
+      zerosCh = NormU32(g_aecm.hAdapt32[i]);
+      zerosFar = NormU32((uint32_t)X_mag[i]);
       if (zerosCh + zerosFar > 31) {
         // Multiplication is safe
-        tmpU32no1 = UMUL_32_16(g_aecm.channelAdapt32[i], far_spectrum[i]);
+        tmpU32no1 = UMUL_32_16(g_aecm.hAdapt32[i], X_mag[i]);
         shiftChFar = 0;
       } else {
         // We need to shift down before multiplication
@@ -519,60 +516,60 @@ void UpdateChannel(const uint16_t* far_spectrum,
         {
           uint32_t shifted = (shiftChFar >= 32)
                                   ? 0u
-                                  : (uint32_t)(g_aecm.channelAdapt32[i] >> shiftChFar);
-          tmpU32no1 = shifted * far_spectrum[i];
+                                  : (uint32_t)(g_aecm.hAdapt32[i] >> shiftChFar);
+          tmpU32no1 = shifted * X_mag[i];
         }
       }
       // Determine Q-domain of numerator
       zerosNum = NormU32(tmpU32no1);
-      if (dfa[i]) {
-        zerosDfa = NormU32((uint32_t)dfa[i]);
+      if (Y_mag[i]) {
+        zerosDfa = NormU32((uint32_t)Y_mag[i]);
       } else {
         zerosDfa = 32;
       }
       tmp16no1 = zerosDfa - 2 + g_aecm.dfaNoisyQDomain - RESOLUTION_CHANNEL32 -
-                 far_q + shiftChFar;
+                 x_q + shiftChFar;
       if (zerosNum > tmp16no1 + 1) {
         xfaQ = tmp16no1;
-        dfaQ = zerosDfa - 2;
+        yMagQ = zerosDfa - 2;
       } else {
         xfaQ = zerosNum - 2;
-        dfaQ = RESOLUTION_CHANNEL32 + far_q - g_aecm.dfaNoisyQDomain -
+        yMagQ = RESOLUTION_CHANNEL32 + x_q - g_aecm.dfaNoisyQDomain -
                shiftChFar + xfaQ;
       }
       // Add in the same Q-domain
       tmpU32no1 = SHIFT_W32(tmpU32no1, xfaQ);
-      tmpU32no2 = SHIFT_W32((uint32_t)dfa[i], dfaQ);
+      tmpU32no2 = SHIFT_W32((uint32_t)Y_mag[i], yMagQ);
       tmp32no1 = (int32_t)tmpU32no2 - (int32_t)tmpU32no1;
       zerosNum = NormW32(tmp32no1);
-      if ((tmp32no1) && (far_spectrum[i] > (CHANNEL_VAD << far_q))) {
+      if ((tmp32no1) && (X_mag[i] > (CHANNEL_VAD << x_q))) {
         //
         // Update is needed
         //
         // This is what we would like to compute
         //
-        // tmp32no1 = dfa[i] - (aecm->channelAdapt[i] * far_spectrum[i])
+        // tmp32no1 = Y_mag[i] - (aecm->channelAdapt[i] * X_mag[i])
         // tmp32norm = (i + 1)
         // aecm->channelAdapt[i] += (2^mu) * tmp32no1
-        //                        / (tmp32norm * far_spectrum[i])
+        //                        / (tmp32norm * X_mag[i])
         //
 
         // Make sure we don't get overflow in multiplication.
         if (zerosNum + zerosFar > 31) {
           if (tmp32no1 > 0) {
             tmp32no2 =
-                (int32_t)UMUL_32_16(tmp32no1, far_spectrum[i]);
+                (int32_t)UMUL_32_16(tmp32no1, X_mag[i]);
           } else {
             tmp32no2 =
-                -(int32_t)UMUL_32_16(-tmp32no1, far_spectrum[i]);
+                -(int32_t)UMUL_32_16(-tmp32no1, X_mag[i]);
           }
           shiftNum = 0;
         } else {
           shiftNum = 32 - (zerosNum + zerosFar);
           if (tmp32no1 > 0) {
-            tmp32no2 = (tmp32no1 >> shiftNum) * far_spectrum[i];
+            tmp32no2 = (tmp32no1 >> shiftNum) * X_mag[i];
           } else {
-            tmp32no2 = -((-tmp32no1 >> shiftNum) * far_spectrum[i]);
+            tmp32no2 = -((-tmp32no1 >> shiftNum) * X_mag[i]);
           }
         }
         // Normalize with respect to frequency bin
@@ -585,12 +582,12 @@ void UpdateChannel(const uint16_t* far_spectrum,
         } else {
           tmp32no2 = SHIFT_W32(tmp32no2, shift2ResChan);
         }
-        g_aecm.channelAdapt32[i] = AddSatW32(g_aecm.channelAdapt32[i], tmp32no2);
-        if (g_aecm.channelAdapt32[i] < 0) {
+        g_aecm.hAdapt32[i] = AddSatW32(g_aecm.hAdapt32[i], tmp32no2);
+        if (g_aecm.hAdapt32[i] < 0) {
           // We can never have negative channel gain
-          g_aecm.channelAdapt32[i] = 0;
+          g_aecm.hAdapt32[i] = 0;
         }
-        g_aecm.channelAdapt16[i] = (int16_t)(g_aecm.channelAdapt32[i] >> 16);
+        g_aecm.hAdapt16[i] = (int16_t)(g_aecm.hAdapt32[i] >> 16);
       }
     }
   }
@@ -600,7 +597,7 @@ void UpdateChannel(const uint16_t* far_spectrum,
   if ((g_aecm.startupState == 0) & (g_aecm.currentVADValue)) {
     // During startup we store the channel every block,
     // and we recalculate echo estimate
-    StoreAdaptiveChannelC(far_spectrum, echoEst);
+    StoreAdaptiveChannelC(X_mag, S_mag);
   } else {
     if (g_aecm.farLogEnergy < g_aecm.farEnergyMSE) {
       g_aecm.mseChannelCount = 0;
@@ -637,7 +634,7 @@ void UpdateChannel(const uint16_t* far_spectrum,
         // The adaptive channel has a significantly lower MSE than the stored
         // one. The MSE for the adaptive channel has also been low for two
         // consecutive calculations. Store the adaptive channel.
-        StoreAdaptiveChannelC(far_spectrum, echoEst);
+        StoreAdaptiveChannelC(X_mag, S_mag);
 
         // Update threshold
         if (g_aecm.mseThreshold == WORD32_MAX) {
@@ -725,57 +722,57 @@ int16_t CalcSuppressionGain() {
   return g_aecm.supGain;
 }
 
-void BufferFarFrame(const int16_t* const farend) {
-  const int farLen = FRAME_LEN;
-  int writeLen = farLen, writePos = 0;
+void BufferFarFrame(const int16_t* const x_frame) {
+  const int xLen = FRAME_LEN;
+  int writeLen = xLen, writePos = 0;
 
   // Check if the write position must be wrapped
-  while (g_aecm.farBufWritePos + writeLen > FAR_BUF_LEN) {
+  while (g_aecm.xBufWritePos + writeLen > FAR_BUF_LEN) {
     // Write to remaining buffer space before wrapping
-    writeLen = FAR_BUF_LEN - g_aecm.farBufWritePos;
-    memcpy(g_aecm.farBuf + g_aecm.farBufWritePos, farend + writePos,
+    writeLen = FAR_BUF_LEN - g_aecm.xBufWritePos;
+    memcpy(g_aecm.xFrameBuf + g_aecm.xBufWritePos, x_frame + writePos,
            sizeof(int16_t) * writeLen);
-    g_aecm.farBufWritePos = 0;
+    g_aecm.xBufWritePos = 0;
     writePos = writeLen;
-    writeLen = farLen - writeLen;
+    writeLen = xLen - writeLen;
   }
 
-  memcpy(g_aecm.farBuf + g_aecm.farBufWritePos, farend + writePos,
+  memcpy(g_aecm.xFrameBuf + g_aecm.xBufWritePos, x_frame + writePos,
          sizeof(int16_t) * writeLen);
-  g_aecm.farBufWritePos += writeLen;
+  g_aecm.xBufWritePos += writeLen;
 }
 
-void FetchFarFrame(int16_t* const farend, const int knownDelay) {
-  const int farLen = FRAME_LEN;
-  int readLen = farLen;
+void FetchFarFrame(int16_t* const x_frame, const int knownDelay) {
+  const int xLen = FRAME_LEN;
+  int readLen = xLen;
   int readPos = 0;
   int delayChange = knownDelay - g_aecm.lastKnownDelay;
 
-  g_aecm.farBufReadPos -= delayChange;
+  g_aecm.xBufReadPos -= delayChange;
 
   // Check if delay forces a read position wrap
-  while (g_aecm.farBufReadPos < 0) {
-    g_aecm.farBufReadPos += FAR_BUF_LEN;
+  while (g_aecm.xBufReadPos < 0) {
+    g_aecm.xBufReadPos += FAR_BUF_LEN;
   }
-  while (g_aecm.farBufReadPos > FAR_BUF_LEN - 1) {
-    g_aecm.farBufReadPos -= FAR_BUF_LEN;
+  while (g_aecm.xBufReadPos > FAR_BUF_LEN - 1) {
+    g_aecm.xBufReadPos -= FAR_BUF_LEN;
   }
 
   g_aecm.lastKnownDelay = knownDelay;
 
   // Check if read position must be wrapped
-  while (g_aecm.farBufReadPos + readLen > FAR_BUF_LEN) {
+  while (g_aecm.xBufReadPos + readLen > FAR_BUF_LEN) {
     // Read from remaining buffer space before wrapping
-    readLen = FAR_BUF_LEN - g_aecm.farBufReadPos;
-    memcpy(farend + readPos, g_aecm.farBuf + g_aecm.farBufReadPos,
+    readLen = FAR_BUF_LEN - g_aecm.xBufReadPos;
+    memcpy(x_frame + readPos, g_aecm.xFrameBuf + g_aecm.xBufReadPos,
            sizeof(int16_t) * readLen);
-    g_aecm.farBufReadPos = 0;
+    g_aecm.xBufReadPos = 0;
     readPos = readLen;
-    readLen = farLen - readLen;
+    readLen = xLen - readLen;
   }
-  memcpy(farend + readPos, g_aecm.farBuf + g_aecm.farBufReadPos,
+  memcpy(x_frame + readPos, g_aecm.xFrameBuf + g_aecm.xBufReadPos,
          sizeof(int16_t) * readLen);
-  g_aecm.farBufReadPos += readLen;
+  g_aecm.xBufReadPos += readLen;
 }
 
  

@@ -79,7 +79,7 @@ Q-domain 図解（minAECM／Delay Estimator 用）
     * bit_counts(0..32) を <<9 して Q9 に持ち上げ、MeanEstimatorFix で指数移動平均。
 
   - Q14: AECM のゲイン/NLPゲイン等（ONE_Q14=1<<14）
-    * hnl, nlpGain などの計算で Q14 を前提にクリップ/丸めを実施。
+    * H_gain, nlpGain などの計算で Q14 を前提にクリップ/丸めを実施。
 
   - Q12/Q28: チャネル係数（channelAdapt16 は Q12, channelAdapt32 は Q28）
     * 16bit/32bit で解像度を使い分け、必要に応じてシフト併用。
@@ -146,7 +146,7 @@ Q-domain 図解（minAECM／Delay Estimator 用）
 
   - Q15 正規化と2値化: delay_estimator_wrapper.cc (BinarySpectrumFix)
   - cost 平滑(Q9):       delay_estimator.cc (ProcessBinarySpectrum, MeanEstimatorFix)
-  - Q14 のゲイン等:      aecm_core_c.cc（hnl/NLP など）、aecm_defines.h (ONE_Q14)
+  - Q14 のゲイン等:      aecm_core_c.cc（H_gain/NLP など）、aecm_defines.h (ONE_Q14)
   - 動的Qの管理:         aecm_core_c.cc（dfaCleanQDomain など、現在は0固定運用）
 
 

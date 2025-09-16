@@ -7,7 +7,7 @@
 - Ê[k] = 推定エコーのスペクトル
 - D[k] = rec（近端）のスペクトル
 - Y[k] = 抑圧後の出力スペクトル
-- hnl[k] = 周波数ビンごとの抑圧（NLP）ゲイン（Q14）
+- H_gain[k] = 周波数ビンごとの抑圧（NLP）ゲイン（Q14）
 - supGain = フレーム単位の抑圧ノブ（Q8，エネルギ指標から導出）
 
 パイプライン（10 msフレーム、16 kHzで64サンプル分割；FFT長 N=128 → 65ビン）:
@@ -27,10 +27,10 @@ rec ─────────────────────────�
       rec (time)          ──FFT──▶ D[k]  (near spectrum)
 
   (3) エコーパス推定（周波数領域NLMS）
-      X[k] と D[k] を用いて H[k] をビンごとに更新（コード上は channelAdapt16/32）。
+      X[k] と D[k] を用いて H[k] をビンごとに更新（コード上は g_aecm.hAdapt16/32）。
       ステップサイズ μ は遠端エネルギやVADに依存する正規化版。
 
-      推定エコー:        Ê[k] = H[k] · X[k]          コードでの計算: echo_est[i] = MUL_16_U16(aecm->channelStored[i], far_spectrum[i]);
+      推定エコー:        Ê[k] = H[k] · X[k]          コードでの計算: S_mag[i] = MUL_16_U16(g_aecm.hStored[i], X_mag[i]);
       更新用誤差:        E[k]  = D[k] - Ê[k]
       H[k] の更新:       NLMS(H[k], X[k], E[k], μ)
 
@@ -41,17 +41,17 @@ rec ─────────────────────────�
       dE を区分線形で supGain（A/B/Dパラメータ）にマッピングし、時間平滑。
 
   (5) 周波数ビンごとの抑圧ゲイン（NLPマスク）
-      Ê[k], D[k], supGain からWiener風の hnl[k] を導出:
+      Ê[k], D[k], supGain からWiener風の H_gain[k] を導出:
         - supGain でエコー推定をスケーリング（Q整合）
         - 近端と推定エコーの関係から初期ゲインを形成
         - 0〜1 クリップ、二乗圧縮（減衰強調）、軽い平滑/制限
         - NLPのしきい（NLP_COMP_LOW/HIGH）を適用
 
-      結果: hnl[k] は Q14、長さは 65 ビン（N=128 の場合）
+      結果: H_gain[k] は Q14、長さは 65 ビン（N=128 の場合）
 
   (6) 抑圧と合成
-      Y[k] = hnl[k] · D[k]
-      out(time) = IFFT{ Y[k] }  （ブロック処理内でoverlap/add）
+      E[k] = H_gain[k] · D[k]
+      out(time) = IFFT{ E[k] }  （ブロック処理内でoverlap/add）
 
 データフローのまとめ
 - ref（far-end）:
@@ -62,12 +62,12 @@ rec ─────────────────────────�
 - rec（near-end）:
   → FFT → D[k]
   → H更新（E = D - H·X）
-  → 周波数ビン抑圧 Y = hnl · D
+  → 周波数ビン抑圧 E = H_gain · D
   → IFFT → 出力
 
 本実装（AECM）の要点
 - H[k] は周波数ビンごとに更新（振幅領域の適応，Qスケーリング）。
-- supGain はフレームのスカラ、hnl[k] は最終的なビン別マスク（NLP）。
+- supGain はフレームのスカラ、H_gain[k] は最終的なビン別マスク（NLP）。
 - 遅延はブロック整数（フラクショナル無し）。非因果ロックはロバスト検証で防止。
 - NLPは乗算マスク（周波数ドメイン）であり、純粋な時間領域の引き算ではない。
 

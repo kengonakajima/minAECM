@@ -111,7 +111,7 @@ minAECM 遅延推定（Delay Estimator）コード解説
   2) `UpdateFarHistory(...)` で far スペクトル履歴更新（固定Q=0のため Q は保持せずスペクトルのみ）
   3) `AddFarSpectrum(delay_estimator_farend, xfa)` で遅延推定器側に far を登録
   4) `DelayEstimatorProcess(delay_estimator, dfaNoisy)` で near を処理し遅延を得る
-  5) 遅延に基づき `AlignedFarend(delay)` で near に整列した far スペクトルを取得し、以降の抑圧処理へ
+  5) 遅延に基づき `AlignedFarX(delay)` で near に整列した far スペクトルを取得し、以降の抑圧処理へ
 
 
 10. 主な定数と注意事項
@@ -140,7 +140,7 @@ minAECM 遅延推定（Delay Estimator）コード解説
 - 主要推定: `ProcessBinarySpectrum(...)`（delay_estimator.cc）
 - 平滑: `MeanEstimator(...)`（delay_estimator.h / .cc）
 - ラッパ API: `AddFarSpectrum(...)`, `DelayEstimatorProcess(...)`（delay_estimator_wrapper.cc）
-- AECM 側接続: `UpdateFarHistory(...)`, `AlignedFarend(...)`（aecm_core.cc）
+- AECM 側接続: `UpdateFarHistory(...)`, `AlignedFarX(...)`（aecm_core.cc）
 
 --------------------------------------------------------------------------------
 ASCII Diagram — XOR-based Core Estimation (English)

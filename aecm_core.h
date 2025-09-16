@@ -38,15 +38,15 @@ typedef struct {
 } ComplexInt16;
 
 typedef struct {
-  int farBufWritePos;
-  int farBufReadPos;
+  int xBufWritePos;
+  int xBufReadPos;
   int knownDelay;
   int lastKnownDelay;
   int firstVAD;  // Parameter to control poorly initialized channels
 
   // フレーム/ブロック一致のため、中間フレーム用リングバッファは不要
 
-  int16_t farBuf[FAR_BUF_LEN];
+  int16_t xFrameBuf[FAR_BUF_LEN];
 
   // mult は 16k 固定運用のため不要
   
@@ -55,9 +55,9 @@ typedef struct {
   DelayEstimatorFarend delay_estimator_farend;
   DelayEstimator delay_estimator;
   // Far end history variables
-  // TODO(bjornv): Replace `far_history` with ring_buffer.
-  uint16_t far_history[PART_LEN1 * MAX_DELAY];
-  int far_history_pos;
+  // TODO(bjornv): Replace `xHistory` with ring_buffer.
+  uint16_t xHistory[PART_LEN1 * MAX_DELAY];
+  int xHistoryPos;
 
   uint32_t totCount;
 
@@ -73,15 +73,15 @@ typedef struct {
   int16_t echoStoredLogEnergy[MAX_BUF_LEN];
 
   // バッファは素直な配列として保持（NEON用のアラインメントは不要）
-  int16_t channelStored[PART_LEN1];
-  int16_t channelAdapt16[PART_LEN1];
-  int32_t channelAdapt32[PART_LEN1];
-  int16_t xBuf[PART_LEN2];       // farend
-  int16_t dBufNoisy[PART_LEN2];  // nearend
-  int16_t outBuf[PART_LEN];
+  int16_t hStored[PART_LEN1];
+  int16_t hAdapt16[PART_LEN1];
+  int32_t hAdapt32[PART_LEN1];
+  int16_t xBuf[PART_LEN2];       // farend x[n]
+  int16_t yBuf[PART_LEN2];       // nearend y[n]
+  int16_t eOverlapBuf[PART_LEN];
 
-  int32_t echoFilt[PART_LEN1];
-  int16_t nearFilt[PART_LEN1];
+  int32_t sMagSmooth[PART_LEN1];
+  int16_t yMagSmooth[PART_LEN1];
   
 
   int32_t mseAdaptOld;
@@ -127,39 +127,39 @@ void InitEchoPathCore(const int16_t* echo_path);
 
 ////////////////////////////////////////////////////////////////////////////////
 // 1フレーム（=1ブロック）処理。g_aecm を用いる。
-int ProcessFrame(const int16_t* farend,
-                      const int16_t* nearend,
-                      int16_t* out);
+int ProcessFrame(const int16_t* x_frame,
+                      const int16_t* y_frame,
+                      int16_t* e_frame);
 
 ////////////////////////////////////////////////////////////////////////////////
 // 1ブロック処理。g_aecm を用いる。
-int ProcessBlock(const int16_t* farend,
-                      const int16_t* nearend,
-                      int16_t* out);
+int ProcessBlock(const int16_t* x_block,
+                      const int16_t* y_block,
+                      int16_t* e_block);
 
 ////////////////////////////////////////////////////////////////////////////////
-// Farend フレーム（FRAME_LEN サンプル）を g_aecm 側のバッファへ投入。
-void BufferFarFrame(const int16_t* const farend);
+// 遠端参照信号フレーム（x[n], FRAME_LEN サンプル）を g_aecm 側のバッファへ投入。
+void BufferFarFrame(const int16_t* const x_frame);
 
 ////////////////////////////////////////////////////////////////////////////////
-// 既知遅延を考慮して g_aecm 側バッファから Farend フレームを取得。
-void FetchFarFrame(int16_t* const farend, int knownDelay);
+// 既知遅延を考慮して g_aecm 側バッファから整列済みの遠端フレームを取得。
+void FetchFarFrame(int16_t* const x_frame, int knownDelay);
 
 ////////////////////////////////////////////////////////////////////////////////
-// Moves the pointer to the next entry and inserts `far_spectrum` in its buffer
+// Moves the pointer to the next entry and inserts `x_spectrum` in its buffer
 // （内部Qは固定で0）。
 //
 // Inputs:
 //      - self          : Pointer to the delay estimation instance
-//      - far_spectrum  : Pointer to the far end spectrum
+//      - x_spectrum    : Pointer to the far end spectrum
 //
 // Far スペクトル履歴（g_aecm）を更新（固定Q=0のため Q は保持しない）。
-void UpdateFarHistory(uint16_t* far_spectrum);
+void UpdateFarHistory(uint16_t* x_spectrum);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Returns a pointer to the far end spectrum aligned to current near end
 // spectrum. The function DelayEstimatorProcess(...) should have been
-// called before AlignedFarend(...). Otherwise, you get the pointer to the
+// called before AlignedFarX(...). Otherwise, you get the pointer to the
 // previous frame. The memory is only valid until the next call of
 // DelayEstimatorProcess(...).
 //
@@ -168,12 +168,12 @@ void UpdateFarHistory(uint16_t* far_spectrum);
 //      - delay             : Current delay estimate.
 //
 // Return value:
-//      - far_spectrum      : Pointer to the aligned far end spectrum
+//      - x_spectrum        : Pointer to the aligned far end spectrum
 //                            NULL - Error
 //
 // 近端に整列済みの Far スペクトルを返す（g_aecm 内の履歴に基づく）。
 // 固定Q=0のため、Q出力は行わない。
-const uint16_t* AlignedFarend(int delay);
+const uint16_t* AlignedFarX(int delay);
 
 ///////////////////////////////////////////////////////////////////////////////
 // This function calculates the suppression gain that is used in the
@@ -196,16 +196,16 @@ int16_t CalcSuppressionGain();
 //
 // Inputs:
 //      - aecm              : Pointer to the AECM instance.
-//      - far_spectrum      : Pointer to farend spectrum.
-//      - nearEner          : Near end energy for current block（固定Q=0）。
+//      - X_mag             : Pointer to farend magnitude spectrum.
+//      - Y_energy          : Near end energy for current block（固定Q=0）。
 //
 // Output:
-//     - echoEst            : Estimated echo in Q(RESOLUTION_CHANNEL16)。
+//     - S_mag              : Estimated echo in Q(RESOLUTION_CHANNEL16)。
 //
 // 近端/遠端/推定エコーのエネルギーを計算し、VAD 閾値などを更新（g_aecm）。
-void CalcEnergies(const uint16_t* far_spectrum,
-                       uint32_t nearEner,
-                       int32_t* echoEst);
+void CalcEnergies(const uint16_t* X_mag,
+                       uint32_t Y_energy,
+                       int32_t* S_mag);
 
 ///////////////////////////////////////////////////////////////////////////////
 // This function calculates the step size used in channel estimation
@@ -221,18 +221,18 @@ int16_t CalcStepSize();
 // NLMS and decision on channel storage.
 // Inputs:
 //      - aecm              : Pointer to the AECM instance.
-//      - far_spectrum      : Absolute value of the farend signal（Q0）
-//      - far_q             : Q-domain of the farend signal（常に0を指定）
-//      - dfa               : Absolute value of the nearend signal（固定Q=0）
+//      - X_mag             : Absolute value of the farend signal（Q0）
+//      - x_q               : Q-domain of the farend signal（常に0を指定）
+//      - Y_mag             : Absolute value of the nearend signal（固定Q=0）
 //      - mu                : NLMS step size.
 // Input/Output:
-//      - echoEst           : Estimated echo in Q(RESOLUTION_CHANNEL16)。
+//      - S_mag             : Estimated echo in Q(RESOLUTION_CHANNEL16)。
 // チャネル推定（NLMS）を実行し、保存/復元の判定も行う（g_aecm）。
-void UpdateChannel(const uint16_t* far_spectrum,
-                        int16_t far_q,
-                        const uint16_t* const dfa,
+void UpdateChannel(const uint16_t* X_mag,
+                        int16_t x_q,
+                        const uint16_t* const Y_mag,
                         int16_t mu,
-                        int32_t* echoEst);
+                        int32_t* S_mag);
 
  
 
