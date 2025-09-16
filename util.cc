@@ -2,6 +2,7 @@
 
 #include <limits.h>
 #include <stdlib.h>
+#include <string.h>
 
 int CountLeadingZeros32(uint32_t n) {
   if (n == 0) {
@@ -126,4 +127,44 @@ int32_t SqrtFloor(int32_t value) {
     }
   }
   return root >> 1;
+}
+
+int RealForwardFFT(struct RealFFT* self,
+                   const int16_t* real_data_in,
+                   int16_t* complex_data_out) {
+  const int n = 1 << self->order;
+  int16_t complex_buffer[2 << kMaxFFTOrder];
+
+  for (int i = 0, j = 0; i < n; ++i, j += 2) {
+    complex_buffer[j] = real_data_in[i];
+    complex_buffer[j + 1] = 0;
+  }
+
+  ComplexBitReverse(complex_buffer, self->order);
+  int result = ComplexFFT(complex_buffer, self->order, 1);
+
+  memcpy(complex_data_out, complex_buffer, sizeof(int16_t) * (n + 2));
+  return result;
+}
+
+int RealInverseFFT(struct RealFFT* self,
+                   const int16_t* complex_data_in,
+                   int16_t* real_data_out) {
+  const int n = 1 << self->order;
+  int16_t complex_buffer[2 << kMaxFFTOrder];
+
+  memcpy(complex_buffer, complex_data_in, sizeof(int16_t) * (n + 2));
+  for (int i = n + 2; i < 2 * n; i += 2) {
+    complex_buffer[i] = complex_data_in[2 * n - i];
+    complex_buffer[i + 1] = -complex_data_in[2 * n - i + 1];
+  }
+
+  ComplexBitReverse(complex_buffer, self->order);
+  int result = ComplexIFFT(complex_buffer, self->order, 1);
+
+  for (int i = 0, j = 0; i < n; ++i, j += 2) {
+    real_data_out[i] = complex_buffer[j];
+  }
+
+  return result;
 }

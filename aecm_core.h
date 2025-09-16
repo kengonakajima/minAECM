@@ -3,7 +3,6 @@
 // すべての API をポインタ無しで利用できる。
 
 #include "util.h"
-#include "real_fft.h"
 #include "aecm_defines.h"
 #include "delay_estimator_internal.h"
 

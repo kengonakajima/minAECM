@@ -40,6 +40,19 @@ uint32_t DivU32U16(uint32_t num, uint16_t den);
 int32_t DivW32W16(int32_t num, int16_t den);
 int32_t SqrtFloor(int32_t value);
 
+enum { kMaxFFTOrder = 10 };
+
+struct RealFFT {
+  int order;
+};
+
+int RealForwardFFT(struct RealFFT* self,
+                   const int16_t* real_data_in,
+                   int16_t* complex_data_out);
+int RealInverseFFT(struct RealFFT* self,
+                   const int16_t* complex_data_in,
+                   int16_t* real_data_out);
+
 int ComplexFFT(int16_t vector[], int stages, int mode);
 int ComplexIFFT(int16_t vector[], int stages, int mode);
 void ComplexBitReverse(int16_t* __restrict complex_data, int stages);

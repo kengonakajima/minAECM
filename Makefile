@@ -50,8 +50,7 @@ AECM_CC_SRCS= \
 AECM_C_SRCS= \
   ring_buffer.c \
   complex_bit_reverse.c \
-  complex_fft.c \
-  real_fft.c
+  complex_fft.c
  
 
 AECM_OBJS=$(AECM_CC_SRCS:.cc=.o) $(AECM_C_SRCS:.c=.o)
