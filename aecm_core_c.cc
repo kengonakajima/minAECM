@@ -25,7 +25,7 @@ extern "C" {
  
 
 // Square root of Hanning window in Q14.
-static const ALIGN8_BEG int16_t Aecm_kSqrtHanning[] ALIGN8_END = {
+static const ALIGN8_BEG int16_t kSqrtHanning[] ALIGN8_END = {
     0,     399,   798,   1196,  1594,  1990,  2386,  2780,  3172,  3562,  3951,
     4337,  4720,  5101,  5478,  5853,  6224,  6591,  6954,  7313,  7668,  8019,
     8364,  8705,  9040,  9370,  9695,  10013, 10326, 10633, 10933, 11227, 11514,
@@ -46,10 +46,10 @@ static void WindowAndFFT(int16_t* fft,
     // Window time domain signal and insert into real part of
     // transformation array `fft`
     int16_t scaled_time_signal = time_signal[i] * (1 << time_signal_scaling);
-    fft[i] = (int16_t)((scaled_time_signal * Aecm_kSqrtHanning[i]) >> 14);
+    fft[i] = (int16_t)((scaled_time_signal * kSqrtHanning[i]) >> 14);
     scaled_time_signal = time_signal[i + PART_LEN] * (1 << time_signal_scaling);
     fft[PART_LEN + i] = (int16_t)(
-        (scaled_time_signal * Aecm_kSqrtHanning[PART_LEN - i]) >> 14);
+        (scaled_time_signal * kSqrtHanning[PART_LEN - i]) >> 14);
   }
 
   // Do forward FFT, then take only the first PART_LEN complex samples,
@@ -82,7 +82,7 @@ static void InverseFFTAndWindow(int16_t* fft,
   int outCFFT = RealInverseFFT(&g_aecm.real_fft, fft, ifft_out);
   for (int i = 0; i < PART_LEN; i++) {
     ifft_out[i] = (int16_t)MUL_16_16_RSFT_WITH_ROUND(
-        ifft_out[i], Aecm_kSqrtHanning[i], 14);
+        ifft_out[i], kSqrtHanning[i], 14);
     // 固定Q=0のため、出力シフトは outCFFT のみを考慮
     int32_t tmp32no1 = SHIFT_W32((int32_t)ifft_out[i], outCFFT);
     output[i] = (int16_t)SAT(WORD16_MAX,
@@ -90,7 +90,7 @@ static void InverseFFTAndWindow(int16_t* fft,
                                         WORD16_MIN);
 
     tmp32no1 = (ifft_out[PART_LEN + i] *
-                Aecm_kSqrtHanning[PART_LEN - i]) >> 14;
+                kSqrtHanning[PART_LEN - i]) >> 14;
     tmp32no1 = SHIFT_W32(tmp32no1, outCFFT);
     g_aecm.outBuf[i] = (int16_t)SAT(WORD16_MAX, tmp32no1,
                                               WORD16_MIN);
@@ -160,7 +160,7 @@ static int TimeToFrequencyDomain(const int16_t* time_signal,
 
  
 
-int Aecm_ProcessBlock(const int16_t* farend,
+int ProcessBlock(const int16_t* farend,
                             const int16_t* nearend,
                             int16_t* output) {
   // 周波数領域バッファ
@@ -203,7 +203,7 @@ int Aecm_ProcessBlock(const int16_t* farend,
 
   // Get the delay
   // Save far-end history and estimate delay
-  Aecm_UpdateFarHistory(xfa);
+  UpdateFarHistory(xfa);
   if (AddFarSpectrum(&g_aecm.delay_estimator_farend, xfa,
                                far_q) == -1) {
     return -1;
@@ -219,17 +219,17 @@ int Aecm_ProcessBlock(const int16_t* farend,
   }
 
   // Get aligned far end spectrum
-  const uint16_t* far_spectrum_ptr = Aecm_AlignedFarend(delay);
+  const uint16_t* far_spectrum_ptr = AlignedFarend(delay);
   if (far_spectrum_ptr == NULL) {
     return -1;
   }
 
   // Calculate log(energy) and update energy threshold levels
-  Aecm_CalcEnergies(far_spectrum_ptr, 0 /*far_q*/, dfaNoisySum,
+  CalcEnergies(far_spectrum_ptr, 0 /*far_q*/, dfaNoisySum,
                           echoEst32);
 
   // Calculate stepsize
-  int16_t mu = Aecm_CalcStepSize();
+  int16_t mu = CalcStepSize();
 
   // Update counters
   g_aecm.totCount++;
@@ -237,9 +237,9 @@ int Aecm_ProcessBlock(const int16_t* farend,
   // This is the channel estimation algorithm.
   // It is base on NLMS but has a variable step length,
   // which was calculated above.
-  Aecm_UpdateChannel(far_spectrum_ptr, 0 /*far_q*/, dfaNoisy, mu,
+  UpdateChannel(far_spectrum_ptr, 0 /*far_q*/, dfaNoisy, mu,
                            echoEst32);
-  int16_t supGain = Aecm_CalcSuppressionGain();
+  int16_t supGain = CalcSuppressionGain();
 
   // Calculate Wiener filter hnl[]
   uint16_t* ptrDfaClean = dfaNoisy;

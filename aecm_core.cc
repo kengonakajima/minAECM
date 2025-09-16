@@ -47,7 +47,7 @@ static const int16_t kChannelStored16kHz[PART_LEN1] = {
 //      - far_spectrum  : Pointer to the far end spectrum
 //      - far_q         : Q-domain of far end spectrum
 //
-void Aecm_UpdateFarHistory(uint16_t* far_spectrum) {
+void UpdateFarHistory(uint16_t* far_spectrum) {
   // Get new buffer position
   g_aecm.far_history_pos++;
   if (g_aecm.far_history_pos >= MAX_DELAY) {
@@ -76,7 +76,7 @@ void Aecm_UpdateFarHistory(uint16_t* far_spectrum) {
 //      - far_spectrum      : Pointer to the aligned far end spectrum
 //                            NULL - Error
 //
-const uint16_t* Aecm_AlignedFarend(int delay) {
+const uint16_t* AlignedFarend(int delay) {
   int buffer_position = 0;
   // sanity check was here in original (DCHECK). For minimal build, skip.
   buffer_position = g_aecm.far_history_pos - delay;
@@ -89,9 +89,9 @@ const uint16_t* Aecm_AlignedFarend(int delay) {
   return &(g_aecm.far_history[buffer_position * PART_LEN1]);
 }
 
-// Create/Freeは廃止。Aecm_InitCore()で内部状態を初期化する。
+// Create/Freeは廃止。InitCore()で内部状態を初期化する。
 
-void Aecm_InitEchoPathCore(const int16_t* echo_path) {
+void InitEchoPathCore(const int16_t* echo_path) {
   // Reset the stored channel
   memcpy(g_aecm.channelStored, echo_path, sizeof(int16_t) * PART_LEN1);
   // Reset the adapted channels
@@ -206,7 +206,7 @@ static int InitCoreImpl() {
   memset(g_aecm.echoStoredLogEnergy, 0, sizeof(g_aecm.echoStoredLogEnergy));
 
   // Initialize the echo channels with a stored shape (16 kHz 固定)。
-  Aecm_InitEchoPathCore(kChannelStored16kHz);
+  InitEchoPathCore(kChannelStored16kHz);
 
   memset(g_aecm.echoFilt, 0, sizeof(g_aecm.echoFilt));
   memset(g_aecm.nearFilt, 0, sizeof(g_aecm.nearFilt));
@@ -241,7 +241,7 @@ static int InitCoreImpl() {
 }
 
 // デフォルトインスタンス初期化
-int Aecm_InitCore() { return InitCoreImpl(); }
+int InitCore() { return InitCoreImpl(); }
 
 // TODO(bjornv): This function is currently not used. Add support for these
 // parameters from a higher level
@@ -249,17 +249,17 @@ int Aecm_InitCore() { return InitCoreImpl(); }
 
 // Freeは不要
 
-int Aecm_ProcessFrame(const int16_t* farend,
+int ProcessFrame(const int16_t* farend,
                       const int16_t* nearend,
                       int16_t* out) {
   int16_t farFrame[FRAME_LEN];
 
   // デフォルトインスタンスに対して Far をバッファし、既知遅延位置を取得
-  Aecm_BufferFarFrame(farend);
-  Aecm_FetchFarFrame(farFrame, g_aecm.knownDelay);
+  BufferFarFrame(farend);
+  FetchFarFrame(farFrame, g_aecm.knownDelay);
 
   // FRAME_LEN と PART_LEN を一致させたため、1ブロックで直接処理
-  if (Aecm_ProcessBlock(farFrame, nearend, out) == -1) {
+  if (ProcessBlock(farFrame, nearend, out) == -1) {
     return -1;
   }
   return 0;
@@ -277,7 +277,7 @@ int Aecm_ProcessFrame(const int16_t* farend,
 //
 // Return: - Filtered value.
 //
-int16_t Aecm_AsymFilt(const int16_t filtOld,
+int16_t AsymFilt(const int16_t filtOld,
                             const int16_t inVal,
                             const int16_t stepSizePos,
                             const int16_t stepSizeNeg) {
@@ -331,7 +331,7 @@ static int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain) {
 //                              Q(aecm->dfaQDomain).
 // @param  echoEst      [out]   Estimated echo in Q(xfa_q+RESOLUTION_CHANNEL16).
 //
-void Aecm_CalcEnergies(const uint16_t* far_spectrum,
+void CalcEnergies(const uint16_t* far_spectrum,
                              const int16_t far_q,
                              const uint32_t nearEner,
                              int32_t* echoEst) {
@@ -384,10 +384,10 @@ void Aecm_CalcEnergies(const uint16_t* far_spectrum,
     }
 
     g_aecm.farEnergyMin =
-        Aecm_AsymFilt(g_aecm.farEnergyMin, g_aecm.farLogEnergy,
+        AsymFilt(g_aecm.farEnergyMin, g_aecm.farLogEnergy,
                             increase_min_shifts, decrease_min_shifts);
     g_aecm.farEnergyMax =
-        Aecm_AsymFilt(g_aecm.farEnergyMax, g_aecm.farLogEnergy,
+        AsymFilt(g_aecm.farEnergyMax, g_aecm.farLogEnergy,
                             increase_max_shifts, decrease_max_shifts);
     g_aecm.farEnergyMaxMin = (g_aecm.farEnergyMax - g_aecm.farEnergyMin);
 
@@ -449,7 +449,7 @@ void Aecm_CalcEnergies(const uint16_t* far_spectrum,
 // shifts.
 //
 //
-int16_t Aecm_CalcStepSize() {
+int16_t CalcStepSize() {
   int32_t tmp32;
   int16_t tmp16;
   int16_t mu = MU_MAX;
@@ -490,7 +490,7 @@ int16_t Aecm_CalcStepSize() {
 // @param  mu           [in]    NLMS step size.
 // @param  echoEst      [i/o]   Estimated echo in Q(far_q+RESOLUTION_CHANNEL16).
 //
-void Aecm_UpdateChannel(const uint16_t* far_spectrum,
+void UpdateChannel(const uint16_t* far_spectrum,
                               const int16_t far_q,
                               const uint16_t* const dfa,
                               const int16_t mu,
@@ -674,7 +674,7 @@ void Aecm_UpdateChannel(const uint16_t* far_spectrum,
 // @param  supGain  [out]   (Return value) Suppression gain with which to scale
 // the noise
 //                          level (Q14).
-int16_t Aecm_CalcSuppressionGain() {
+int16_t CalcSuppressionGain() {
   int32_t tmp32no1;
 
   int16_t supGain = SUPGAIN_DEFAULT;
@@ -732,7 +732,7 @@ int16_t Aecm_CalcSuppressionGain() {
   return g_aecm.supGain;
 }
 
-void Aecm_BufferFarFrame(const int16_t* const farend) {
+void BufferFarFrame(const int16_t* const farend) {
   const int farLen = FRAME_LEN;
   int writeLen = farLen, writePos = 0;
 
@@ -752,7 +752,7 @@ void Aecm_BufferFarFrame(const int16_t* const farend) {
   g_aecm.farBufWritePos += writeLen;
 }
 
-void Aecm_FetchFarFrame(int16_t* const farend, const int knownDelay) {
+void FetchFarFrame(int16_t* const farend, const int knownDelay) {
   const int farLen = FRAME_LEN;
   int readLen = farLen;
   int readPos = 0;

@@ -52,15 +52,15 @@ int main(int argc, char** argv){
     return 1;
   }
   size_t N = std::min(x.samples.size(), y.samples.size()) / (size_t)AECM_BLOCK_SIZE;
-  if (Aecm_Init() != 0){ std::fprintf(stderr, "AECM init failed\n"); return 1; }
-  AecmConfig cfg{}; cfg.echoMode = 3; Aecm_set_config(cfg);
+  if (Init() != 0){ std::fprintf(stderr, "AECM init failed\n"); return 1; }
+  AecmConfig cfg{}; cfg.echoMode = 3; SetConfig(cfg);
   std::vector<int16_t> processed;
   processed.resize(N * AECM_BLOCK_SIZE);
   for (size_t n=0;n<N;n++){
     // Farend/render
-    Aecm_BufferFarend(&x.samples[n*AECM_BLOCK_SIZE]);
+    BufferFarend(&x.samples[n*AECM_BLOCK_SIZE]);
     // Nearend/capture -> processed
-    Aecm_Process(&y.samples[n*AECM_BLOCK_SIZE],
+    Process(&y.samples[n*AECM_BLOCK_SIZE],
                  &processed[n*AECM_BLOCK_SIZE]);
   }
   // Save processed signal as processed.wav (PCM16 mono 16kHz)

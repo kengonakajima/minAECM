@@ -44,18 +44,18 @@ extern "C" {
  */
 
 /* 初期化（再初期化可）。0で成功。*/
-int32_t Aecm_Init();
+int32_t Init();
 
 /* Farend（参照）64サンプルを供給。0で成功。*/
-int32_t Aecm_BufferFarend(const int16_t* farend);
+int32_t BufferFarend(const int16_t* farend);
 
 /* Nearend 64サンプルを処理して out へ。0で成功。
  * デバイス遅延は本実装では固定(50ms)として内部使用。*/
-int32_t Aecm_Process(const int16_t* nearend,
+int32_t Process(const int16_t* nearend,
                      int16_t* out);
 
 /* 動作モードの設定。0で成功。*/
-int32_t Aecm_set_config(AecmConfig config);
+int32_t SetConfig(AecmConfig config);
 
 #ifdef __cplusplus
 }

@@ -73,12 +73,12 @@ typedef struct {
 
 // Estimates delay to set the position of the farend buffer read pointer
 // (controlled by knownDelay)
-static int Aecm_EstBufDelay();
+static int EstimateBufDelay();
 
 // 単一インスタンス実体（アプリ側ラッパの状態）
 static AecMobile am;
 
-int32_t Aecm_Init() {
+int32_t Init() {
   AecmConfig aecConfig;
 
   // サブ構造を初期化
@@ -87,7 +87,7 @@ int32_t Aecm_Init() {
                  kBufSizeSamp, sizeof(int16_t));
 
   // Initialize AECM core
-  if (Aecm_InitCore() == -1) {
+  if (InitCore() == -1) {
     return AECM_UNSPECIFIED_ERROR;
   }
 
@@ -107,7 +107,7 @@ int32_t Aecm_Init() {
   // Default settings
   aecConfig.echoMode = 3;
 
-  if (Aecm_set_config(aecConfig) == -1) {
+  if (SetConfig(aecConfig) == -1) {
     return AECM_UNSPECIFIED_ERROR;
   }
 
@@ -116,7 +116,7 @@ int32_t Aecm_Init() {
 
 // Returns any error that is caused when buffering the
 // farend signal.
-int32_t Aecm_BufferFarend(const int16_t* farend) {
+int32_t BufferFarend(const int16_t* farend) {
   // 最小構成: 簡易チェックのみ
   if (farend == NULL) return AECM_NULL_POINTER_ERROR;
   if (am.initFlag != kInitCheck) return AECM_UNINITIALIZED_ERROR;
@@ -126,7 +126,7 @@ int32_t Aecm_BufferFarend(const int16_t* farend) {
   return 0;
 }
 
-int32_t Aecm_Process(const int16_t* nearend,
+int32_t Process(const int16_t* nearend,
                            int16_t* out) {
   // ループ変数や一時値は使用直前に宣言
   
@@ -192,13 +192,13 @@ int32_t Aecm_Process(const int16_t* nearend,
 
       // フレーム終端で1回だけ遅延推定
       if (i == nFrames - 1) {
-        Aecm_EstBufDelay();
+        EstimateBufDelay();
       }
 
       // Call the AECM
-      /*Aecm_ProcessFrame(farend, &nearend[FRAME_LEN * i],
+      /*ProcessFrame(farend, &nearend[FRAME_LEN * i],
        &out[FRAME_LEN * i]);*/
-      if (Aecm_ProcessFrame(
+      if (ProcessFrame(
               farend_ptr, &nearend[FRAME_LEN * i],
               &out[FRAME_LEN * i]) == -1)
         return -1;
@@ -210,7 +210,7 @@ int32_t Aecm_Process(const int16_t* nearend,
   return 0;
 }
 
-int32_t Aecm_set_config(AecmConfig config) {
+int32_t SetConfig(AecmConfig config) {
   if (am.initFlag != kInitCheck) {
     return AECM_UNINITIALIZED_ERROR;
   }
@@ -233,7 +233,7 @@ int32_t Aecm_set_config(AecmConfig config) {
 
 
 
-static int Aecm_EstBufDelay() {
+static int EstimateBufDelay() {
   short nSampFar = (short)available_read(&am.farendBuf);
   short nSampSndCard = kFixedMsInSndCardBuf * kSamplesPerMs16k;
   short delayNew = nSampSndCard - nSampFar;

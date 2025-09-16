@@ -10,7 +10,7 @@
 
 // Performs echo control (suppression) with FFT routines in fixed-point.
 // グローバルのデフォルトインスタンス `g_aecm` を内部で参照し、
-// すべての Aecm_* API はポインタ無しで利用できます。
+// すべての API はポインタ無しで利用できます。
 
 #ifndef MODULES_AUDIO_PROCESSING_AECM_AECM_CORE_H_
 #define MODULES_AUDIO_PROCESSING_AECM_AECM_CORE_H_
@@ -116,34 +116,34 @@ extern AecmCore g_aecm;
 ////////////////////////////////////////////////////////////////////////////////
 // デフォルトインスタンス g_aecm を初期化（再初期化可）。
 // Return value: 0 成功, -1 失敗
-int Aecm_InitCore();
+int InitCore();
 
 // Create/Freeは不要（単一インスタンス、固定長バッファ）。
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // 既知のエコーパス形状でチャネルを初期化（g_aecm を対象）。
-void Aecm_InitEchoPathCore(const int16_t* echo_path);
+void InitEchoPathCore(const int16_t* echo_path);
 
 ////////////////////////////////////////////////////////////////////////////////
 // 1フレーム（=1ブロック）処理。g_aecm を用いる。
-int Aecm_ProcessFrame(const int16_t* farend,
+int ProcessFrame(const int16_t* farend,
                       const int16_t* nearend,
                       int16_t* out);
 
 ////////////////////////////////////////////////////////////////////////////////
 // 1ブロック処理。g_aecm を用いる。
-int Aecm_ProcessBlock(const int16_t* farend,
+int ProcessBlock(const int16_t* farend,
                       const int16_t* nearend,
                       int16_t* out);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Farend フレーム（FRAME_LEN サンプル）を g_aecm 側のバッファへ投入。
-void Aecm_BufferFarFrame(const int16_t* const farend);
+void BufferFarFrame(const int16_t* const farend);
 
 ////////////////////////////////////////////////////////////////////////////////
 // 既知遅延を考慮して g_aecm 側バッファから Farend フレームを取得。
-void Aecm_FetchFarFrame(int16_t* const farend, int knownDelay);
+void FetchFarFrame(int16_t* const farend, int knownDelay);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Moves the pointer to the next entry and inserts `far_spectrum` and
@@ -155,7 +155,7 @@ void Aecm_FetchFarFrame(int16_t* const farend, int knownDelay);
 //      - far_q         : Q-domain of far end spectrum（固定Q=0）
 //
 // Far スペクトル履歴（g_aecm）を更新（固定Q=0のため Q は保持しない）。
-void Aecm_UpdateFarHistory(uint16_t* far_spectrum);
+void UpdateFarHistory(uint16_t* far_spectrum);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Returns a pointer to the far end spectrum aligned to current near end
@@ -177,7 +177,7 @@ void Aecm_UpdateFarHistory(uint16_t* far_spectrum);
 //
 // 近端に整列済みの Far スペクトルを返す（g_aecm 内の履歴に基づく）。
 // 固定Q=0のため、Q出力は行わない。
-const uint16_t* Aecm_AlignedFarend(int delay);
+const uint16_t* AlignedFarend(int delay);
 
 ///////////////////////////////////////////////////////////////////////////////
 // This function calculates the suppression gain that is used in the
@@ -191,7 +191,7 @@ const uint16_t* Aecm_AlignedFarend(int delay);
 //                            level (Q14).
 //
 // 抑圧ゲイン（NLP）を算出（g_aecm を参照）。
-int16_t Aecm_CalcSuppressionGain();
+int16_t CalcSuppressionGain();
 
 ///////////////////////////////////////////////////////////////////////////////
 // This function calculates the log of energies for nearend, farend and
@@ -208,7 +208,7 @@ int16_t Aecm_CalcSuppressionGain();
 //     - echoEst            : Estimated echo in Q(xfa_q+RESOLUTION_CHANNEL16).
 //
 // 近端/遠端/推定エコーのエネルギーを計算し、VAD 閾値などを更新（g_aecm）。
-void Aecm_CalcEnergies(const uint16_t* far_spectrum,
+void CalcEnergies(const uint16_t* far_spectrum,
                        int16_t far_q,
                        uint32_t nearEner,
                        int32_t* echoEst);
@@ -220,7 +220,7 @@ void Aecm_CalcEnergies(const uint16_t* far_spectrum,
 // Return value:
 //      - mu                : Stepsize in log2(), i.e. number of shifts.
 // NLMS ステップサイズ（log2）を計算（g_aecm）。
-int16_t Aecm_CalcStepSize();
+int16_t CalcStepSize();
 
 ///////////////////////////////////////////////////////////////////////////////
 // This function performs channel estimation.
@@ -234,7 +234,7 @@ int16_t Aecm_CalcStepSize();
 // Input/Output:
 //      - echoEst           : Estimated echo in Q(far_q+RESOLUTION_CHANNEL16).
 // チャネル推定（NLMS）を実行し、保存/復元の判定も行う（g_aecm）。
-void Aecm_UpdateChannel(const uint16_t* far_spectrum,
+void UpdateChannel(const uint16_t* far_spectrum,
                         int16_t far_q,
                         const uint16_t* const dfa,
                         int16_t mu,

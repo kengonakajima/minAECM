@@ -70,8 +70,8 @@ static void process_available_blocks(State& s){
       std::memcpy(out_blk.data(), near_blk.data(), AECM_BLOCK_SIZE * sizeof(int16_t));
     } else {
       // AECM: 先に far をバッファリングし、その後 near を処理
-      Aecm_BufferFarend(far_blk.data());
-      Aecm_Process(near_blk.data(),
+      BufferFarend(far_blk.data());
+      Process(near_blk.data(),
                    out_blk.data());
     }
 
@@ -149,12 +149,12 @@ int main(int argc, char** argv){
   std::fprintf(stderr, "Running... Ctrl-C to stop.\n");
   // AECM 初期化
   if (!s.passthrough) {
-    if (Aecm_Init() != 0) {
+    if (Init() != 0) {
       std::fprintf(stderr, "AECM init failed\n");
       Pa_StopStream(stream); Pa_CloseStream(stream); Pa_Terminate(); return 1;
     }
     AecmConfig cfg{}; cfg.echoMode = 3;
-    Aecm_set_config(cfg);
+    SetConfig(cfg);
   }
   while (Pa_IsStreamActive(stream)==1) {
     Pa_Sleep(100);
