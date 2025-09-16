@@ -55,48 +55,49 @@ def count_sloc_c_style(lines)
   in_block = false
 
   lines.each do |line|
-    l = line.dup
-
-    # Remove block comments possibly spanning multiple segments in the same line
-    loop do
+    sanitized = +''
+    i = 0
+    while i < line.length
       if in_block
-        end_idx = l.index('*/')
-        if end_idx
-          l = l[(end_idx + 2)..-1] || ''
+        if line[i, 2] == '*/'
           in_block = false
-          next # continue scanning this line for more blocks
+          i += 2
         else
-          l = ''
-          break
+          i += 1
         end
-      end
-
-      # If a line comment '//' appears before a new '/*', trim at '//'
-      line_idx = l.index('//')
-      block_idx = l.index('/*')
-
-      if block_idx && (!line_idx || block_idx < line_idx)
-        l = l[0...block_idx]
-        in_block = true
-        # continue loop to try to find the block terminator
-        next
       else
-        # No block start before '//' or no block start at all: drop line comment
-        l = l[0...line_idx] if line_idx
-        break
+        if line[i, 2] == '/*'
+          in_block = true
+          i += 2
+        elsif line[i, 2] == '//'
+          break
+        else
+          sanitized << line[i]
+          i += 1
+        end
       end
     end
 
-    sloc += 1 unless l.strip.empty?
+    sloc += 1 unless sanitized.strip.empty?
   end
 
   sloc
 end
 
 def count_sloc_hash_style(lines)
+  preprocess_prefixes = %w[
+    #if #ifdef #ifndef #elif #else #endif #define #undef
+    #include #pragma #error #warning #line
+  ]
+
   lines.count do |line|
     s = line.strip
-    !(s.empty? || s.start_with?('#'))
+    next false if s.empty?
+    if s.start_with?('#')
+      preprocess_prefixes.any? { |prefix| s.start_with?(prefix) }
+    else
+      true
+    end
   end
 end
 
