@@ -236,10 +236,6 @@ static int InitCoreImpl() {
 // デフォルトインスタンス初期化
 int InitCore() { return InitCoreImpl(); }
 
-// TODO(bjornv): This function is currently not used. Add support for these
-// parameters from a higher level
-
-
 // Freeは不要
 
 int ProcessFrame(const int16_t* x_frame,

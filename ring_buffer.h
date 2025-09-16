@@ -14,8 +14,6 @@
 #ifndef COMMON_AUDIO_RING_BUFFER_H_
 #define COMMON_AUDIO_RING_BUFFER_H_
 
-// TODO(alessiob): Used by AEC, AECm and AudioRingBuffer. Remove when possible.
-
 #ifdef __cplusplus
 extern "C" {
 #endif

@@ -136,8 +136,6 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
         kQ14Scaling;
   }
   // 4. All other bins are decreased with `valley_depth`.
-  // TODO(bjornv): Investigate how to make this loop more efficient.  Split up
-  // the loop?  Remove parts that doesn't add too much.
   for (int i = 0; i < MAX_DELAY; ++i) {
     int is_in_last_set = (i >= self->last_delay - 2) &&
                          (i <= self->last_delay + 1) && (i != candidate_delay);
@@ -198,8 +196,6 @@ static int HistogramBasedValidation(const BinaryDelayEstimator* self,
 
   // Calculate a comparison histogram value (`histogram_threshold`) that is
   // depending on the distance between the `candidate_delay` and `last_delay`.
-  // TODO(bjornv): How much can we gain by turning the fraction calculation
-  // into tables?
   if (delay_difference > self->allowed_offset) {
     fraction = 1.f - kFractionSlope * (delay_difference - self->allowed_offset);
     fraction = (fraction > kMinFractionWhenPossiblyCausal

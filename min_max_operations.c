@@ -18,12 +18,6 @@
 
 #include "signal_processing_library.h"
 
-// TODO(bjorn/kma): Consolidate function pairs (e.g. combine
-//   MaxAbsValueW16C and MaxAbsIndexW16 into a single one.)
-// TODO(kma): Move the next six functions into min_max_operations_c.c.
-
-
-
 // Maximum absolute value of word16 vector. C version for generic platforms.
 int16_t MaxAbsValueW16C(const int16_t* vector, size_t length) {
   int maximum = 0;

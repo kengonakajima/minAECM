@@ -55,7 +55,6 @@ typedef struct {
   DelayEstimatorFarend delay_estimator_farend;
   DelayEstimator delay_estimator;
   // Far end history variables
-  // TODO(bjornv): Replace `xHistory` with ring_buffer.
   uint16_t xHistory[PART_LEN1 * MAX_DELAY];
   int xHistoryPos;
 

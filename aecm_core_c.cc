@@ -322,8 +322,6 @@ int ProcessBlock(const int16_t* x_block,
     }
   }
   // 上帯域のゲインが下帯域を上回らないよう制限。
-  // TODO(bjornv): Investigate if the scaling of H_gain[i] below can cause
-  //               speech distortion in double-talk.
   for (int i = 0; i < PART_LEN1; i++) {
     H_gain[i] = (int16_t)((H_gain[i] * H_gain[i]) >> 14);
   }
