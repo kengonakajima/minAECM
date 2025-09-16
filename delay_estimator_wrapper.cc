@@ -11,7 +11,7 @@
 constexpr int kBandFirst = 12;
 constexpr int kBandLast = 43;
 
-static __inline uint32_t SetBit(uint32_t in, int pos) {
+__inline uint32_t SetBit(uint32_t in, int pos) {
   uint32_t mask = (1 << pos);
   uint32_t out = (in | mask);
 
@@ -22,9 +22,9 @@ static __inline uint32_t SetBit(uint32_t in, int pos) {
 // new_value: 新しい値、scale: 平滑化係数 (<1.0)、mean_value: 更新対象。
 //
 // 閾値スペクトルとの比較で 2 値スペクトルを生成する（固定小数点/float 共通）。
-static uint32_t BinarySpectrum(const uint16_t* spectrum,
-                               SpectrumType* threshold_spectrum,
-                               int* threshold_initialized) {
+uint32_t BinarySpectrum(const uint16_t* spectrum,
+                        SpectrumType* threshold_spectrum,
+                        int* threshold_initialized) {
   uint32_t out = 0;
 
   if (!(*threshold_initialized)) {

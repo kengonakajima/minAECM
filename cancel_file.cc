@@ -14,10 +14,10 @@ struct Wav {
   std::vector<int16_t> samples;
 };
 
-static uint32_t rd32le(const uint8_t* p){ return p[0] | (p[1]<<8) | (p[2]<<16) | (p[3]<<24); }
-static uint16_t rd16le(const uint8_t* p){ return p[0] | (p[1]<<8); }
+uint32_t rd32le(const uint8_t* p){ return p[0] | (p[1]<<8) | (p[2]<<16) | (p[3]<<24); }
+uint16_t rd16le(const uint8_t* p){ return p[0] | (p[1]<<8); }
 
-static bool read_wav_pcm16_mono16k(const std::string& path, Wav* out){
+bool read_wav_pcm16_mono16k(const std::string& path, Wav* out){
   std::ifstream f(path, std::ios::binary);
   if (!f) return false;
   std::vector<uint8_t> buf((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());

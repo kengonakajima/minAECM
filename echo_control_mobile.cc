@@ -57,7 +57,7 @@ typedef struct {
  
 
 // 遠端バッファの既知遅延に基づく読み出し位置を推定
-static int EstimateBufDelay();
+int EstimateBufDelay();
 
 // 単一インスタンス実体（アプリ側ラッパの状態）
 static AecMobile am;
@@ -215,7 +215,7 @@ int32_t SetConfig(AecmConfig config) {
 
 
 
-static int EstimateBufDelay() {
+int EstimateBufDelay() {
   short nSampFar = (short)available_read(&am.farendBuf);
   short nSampSndCard = kFixedMsInSndCardBuf * kSamplesPerMs16k;
   short delayNew = nSampSndCard - nSampFar;

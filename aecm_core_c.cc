@@ -24,9 +24,9 @@ static const ALIGN8_BEG int16_t kSqrtHanning[] ALIGN8_END = {
 
 
 
-static void WindowAndFFT(int16_t* fft,
-                         const int16_t* time_signal,
-                         ComplexInt16* freq_signal) {
+void WindowAndFFT(int16_t* fft,
+                  const int16_t* time_signal,
+                  ComplexInt16* freq_signal) {
   // 信号に対して FFT を実行
   for (int i = 0; i < PART_LEN; i++) {
     // 時間領域信号に窓を掛け、変換配列 `fft` の実部へ格納
@@ -45,9 +45,9 @@ static void WindowAndFFT(int16_t* fft,
   }
 }
 
-static void InverseFFTAndWindow(int16_t* fft,
-                               ComplexInt16* efw,
-                               int16_t* output) {
+void InverseFFTAndWindow(int16_t* fft,
+                         ComplexInt16* efw,
+                         int16_t* output) {
   // `efw` を内容を `fft` に移した後の逆 FFT 出力バッファとして再利用
   // （内容だけ `fft` に移し替える）。
   int16_t* ifft_out = (int16_t*)efw;
@@ -97,10 +97,10 @@ static void InverseFFTAndWindow(int16_t* fft,
 // freq_signal_abs      [out]   周波数領域配列の振幅へのポインタ
 // freq_signal_sum_abs  [out]   振幅総和（絶対値の合計）へのポインタ
 //
-static void TimeToFrequencyDomain(const int16_t* time_signal,
-                                  ComplexInt16* freq_signal,
-                                  uint16_t* freq_signal_abs,
-                                  uint32_t* freq_signal_sum_abs) {
+void TimeToFrequencyDomain(const int16_t* time_signal,
+                           ComplexInt16* freq_signal,
+                           uint16_t* freq_signal_abs,
+                           uint32_t* freq_signal_sum_abs) {
   int16_t fft[PART_LEN4];
 
   WindowAndFFT(fft, time_signal, freq_signal);

@@ -41,17 +41,17 @@ struct State {
   // 単一インスタンス化API。個別インスタンスは不要。
 };
 
-static size_t pop_samples(std::deque<int16_t>& q, int16_t* dst, size_t n){
+size_t pop_samples(std::deque<int16_t>& q, int16_t* dst, size_t n){
   size_t m = q.size()<n ? q.size() : n;
   for (size_t i=0;i<m;i++){ dst[i]=q.front(); q.pop_front(); }
   return m;
 }
 
-static void push_block(std::deque<int16_t>& q, const int16_t* src, size_t n){
+void push_block(std::deque<int16_t>& q, const int16_t* src, size_t n){
   for (size_t i=0;i<n;i++) q.push_back(src[i]);
 }
 
-static void process_available_blocks(State& s){
+void process_available_blocks(State& s){
   // Run as many 64-sample blocks as possible
   while (s.rec_dev.size() >= (size_t)AECM_BLOCK_SIZE) {
     std::vector<int16_t> near_blk(AECM_BLOCK_SIZE), far_blk(AECM_BLOCK_SIZE), out_blk(AECM_BLOCK_SIZE);
@@ -81,12 +81,12 @@ static void process_available_blocks(State& s){
   }
 }
 
-static int pa_callback(const void* inputBuffer,
-                       void* outputBuffer,
-                       unsigned long blockSize,
-                       const PaStreamCallbackTimeInfo* /*timeInfo*/,
-                       PaStreamCallbackFlags /*statusFlags*/,
-                       void* userData){
+int pa_callback(const void* inputBuffer,
+                void* outputBuffer,
+                unsigned long blockSize,
+                const PaStreamCallbackTimeInfo* /*timeInfo*/,
+                PaStreamCallbackFlags /*statusFlags*/,
+                void* userData){
   auto* st = reinterpret_cast<State*>(userData);
   const int16_t* in = reinterpret_cast<const int16_t*>(inputBuffer);
   int16_t* out = reinterpret_cast<int16_t*>(outputBuffer);

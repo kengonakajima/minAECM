@@ -33,7 +33,7 @@ static const float kMinFractionWhenPossiblyNonCausal = 0.25f;
  
 
 // 32bit ワードに含まれるビット数を数えて返す。
-static int BitCount(uint32_t u32) {
+int BitCount(uint32_t u32) {
   uint32_t tmp =
       u32 - ((u32 >> 1) & 033333333333) - ((u32 >> 2) & 011111111111);
   tmp = ((tmp + (tmp >> 3)) & 030707070707);
@@ -56,10 +56,10 @@ static int BitCount(uint32_t u32) {
 //                            row the number of times the matrix row and the
 //                            input vector have the same value
 //
-static void BitCountComparison(uint32_t binary_vector,
-                               const uint32_t* binary_matrix,
-                               int matrix_size,
-                               int32_t* bit_counts) {
+void BitCountComparison(uint32_t binary_vector,
+                        const uint32_t* binary_matrix,
+                        int matrix_size,
+                        int32_t* bit_counts) {
   // `binary_vector` を各行と比較
   for (int n = 0; n < matrix_size; n++) {
     bit_counts[n] = (int32_t)BitCount(binary_vector ^ binary_matrix[n]);
@@ -80,10 +80,10 @@ static void BitCountComparison(uint32_t binary_vector,
 //  - candidate_delay   : 検証対象の遅延。
 //  - valley_depth_q14  : コスト関数の谷の深さ (Q14)。候補と最悪値の差。
 //  - valley_level_q14  : コスト関数の最小値 (Q14)。
-static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
-                                             int candidate_delay,
-                                             int32_t valley_depth_q14,
-                                             int32_t valley_level_q14) {
+void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
+                                      int candidate_delay,
+                                      int32_t valley_depth_q14,
+                                      int32_t valley_level_q14) {
   const float valley_depth = valley_depth_q14 * kQ14Scaling;
   float decrease_in_last_set = valley_depth;
   const int max_hits_for_slow_change = (candidate_delay < self->last_delay)
@@ -155,8 +155,8 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
 //
 // 戻り値:
 //  - is_histogram_valid  : 1 なら候補が有効、0 なら無効。
-static int HistogramBasedValidation(const BinaryDelayEstimator* self,
-                                    int candidate_delay) {
+int HistogramBasedValidation(const BinaryDelayEstimator* self,
+                             int candidate_delay) {
   float fraction = 1.f;
   float histogram_threshold = self->histogram[self->compare_delay];
   const int delay_difference = candidate_delay - self->last_delay;
@@ -205,10 +205,10 @@ static int HistogramBasedValidation(const BinaryDelayEstimator* self,
 //
 // 戻り値:
 //  - is_robust               : 1 なら候補が信頼できる。0 ならそれ以外。
-static int RobustValidation(const BinaryDelayEstimator* self,
-                            int candidate_delay,
-                            int is_instantaneous_valid,
-                            int is_histogram_valid) {
+int RobustValidation(const BinaryDelayEstimator* self,
+                     int candidate_delay,
+                     int is_instantaneous_valid,
+                     int is_histogram_valid) {
   int is_robust = 0;
 
   // 最終判定は (1) ヒストグラム検証 と (2) ロバスト統計 の結果に基づく。

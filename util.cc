@@ -140,12 +140,12 @@ static const int16_t kBitReverseIndex7[112] = {
     79,  121, 83,  101, 87,  117, 91,  109, 95,  125, 103, 115, 111, 123,
 };
 
-static size_t GetBufferReadRegions(RingBuffer* buf,
-                                   size_t element_count,
-                                   void** data_ptr_1,
-                                   size_t* data_ptr_bytes_1,
-                                   void** data_ptr_2,
-                                   size_t* data_ptr_bytes_2) {
+size_t GetBufferReadRegions(RingBuffer* buf,
+                            size_t element_count,
+                            void** data_ptr_1,
+                            size_t* data_ptr_bytes_1,
+                            void** data_ptr_2,
+                            size_t* data_ptr_bytes_2) {
   const size_t readable = available_read(buf);
   const size_t to_read = readable < element_count ? readable : element_count;
   const size_t margin = buf->element_count - buf->read_pos;

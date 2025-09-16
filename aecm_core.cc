@@ -91,11 +91,11 @@ void InitEchoPathCore(const int16_t* echo_path) {
   g_aecm.mseChannelCount = 0;
 }
 
-static void CalcLinearEnergiesC(const uint16_t* X_mag,
-                                int32_t* S_mag,
-                                uint32_t* X_energy,
-                                uint32_t* S_energy_adapt,
-                                uint32_t* S_energy_stored) {
+void CalcLinearEnergiesC(const uint16_t* X_mag,
+                         int32_t* S_mag,
+                         uint32_t* X_energy,
+                         uint32_t* S_energy_adapt,
+                         uint32_t* S_energy_stored) {
   // 遅延後の遠端信号と推定エコーのエネルギーを取得（保存/適応チャネル双方）
   // 
   for (int i = 0; i < PART_LEN1; i++) {
@@ -106,8 +106,8 @@ static void CalcLinearEnergiesC(const uint16_t* X_mag,
   }
 }
 
-static void StoreAdaptiveChannelC(const uint16_t* X_mag,
-                                  int32_t* S_mag) {
+void StoreAdaptiveChannelC(const uint16_t* X_mag,
+                           int32_t* S_mag) {
   // 起動中は毎ブロック保存チャネルを更新
   memcpy(g_aecm.hStored, g_aecm.hAdapt16, sizeof(int16_t) * PART_LEN1);
   // 推定エコーを再計算
@@ -121,7 +121,7 @@ static void StoreAdaptiveChannelC(const uint16_t* X_mag,
   S_mag[PART_LEN] = MUL_16_U16(g_aecm.hStored[PART_LEN], X_mag[PART_LEN]);
 }
 
-static void ResetAdaptiveChannelC() {
+void ResetAdaptiveChannelC() {
   // 連続 2 回、保存チャネルの MSE が適応チャネルより十分小さい場合、
   // 適応チャネルをリセットする。
   memcpy(g_aecm.hAdapt16, g_aecm.hStored,
@@ -149,7 +149,7 @@ static void ResetAdaptiveChannelC() {
 // 戻り値               :  0 - 成功
 //                        -1 - Error
 //
-static int InitCoreImpl() {
+int InitCoreImpl() {
   // 16kHz 固定
 
   g_aecm.xBufWritePos = 0;
@@ -279,13 +279,13 @@ int16_t AsymFilt(const int16_t filtOld,
 // `a` の仮数部を、先頭ゼロ数 `zeros` を加味した Q8 の int16_t として返す。
 // ゼロ数との整合性チェックは行わない。
 // 
-static int16_t ExtractFractionPart(uint32_t a, int zeros) {
+int16_t ExtractFractionPart(uint32_t a, int zeros) {
   return (int16_t)(((a << zeros) & 0x7FFFFFFF) >> 23);
 }
 
 // `energy` の対数 (Q8) を計算して返す。入力は Q(`q_domain`) と想定。
 // 入力の `energy` は Q(`q_domain`)（本縮約では q_domain=0）で与えられる想定。
-static int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain) {
+int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain) {
   static const int16_t kLogLowValue = PART_LEN_SHIFT << 7;
   int16_t log_energy_q8 = kLogLowValue;
   if (energy > 0) {
