@@ -37,8 +37,7 @@ static const ALIGN8_BEG int16_t Aecm_kSqrtHanning[] ALIGN8_END = {
 
 
 
-static void WindowAndFFT(AecmCore* aecm,
-                         int16_t* fft,
+static void WindowAndFFT(int16_t* fft,
                          const int16_t* time_signal,
                          ComplexInt16* freq_signal,
                          int time_signal_scaling) {
@@ -55,14 +54,13 @@ static void WindowAndFFT(AecmCore* aecm,
 
   // Do forward FFT, then take only the first PART_LEN complex samples,
   // and change signs of the imaginary parts.
-  RealForwardFFT(&aecm->real_fft, fft, (int16_t*)freq_signal);
+  RealForwardFFT(&g_aecm.real_fft, fft, (int16_t*)freq_signal);
   for (int i = 0; i < PART_LEN; i++) {
     freq_signal[i].imag = -freq_signal[i].imag;
   }
 }
 
-static void InverseFFTAndWindow(AecmCore* aecm,
-                               int16_t* fft,
+static void InverseFFTAndWindow(int16_t* fft,
                                ComplexInt16* efw,
                                int16_t* output) {
   // Reuse `efw` for the inverse FFT output after transferring
@@ -81,27 +79,27 @@ static void InverseFFTAndWindow(AecmCore* aecm,
   fft[PART_LEN2 + 1] = -efw[PART_LEN].imag;
 
   // Inverse FFT. Keep outCFFT to scale the samples in the next block.
-  int outCFFT = RealInverseFFT(&aecm->real_fft, fft, ifft_out);
+  int outCFFT = RealInverseFFT(&g_aecm.real_fft, fft, ifft_out);
   for (int i = 0; i < PART_LEN; i++) {
     ifft_out[i] = (int16_t)MUL_16_16_RSFT_WITH_ROUND(
         ifft_out[i], Aecm_kSqrtHanning[i], 14);
     // 固定Q=0のため、出力シフトは outCFFT のみを考慮
     int32_t tmp32no1 = SHIFT_W32((int32_t)ifft_out[i], outCFFT);
     output[i] = (int16_t)SAT(WORD16_MAX,
-                                        tmp32no1 + aecm->outBuf[i],
+                                        tmp32no1 + g_aecm.outBuf[i],
                                         WORD16_MIN);
 
     tmp32no1 = (ifft_out[PART_LEN + i] *
                 Aecm_kSqrtHanning[PART_LEN - i]) >> 14;
     tmp32no1 = SHIFT_W32(tmp32no1, outCFFT);
-    aecm->outBuf[i] = (int16_t)SAT(WORD16_MAX, tmp32no1,
+    g_aecm.outBuf[i] = (int16_t)SAT(WORD16_MAX, tmp32no1,
                                               WORD16_MIN);
   }
 
   // Copy the current block to the old position
   // (aecm->outBuf is shifted elsewhere)
-  memcpy(aecm->xBuf, aecm->xBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
-  memcpy(aecm->dBufNoisy, aecm->dBufNoisy + PART_LEN,
+  memcpy(g_aecm.xBuf, g_aecm.xBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
+  memcpy(g_aecm.dBufNoisy, g_aecm.dBufNoisy + PART_LEN,
          sizeof(int16_t) * PART_LEN);
 }
 
@@ -118,8 +116,7 @@ static void InverseFFTAndWindow(AecmCore* aecm,
 //                              the frequency domain array
 // return value                 The Q-domain of current frequency values
 //
-static int TimeToFrequencyDomain(AecmCore* aecm,
-                                 const int16_t* time_signal,
+static int TimeToFrequencyDomain(const int16_t* time_signal,
                                  ComplexInt16* freq_signal,
                                  uint16_t* freq_signal_abs,
                                  uint32_t* freq_signal_sum_abs) {
@@ -129,7 +126,7 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
 
   // 動的Qは使わないため、固定スケーリング（0）。
 
-  WindowAndFFT(aecm, fft, time_signal, freq_signal, time_signal_scaling);
+  WindowAndFFT(fft, time_signal, freq_signal, time_signal_scaling);
 
   // Extract imaginary and real part, calculate the magnitude for
   // all frequency bins
@@ -163,8 +160,7 @@ static int TimeToFrequencyDomain(AecmCore* aecm,
 
  
 
-int Aecm_ProcessBlock(AecmCore* aecm,
-                            const int16_t* farend,
+int Aecm_ProcessBlock(const int16_t* farend,
                             const int16_t* nearend,
                             int16_t* output) {
   // 周波数領域バッファ
@@ -180,39 +176,39 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   // (1) another CONV_LEN blocks
   // (2) the rest
 
-  if (aecm->startupState < 2) {
-    aecm->startupState =
-        (aecm->totCount >= CONV_LEN) + (aecm->totCount >= CONV_LEN2);
+  if (g_aecm.startupState < 2) {
+    g_aecm.startupState =
+        (g_aecm.totCount >= CONV_LEN) + (g_aecm.totCount >= CONV_LEN2);
   }
   // END: Determine startup state
 
   // Buffer near and far end signals
-  memcpy(aecm->xBuf + PART_LEN, farend, sizeof(int16_t) * PART_LEN);
-  memcpy(aecm->dBufNoisy + PART_LEN, nearend, sizeof(int16_t) * PART_LEN);
+  memcpy(g_aecm.xBuf + PART_LEN, farend, sizeof(int16_t) * PART_LEN);
+  memcpy(g_aecm.dBufNoisy + PART_LEN, nearend, sizeof(int16_t) * PART_LEN);
 
   // Transform far end signal from time domain to frequency domain.
   uint32_t xfaSum = 0;
-  int far_q = TimeToFrequencyDomain(aecm, aecm->xBuf, dfw, xfa, &xfaSum);
+  int far_q = TimeToFrequencyDomain(g_aecm.xBuf, dfw, xfa, &xfaSum);
 
   // Transform noisy near end signal from time domain to frequency domain.
   uint32_t dfaNoisySum = 0;
   int16_t zerosDBufNoisy =
-      TimeToFrequencyDomain(aecm, aecm->dBufNoisy, dfw, dfaNoisy, &dfaNoisySum);
-  aecm->dfaNoisyQDomainOld = aecm->dfaNoisyQDomain;
-  aecm->dfaNoisyQDomain = (int16_t)zerosDBufNoisy;
+      TimeToFrequencyDomain(g_aecm.dBufNoisy, dfw, dfaNoisy, &dfaNoisySum);
+  g_aecm.dfaNoisyQDomainOld = g_aecm.dfaNoisyQDomain;
+  g_aecm.dfaNoisyQDomain = (int16_t)zerosDBufNoisy;
 
   
-  aecm->dfaCleanQDomainOld = aecm->dfaNoisyQDomainOld;
-  aecm->dfaCleanQDomain = aecm->dfaNoisyQDomain;
+  g_aecm.dfaCleanQDomainOld = g_aecm.dfaNoisyQDomainOld;
+  g_aecm.dfaCleanQDomain = g_aecm.dfaNoisyQDomain;
 
   // Get the delay
   // Save far-end history and estimate delay
-  Aecm_UpdateFarHistory(aecm, xfa, far_q);
-  if (AddFarSpectrumFix(&aecm->delay_estimator_farend, xfa,
+  Aecm_UpdateFarHistory(xfa, far_q);
+  if (AddFarSpectrumFix(&g_aecm.delay_estimator_farend, xfa,
                                far_q) == -1) {
     return -1;
   }
-  int delay = DelayEstimatorProcessFix(&aecm->delay_estimator, dfaNoisy,
+  int delay = DelayEstimatorProcessFix(&g_aecm.delay_estimator, dfaNoisy,
                                        zerosDBufNoisy);
   if (delay == -1) {
     return -1;
@@ -222,33 +218,33 @@ int Aecm_ProcessBlock(AecmCore* aecm,
     delay = 0;
   }
 
-  if (aecm->fixedDelay >= 0) {
+  if (g_aecm.fixedDelay >= 0) {
     // Use fixed delay
-    delay = aecm->fixedDelay;
+    delay = g_aecm.fixedDelay;
   }
 
   // Get aligned far end spectrum
-  const uint16_t* far_spectrum_ptr = Aecm_AlignedFarend(aecm, &far_q, delay);
+  const uint16_t* far_spectrum_ptr = Aecm_AlignedFarend(&far_q, delay);
   if (far_spectrum_ptr == NULL) {
     return -1;
   }
 
   // Calculate log(energy) and update energy threshold levels
-  Aecm_CalcEnergies(aecm, far_spectrum_ptr, 0 /*far_q*/, dfaNoisySum,
+  Aecm_CalcEnergies(far_spectrum_ptr, 0 /*far_q*/, dfaNoisySum,
                           echoEst32);
 
   // Calculate stepsize
-  int16_t mu = Aecm_CalcStepSize(aecm);
+  int16_t mu = Aecm_CalcStepSize();
 
   // Update counters
-  aecm->totCount++;
+  g_aecm.totCount++;
 
   // This is the channel estimation algorithm.
   // It is base on NLMS but has a variable step length,
   // which was calculated above.
-  Aecm_UpdateChannel(aecm, far_spectrum_ptr, 0 /*far_q*/, dfaNoisy, mu,
+  Aecm_UpdateChannel(far_spectrum_ptr, 0 /*far_q*/, dfaNoisy, mu,
                            echoEst32);
-  int16_t supGain = Aecm_CalcSuppressionGain(aecm);
+  int16_t supGain = Aecm_CalcSuppressionGain();
 
   // Calculate Wiener filter hnl[]
   uint16_t* ptrDfaClean = dfaNoisy;
@@ -257,10 +253,10 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   for (int i = 0; i < PART_LEN1; i++) {
     // Far end signal through channel estimate in Q8
     // How much can we shift right to preserve resolution
-    int32_t tmp32no1 = echoEst32[i] - aecm->echoFilt[i];
-    aecm->echoFilt[i] += (int32_t)(((int64_t)tmp32no1 * 50) >> 8);
+    int32_t tmp32no1 = echoEst32[i] - g_aecm.echoFilt[i];
+    g_aecm.echoFilt[i] += (int32_t)(((int64_t)tmp32no1 * 50) >> 8);
 
-    int16_t zeros32 = NormW32(aecm->echoFilt[i]) + 1;
+    int16_t zeros32 = NormW32(g_aecm.echoFilt[i]) + 1;
     int16_t zeros16 = NormW16(supGain) + 1;
     uint32_t echoEst32Gained;
     int16_t resolutionDiff;
@@ -269,36 +265,34 @@ int Aecm_ProcessBlock(AecmCore* aecm,
       // Result in
       // Q(RESOLUTION_CHANNEL+RESOLUTION_SUPGAIN+
       //   aecm->xfaQDomainBuf[diff])
-      echoEst32Gained =
-          UMUL_32_16((uint32_t)aecm->echoFilt[i], (uint16_t)supGain);
+      echoEst32Gained = UMUL_32_16((uint32_t)g_aecm.echoFilt[i], (uint16_t)supGain);
       resolutionDiff = 14 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
     } else {
       int16_t tmp16no1 = 17 - zeros32 - zeros16;
       resolutionDiff =
           14 + tmp16no1 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
       if (zeros32 > tmp16no1) {
-        echoEst32Gained = UMUL_32_16((uint32_t)aecm->echoFilt[i],
+        echoEst32Gained = UMUL_32_16((uint32_t)g_aecm.echoFilt[i],
                                                 supGain >> tmp16no1);
       } else {
         // Result in Q-(RESOLUTION_CHANNEL+RESOLUTION_SUPGAIN-16)
-        echoEst32Gained = (aecm->echoFilt[i] >> tmp16no1) * supGain;
+        echoEst32Gained = (g_aecm.echoFilt[i] >> tmp16no1) * supGain;
       }
     }
 
-    zeros16 = NormW16(aecm->nearFilt[i]);
-    int16_t dfa_clean_q_domain_diff =
-        aecm->dfaCleanQDomain - aecm->dfaCleanQDomainOld;
+    zeros16 = NormW16(g_aecm.nearFilt[i]);
+    int16_t dfa_clean_q_domain_diff = g_aecm.dfaCleanQDomain - g_aecm.dfaCleanQDomainOld;
     int16_t qDomainDiff;
     int16_t tmp16no1;
     int16_t tmp16no2;
-    if (zeros16 < dfa_clean_q_domain_diff && aecm->nearFilt[i]) {
-      tmp16no1 = aecm->nearFilt[i] * (1 << zeros16);
+    if (zeros16 < dfa_clean_q_domain_diff && g_aecm.nearFilt[i]) {
+      tmp16no1 = g_aecm.nearFilt[i] * (1 << zeros16);
       qDomainDiff = zeros16 - dfa_clean_q_domain_diff;
       tmp16no2 = ptrDfaClean[i] >> -qDomainDiff;
     } else {
       tmp16no1 = dfa_clean_q_domain_diff < 0
-                     ? aecm->nearFilt[i] >> -dfa_clean_q_domain_diff
-                     : aecm->nearFilt[i] * (1 << dfa_clean_q_domain_diff);
+                     ? g_aecm.nearFilt[i] >> -dfa_clean_q_domain_diff
+                     : g_aecm.nearFilt[i] * (1 << dfa_clean_q_domain_diff);
       qDomainDiff = 0;
       tmp16no2 = ptrDfaClean[i];
     }
@@ -307,22 +301,22 @@ int Aecm_ProcessBlock(AecmCore* aecm,
     tmp16no2 += tmp16no1;
     zeros16 = NormW16(tmp16no2);
     if ((tmp16no2) & (-qDomainDiff > zeros16)) {
-      aecm->nearFilt[i] = WORD16_MAX;
+      g_aecm.nearFilt[i] = WORD16_MAX;
     } else {
-      aecm->nearFilt[i] = qDomainDiff < 0 ? tmp16no2 * (1 << -qDomainDiff)
-                                          : tmp16no2 >> qDomainDiff;
+      g_aecm.nearFilt[i] = qDomainDiff < 0 ? tmp16no2 * (1 << -qDomainDiff)
+                                           : tmp16no2 >> qDomainDiff;
     }
 
     // Wiener filter coefficients, resulting hnl in Q14
     if (echoEst32Gained == 0) {
       hnl[i] = ONE_Q14;
-    } else if (aecm->nearFilt[i] == 0) {
+    } else if (g_aecm.nearFilt[i] == 0) {
       hnl[i] = 0;
     } else {
       // Multiply the suppression gain
       // Rounding
-      echoEst32Gained += (uint32_t)(aecm->nearFilt[i] >> 1);
-      uint32_t tmpU32 = DivU32U16(echoEst32Gained, (uint16_t)aecm->nearFilt[i]);
+      echoEst32Gained += (uint32_t)(g_aecm.nearFilt[i] >> 1);
+      uint32_t tmpU32 = DivU32U16(echoEst32Gained, (uint16_t)g_aecm.nearFilt[i]);
 
       // Current resolution is
       // Q-(RESOLUTION_CHANNEL+RESOLUTION_SUPGAIN- max(0,17-zeros16- zeros32))
@@ -393,7 +387,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
   }
   // 逆FFT用の作業バッファは使用直前に確保
   int16_t fft[PART_LEN4 + 2];  // +2 to make a loop safe.
-  InverseFFTAndWindow(aecm, fft, efw, output);
+  InverseFFTAndWindow(fft, efw, output);
 
   // Debug: print startupState periodically for education/metrics
   {
@@ -401,7 +395,7 @@ int Aecm_ProcessBlock(AecmCore* aecm,
     dbg_ss_counter++;
     if (dbg_ss_counter % 100 == 0) {
       fprintf(stderr, "[AECM] block=%d startupState=%d\n",
-              dbg_ss_counter, (int)aecm->startupState);
+              dbg_ss_counter, (int)g_aecm.startupState);
     }
   }
 

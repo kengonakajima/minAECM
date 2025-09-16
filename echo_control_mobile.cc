@@ -71,59 +71,57 @@ typedef struct {
   RingBuffer farendBuf;
   int16_t farendBufData[kBufSizeSamp];
 
-  AecmCore aecmCore;
 } AecMobile;
 
  
 
 // Estimates delay to set the position of the farend buffer read pointer
 // (controlled by knownDelay)
-static int Aecm_EstBufDelay(AecMobile* aecm);
+static int Aecm_EstBufDelay();
 
 // Stuffs the farend buffer if the estimated delay is too large
-static int Aecm_DelayComp(AecMobile* aecm);
+static int Aecm_DelayComp();
 
-// 単一インスタンス実体
-static AecMobile g_aecm;
+// 単一インスタンス実体（アプリ側ラッパの状態）
+static AecMobile am;
 
 int32_t Aecm_Init() {
-  AecMobile* aecm = &g_aecm;
   AecmConfig aecConfig;
 
   // サブ構造を初期化
-  memset(aecm, 0, sizeof(*aecm));
-  InitBufferWith(&aecm->farendBuf, aecm->farendBufData,
+  memset(&am, 0, sizeof(am));
+  InitBufferWith(&am.farendBuf, am.farendBufData,
                  kBufSizeSamp, sizeof(int16_t));
 
   // 16 kHz 固定
-  aecm->sampFreq = 16000;
+  am.sampFreq = 16000;
 
   // Initialize AECM core
-  if (Aecm_InitCore(&aecm->aecmCore) == -1) {
+  if (Aecm_InitCore() == -1) {
     return AECM_UNSPECIFIED_ERROR;
   }
 
   // Initialize farend buffer
-  InitBuffer(&aecm->farendBuf);
+  InitBuffer(&am.farendBuf);
 
-  aecm->initFlag = kInitCheck;  // indicates that initialization has been done
+  am.initFlag = kInitCheck;  // indicates that initialization has been done
 
-  aecm->delayChange = 1;
+  am.delayChange = 1;
 
-  aecm->sum = 0;
-  aecm->counter = 0;
-  aecm->checkBuffSize = 1;
-  aecm->firstVal = 0;
+  am.sum = 0;
+  am.counter = 0;
+  am.checkBuffSize = 1;
+  am.firstVal = 0;
 
-  aecm->ECstartup = 1;
-  aecm->bufSizeStart = 0;
-  aecm->checkBufSizeCtr = 0;
-  aecm->filtDelay = 0;
-  aecm->timeForDelayChange = 0;
-  aecm->knownDelay = 0;
-  aecm->lastDelayDiff = 0;
+  am.ECstartup = 1;
+  am.bufSizeStart = 0;
+  am.checkBufSizeCtr = 0;
+  am.filtDelay = 0;
+  am.timeForDelayChange = 0;
+  am.knownDelay = 0;
+  am.lastDelayDiff = 0;
 
-  memset(&aecm->farendOld, 0, sizeof(aecm->farendOld));
+  memset(&am.farendOld, 0, sizeof(am.farendOld));
 
   // Default settings
   aecConfig.echoMode = 3;
@@ -138,24 +136,22 @@ int32_t Aecm_Init() {
 // Returns any error that is caused when buffering the
 // farend signal.
 int32_t Aecm_BufferFarend(const int16_t* farend) {
-  AecMobile* aecm = &g_aecm;
   // 最小構成: 簡易チェックのみ
   if (farend == NULL) return AECM_NULL_POINTER_ERROR;
-  if (aecm->initFlag != kInitCheck) return AECM_UNINITIALIZED_ERROR;
+  if (am.initFlag != kInitCheck) return AECM_UNINITIALIZED_ERROR;
 
   // TODO(unknown): Is this really a good idea?
-  if (!aecm->ECstartup) {
-    Aecm_DelayComp(aecm);
+  if (!am.ECstartup) {
+    Aecm_DelayComp();
   }
 
-  WriteBuffer(&aecm->farendBuf, farend, FRAME_LEN);
+  WriteBuffer(&am.farendBuf, farend, FRAME_LEN);
 
   return 0;
 }
 
 int32_t Aecm_Process(const int16_t* nearend,
                            int16_t* out) {
-  AecMobile* aecm = &g_aecm;
   // ループ変数や一時値は使用直前に宣言
   
   if (nearend == NULL) {
@@ -166,7 +162,7 @@ int32_t Aecm_Process(const int16_t* nearend,
     return AECM_NULL_POINTER_ERROR;
   }
 
-  if (aecm->initFlag != kInitCheck) {
+  if (am.initFlag != kInitCheck) {
     return AECM_UNINITIALIZED_ERROR;
   }
 
@@ -177,72 +173,72 @@ int32_t Aecm_Process(const int16_t* nearend,
 
   const size_t nFrames = nrOfSamples / FRAME_LEN; // 64/64=1（16kHz固定）
 
-  if (aecm->ECstartup) {
+  if (am.ECstartup) {
     if (out != nearend) {
       memcpy(out, nearend, sizeof(short) * nrOfSamples);
     }
 
     short nmbrOfFilledBuffers =
-        (short)available_read(&aecm->farendBuf) / FRAME_LEN;
+        (short)available_read(&am.farendBuf) / FRAME_LEN;
     // The AECM is in the start up mode
     // AECM is disabled until the soundcard buffer and farend buffers are OK
 
     // Mechanism to ensure that the soundcard buffer is reasonably stable.
-    if (aecm->checkBuffSize) {
-      aecm->checkBufSizeCtr++;
+    if (am.checkBuffSize) {
+      am.checkBufSizeCtr++;
       // Before we fill up the far end buffer we require the amount of data on
       // the sound card to be stable (+/-8 ms) compared to the first value. This
       // comparison is made during the following 4 consecutive frames. If it
       // seems to be stable then we start to fill up the far end buffer.
 
-      if (aecm->counter == 0) {
-        aecm->firstVal = kFixedMsInSndCardBuf;
-        aecm->sum = 0;
+      if (am.counter == 0) {
+        am.firstVal = kFixedMsInSndCardBuf;
+        am.sum = 0;
       }
 
-      if (abs(aecm->firstVal - kFixedMsInSndCardBuf) <
+      if (abs(am.firstVal - kFixedMsInSndCardBuf) <
           MAX(0.2 * kFixedMsInSndCardBuf, 8)) { // しきい値は従来のNB値(8ms)相当で据え置き
-        aecm->sum += kFixedMsInSndCardBuf;
-        aecm->counter++;
+        am.sum += kFixedMsInSndCardBuf;
+        am.counter++;
       } else {
-        aecm->counter = 0;
+        am.counter = 0;
       }
 
-      if (aecm->counter >= 6) {
+      if (am.counter >= 6) {
         // The farend buffer size is determined in blocks of FRAME_LEN samples
         // Use 75% of the average value of the soundcard buffer
         // 16k: 1msあたり16サンプル, FRAME_LEN=64 -> 0.75 * 平均ms * 16 / 64
-        aecm->bufSizeStart = MIN(
-            (3 * aecm->sum) / (aecm->counter * 16),
+        am.bufSizeStart = MIN(
+            (3 * am.sum) / (am.counter * 16),
             BUF_SIZE_FRAMES);
         // buffersize has now been determined
-        aecm->checkBuffSize = 0;
+        am.checkBuffSize = 0;
       }
 
-      if (aecm->checkBufSizeCtr > 50) {
+      if (am.checkBufSizeCtr > 50) {
         // for really bad sound cards, don't disable echocanceller for more than
         // 0.5 sec
-        aecm->bufSizeStart = MIN(
+        am.bufSizeStart = MIN(
             (3 * kFixedMsInSndCardBuf) / 16,
             BUF_SIZE_FRAMES);
-        aecm->checkBuffSize = 0;
+        am.checkBuffSize = 0;
       }
     }
 
     // if checkBuffSize changed in the if-statement above
-    if (!aecm->checkBuffSize) {
+    if (!am.checkBuffSize) {
       // soundcard buffer is now reasonably stable
       // When the far end buffer is filled with approximately the same amount of
       // data as the amount on the sound card we end the start up phase and
       // start to cancel echoes.
 
-      if (nmbrOfFilledBuffers == aecm->bufSizeStart) {
-        aecm->ECstartup = 0;  // Enable the AECM
-      } else if (nmbrOfFilledBuffers > aecm->bufSizeStart) {
-        MoveReadPtr(&aecm->farendBuf,
-                           (int)available_read(&aecm->farendBuf) -
-                               (int)aecm->bufSizeStart * FRAME_LEN);
-        aecm->ECstartup = 0;
+      if (nmbrOfFilledBuffers == am.bufSizeStart) {
+        am.ECstartup = 0;  // Enable the AECM
+      } else if (nmbrOfFilledBuffers > am.bufSizeStart) {
+        MoveReadPtr(&am.farendBuf,
+                           (int)available_read(&am.farendBuf) -
+                               (int)am.bufSizeStart * FRAME_LEN);
+        am.ECstartup = 0;
       }
     }
 
@@ -255,32 +251,32 @@ int32_t Aecm_Process(const int16_t* nearend,
       const int16_t* farend_ptr = NULL;
 
       short nmbrOfFilledBuffers =
-          (short)available_read(&aecm->farendBuf) / FRAME_LEN;
+          (short)available_read(&am.farendBuf) / FRAME_LEN;
 
       // Check that there is data in the far end buffer
       if (nmbrOfFilledBuffers > 0) {
         // Get the next FRAME_LEN samples from the farend buffer
-        ReadBuffer(&aecm->farendBuf, (void**)&farend_ptr, farend,
+        ReadBuffer(&am.farendBuf, (void**)&farend_ptr, farend,
                           FRAME_LEN);
 
         // Always store the last frame for use when we run out of data
-        memcpy(aecm->farendOld, farend_ptr, FRAME_LEN * sizeof(short));
+        memcpy(am.farendOld, farend_ptr, FRAME_LEN * sizeof(short));
       } else {
         // We have no data so we use the last played frame
-        memcpy(farend, aecm->farendOld, FRAME_LEN * sizeof(short));
+        memcpy(farend, am.farendOld, FRAME_LEN * sizeof(short));
         farend_ptr = farend;
       }
 
       // フレーム終端で1回だけ遅延推定
       if (i == nFrames - 1) {
-        Aecm_EstBufDelay(aecm);
+        Aecm_EstBufDelay();
       }
 
       // Call the AECM
-      /*Aecm_ProcessFrame(&aecm->aecmCore, farend, &nearend[FRAME_LEN * i],
-       &out[FRAME_LEN * i], aecm->knownDelay);*/
+      /*Aecm_ProcessFrame(farend, &nearend[FRAME_LEN * i],
+       &out[FRAME_LEN * i]);*/
       if (Aecm_ProcessFrame(
-              &aecm->aecmCore, farend_ptr, &nearend[FRAME_LEN * i],
+              farend_ptr, &nearend[FRAME_LEN * i],
               &out[FRAME_LEN * i]) == -1)
         return -1;
     }
@@ -292,61 +288,60 @@ int32_t Aecm_Process(const int16_t* nearend,
 }
 
 int32_t Aecm_set_config(AecmConfig config) {
-  AecMobile* aecm = &g_aecm;
 
-  if (aecm->initFlag != kInitCheck) {
+  if (am.initFlag != kInitCheck) {
     return AECM_UNINITIALIZED_ERROR;
   }
 
   if (config.echoMode < 0 || config.echoMode > 4) {
     return AECM_BAD_PARAMETER_ERROR;
   }
-  aecm->echoMode = config.echoMode;
+  am.echoMode = config.echoMode;
 
-  if (aecm->echoMode == 0) {
-    aecm->aecmCore.supGain = SUPGAIN_DEFAULT >> 3;
-    aecm->aecmCore.supGainOld = SUPGAIN_DEFAULT >> 3;
-    aecm->aecmCore.supGainErrParamA = SUPGAIN_ERROR_PARAM_A >> 3;
-    aecm->aecmCore.supGainErrParamD = SUPGAIN_ERROR_PARAM_D >> 3;
-    aecm->aecmCore.supGainErrParamDiffAB =
+  if (am.echoMode == 0) {
+    g_aecm.supGain = SUPGAIN_DEFAULT >> 3;
+    g_aecm.supGainOld = SUPGAIN_DEFAULT >> 3;
+    g_aecm.supGainErrParamA = SUPGAIN_ERROR_PARAM_A >> 3;
+    g_aecm.supGainErrParamD = SUPGAIN_ERROR_PARAM_D >> 3;
+    g_aecm.supGainErrParamDiffAB =
         (SUPGAIN_ERROR_PARAM_A >> 3) - (SUPGAIN_ERROR_PARAM_B >> 3);
-    aecm->aecmCore.supGainErrParamDiffBD =
+    g_aecm.supGainErrParamDiffBD =
         (SUPGAIN_ERROR_PARAM_B >> 3) - (SUPGAIN_ERROR_PARAM_D >> 3);
-  } else if (aecm->echoMode == 1) {
-    aecm->aecmCore.supGain = SUPGAIN_DEFAULT >> 2;
-    aecm->aecmCore.supGainOld = SUPGAIN_DEFAULT >> 2;
-    aecm->aecmCore.supGainErrParamA = SUPGAIN_ERROR_PARAM_A >> 2;
-    aecm->aecmCore.supGainErrParamD = SUPGAIN_ERROR_PARAM_D >> 2;
-    aecm->aecmCore.supGainErrParamDiffAB =
+  } else if (am.echoMode == 1) {
+    g_aecm.supGain = SUPGAIN_DEFAULT >> 2;
+    g_aecm.supGainOld = SUPGAIN_DEFAULT >> 2;
+    g_aecm.supGainErrParamA = SUPGAIN_ERROR_PARAM_A >> 2;
+    g_aecm.supGainErrParamD = SUPGAIN_ERROR_PARAM_D >> 2;
+    g_aecm.supGainErrParamDiffAB =
         (SUPGAIN_ERROR_PARAM_A >> 2) - (SUPGAIN_ERROR_PARAM_B >> 2);
-    aecm->aecmCore.supGainErrParamDiffBD =
+    g_aecm.supGainErrParamDiffBD =
         (SUPGAIN_ERROR_PARAM_B >> 2) - (SUPGAIN_ERROR_PARAM_D >> 2);
-  } else if (aecm->echoMode == 2) {
-    aecm->aecmCore.supGain = SUPGAIN_DEFAULT >> 1;
-    aecm->aecmCore.supGainOld = SUPGAIN_DEFAULT >> 1;
-    aecm->aecmCore.supGainErrParamA = SUPGAIN_ERROR_PARAM_A >> 1;
-    aecm->aecmCore.supGainErrParamD = SUPGAIN_ERROR_PARAM_D >> 1;
-    aecm->aecmCore.supGainErrParamDiffAB =
+  } else if (am.echoMode == 2) {
+    g_aecm.supGain = SUPGAIN_DEFAULT >> 1;
+    g_aecm.supGainOld = SUPGAIN_DEFAULT >> 1;
+    g_aecm.supGainErrParamA = SUPGAIN_ERROR_PARAM_A >> 1;
+    g_aecm.supGainErrParamD = SUPGAIN_ERROR_PARAM_D >> 1;
+    g_aecm.supGainErrParamDiffAB =
         (SUPGAIN_ERROR_PARAM_A >> 1) - (SUPGAIN_ERROR_PARAM_B >> 1);
-    aecm->aecmCore.supGainErrParamDiffBD =
+    g_aecm.supGainErrParamDiffBD =
         (SUPGAIN_ERROR_PARAM_B >> 1) - (SUPGAIN_ERROR_PARAM_D >> 1);
-  } else if (aecm->echoMode == 3) {
-    aecm->aecmCore.supGain = SUPGAIN_DEFAULT;
-    aecm->aecmCore.supGainOld = SUPGAIN_DEFAULT;
-    aecm->aecmCore.supGainErrParamA = SUPGAIN_ERROR_PARAM_A;
-    aecm->aecmCore.supGainErrParamD = SUPGAIN_ERROR_PARAM_D;
-    aecm->aecmCore.supGainErrParamDiffAB =
+  } else if (am.echoMode == 3) {
+    g_aecm.supGain = SUPGAIN_DEFAULT;
+    g_aecm.supGainOld = SUPGAIN_DEFAULT;
+    g_aecm.supGainErrParamA = SUPGAIN_ERROR_PARAM_A;
+    g_aecm.supGainErrParamD = SUPGAIN_ERROR_PARAM_D;
+    g_aecm.supGainErrParamDiffAB =
         SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
-    aecm->aecmCore.supGainErrParamDiffBD =
+    g_aecm.supGainErrParamDiffBD =
         SUPGAIN_ERROR_PARAM_B - SUPGAIN_ERROR_PARAM_D;
-  } else if (aecm->echoMode == 4) {
-    aecm->aecmCore.supGain = SUPGAIN_DEFAULT << 1;
-    aecm->aecmCore.supGainOld = SUPGAIN_DEFAULT << 1;
-    aecm->aecmCore.supGainErrParamA = SUPGAIN_ERROR_PARAM_A << 1;
-    aecm->aecmCore.supGainErrParamD = SUPGAIN_ERROR_PARAM_D << 1;
-    aecm->aecmCore.supGainErrParamDiffAB =
+  } else if (am.echoMode == 4) {
+    g_aecm.supGain = SUPGAIN_DEFAULT << 1;
+    g_aecm.supGainOld = SUPGAIN_DEFAULT << 1;
+    g_aecm.supGainErrParamA = SUPGAIN_ERROR_PARAM_A << 1;
+    g_aecm.supGainErrParamD = SUPGAIN_ERROR_PARAM_D << 1;
+    g_aecm.supGainErrParamDiffAB =
         (SUPGAIN_ERROR_PARAM_A << 1) - (SUPGAIN_ERROR_PARAM_B << 1);
-    aecm->aecmCore.supGainErrParamDiffBD =
+    g_aecm.supGainErrParamDiffBD =
         (SUPGAIN_ERROR_PARAM_B << 1) - (SUPGAIN_ERROR_PARAM_D << 1);
   }
 
@@ -355,45 +350,45 @@ int32_t Aecm_set_config(AecmConfig config) {
 
 
 
-static int Aecm_EstBufDelay(AecMobile* aecm) {
-  short nSampFar = (short)available_read(&aecm->farendBuf);
+static int Aecm_EstBufDelay() {
+  short nSampFar = (short)available_read(&am.farendBuf);
   short nSampSndCard = kFixedMsInSndCardBuf * kSamplesPerMs16k;
   short delayNew = nSampSndCard - nSampFar;
 
   if (delayNew < FRAME_LEN) {
-    MoveReadPtr(&aecm->farendBuf, FRAME_LEN);
+    MoveReadPtr(&am.farendBuf, FRAME_LEN);
     delayNew += FRAME_LEN;
   }
 
-  aecm->filtDelay =
-      MAX(0, (8 * aecm->filtDelay + 2 * delayNew) / 10);
+  am.filtDelay =
+      MAX(0, (8 * am.filtDelay + 2 * delayNew) / 10);
 
-  short diff = aecm->filtDelay - aecm->knownDelay;
+  short diff = am.filtDelay - am.knownDelay;
   if (diff > 224) {
-    if (aecm->lastDelayDiff < 96) {
-      aecm->timeForDelayChange = 0;
+    if (am.lastDelayDiff < 96) {
+      am.timeForDelayChange = 0;
     } else {
-      aecm->timeForDelayChange++;
+      am.timeForDelayChange++;
     }
-  } else if (diff < 96 && aecm->knownDelay > 0) {
-    if (aecm->lastDelayDiff > 224) {
-      aecm->timeForDelayChange = 0;
+  } else if (diff < 96 && am.knownDelay > 0) {
+    if (am.lastDelayDiff > 224) {
+      am.timeForDelayChange = 0;
     } else {
-      aecm->timeForDelayChange++;
+      am.timeForDelayChange++;
     }
   } else {
-    aecm->timeForDelayChange = 0;
+    am.timeForDelayChange = 0;
   }
-  aecm->lastDelayDiff = diff;
+  am.lastDelayDiff = diff;
 
-  if (aecm->timeForDelayChange > 25) {
-    aecm->knownDelay = MAX((int)aecm->filtDelay - (2 * FRAME_LEN), 0);
+  if (am.timeForDelayChange > 25) {
+    am.knownDelay = MAX((int)am.filtDelay - (2 * FRAME_LEN), 0);
   }
   return 0;
 }
 
-static int Aecm_DelayComp(AecMobile* aecm) {
-  int nSampFar = (int)available_read(&aecm->farendBuf);
+static int Aecm_DelayComp() {
+  int nSampFar = (int)available_read(&am.farendBuf);
   const int maxStuffSamp = 10 * FRAME_LEN;
 
   int nSampSndCard = kFixedMsInSndCardBuf * kSamplesPerMs16k;
@@ -406,8 +401,8 @@ static int Aecm_DelayComp(AecMobile* aecm) {
         (int)(MAX(((nSampSndCard >> 1) - nSampFar), FRAME_LEN));
     nSampAdd = MIN(nSampAdd, maxStuffSamp);
 
-    MoveReadPtr(&aecm->farendBuf, -nSampAdd);
-    aecm->delayChange = 1;  // the delay needs to be updated
+    MoveReadPtr(&am.farendBuf, -nSampAdd);
+    am.delayChange = 1;  // the delay needs to be updated
   }
 
   return 0;
