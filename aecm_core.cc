@@ -416,14 +416,9 @@ void CalcEnergies(const uint16_t* X_mag,
   }
 }
 
-// チャネル推定で用いるステップサイズを計算する。
-//
-//
-// @param  aecm  [in]    Handle of the AECM instance.
-// @param  mu    [out]   (Return value) Stepsize in log2(), i.e. number of
-// 
-//
-//
+// g_aecm の状態を基に NLMS のステップサイズ μ を決定する。
+// 戻り値は log2 系（2^-μ）のシフト量として扱い、遠端エネルギーや
+// スタートアップ状態に応じて自動調整される。
 int16_t CalcStepSize() {
   int32_t tmp32;
   int16_t tmp16;
@@ -453,18 +448,10 @@ int16_t CalcStepSize() {
   return mu;
 }
 
-// チャネル推定（NLMS）とチャネル保存判定を行う。
-// 
-//
-//
-// @param  aecm         [i/o]   Handle of the AECM instance.
-// @param  X_mag        [in]    Absolute value of the farend signal（Q0）
-// @param  x_q          [in]    Q-domain of the farend signal（常に0）
-// @param  Y_mag        [in]    Absolute value of the nearend signal
-//                              (Q[aecm->dfaNoisyQDomain] = Q0)
-// @param  mu           [in]    NLMS step size.
-// @param  S_mag        [i/o]   Estimated echo in Q(RESOLUTION_CHANNEL16)。
-//
+// NLMS によるチャネル推定と保存判定。
+// X_mag: 遠端振幅スペクトル(Q0)、x_q: 遠端信号のQ(常に0)、
+// Y_mag: 近端振幅スペクトル(Q0)、mu: CalcStepSize のシフト量、
+// S_mag: 推定エコー（Q=RESOLUTION_CHANNEL16）。
 void UpdateChannel(const uint16_t* X_mag,
                               const int16_t x_q,
                               const uint16_t* const Y_mag,

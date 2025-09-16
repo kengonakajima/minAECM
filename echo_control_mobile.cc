@@ -11,13 +11,13 @@
  
  
 
-#define BUF_SIZE_FRAMES 50  // buffer size (frames)
-// Maximum length of resampled signal. Must be an integer multiple of frames
-// (ceil(1/(1 + MIN_SKEW)*2) + 1)*FRAME_LEN
-// The factor of 2 handles wb, and the + 1 is as a safety margin
+#define BUF_SIZE_FRAMES 50  // バッファ長（フレーム数単位）
+// 再サンプル後信号の最大長（フレーム整合のため整数倍とする）。
+// 16kHz 固定のため (ceil(1/(1 + MIN_SKEW)*2) + 1)*FRAME_LEN に相当。
+// 係数2は広帯域対応、+1は安全マージン。
 
 static const size_t kBufSizeSamp =
-    BUF_SIZE_FRAMES * FRAME_LEN;  // buffer size (samples)
+    BUF_SIZE_FRAMES * FRAME_LEN;  // バッファ長（サンプル数単位）
 // 16kHz固定のため、1msあたり16サンプル
 static const int kSamplesPerMs16k = 16;
 // 本実装では、デバイス入出力の往復遅延を 50ms とし、
@@ -38,17 +38,17 @@ typedef struct {
   short bufSizeStart;
   int knownDelay;
 
-  // Stores the last frame added to the farend buffer
+  // 最終投入された遠端フレームを保持
   short farendOld[FRAME_LEN];
-  short initFlag;  // indicates if AEC has been initialized
+  short initFlag;  // AECM が初期化済みかどうか
 
-  // Variables used for delay shifts
+  // 遅延調整に用いる変数
   short filtDelay;
   int timeForDelayChange;
   int ECstartup;
   short lastDelayDiff;
 
-  // Structures
+  // バッファ構造体
   RingBuffer farendBuf;
   int16_t farendBufData[kBufSizeSamp];
 
@@ -56,8 +56,7 @@ typedef struct {
 
  
 
-// Estimates delay to set the position of the farend buffer read pointer
-// (controlled by knownDelay)
+// 遠端バッファの既知遅延に基づく読み出し位置を推定
 static int EstimateBufDelay();
 
 // 単一インスタンス実体（アプリ側ラッパの状態）
@@ -71,15 +70,15 @@ int32_t Init() {
   InitBufferWith(&am.farendBuf, am.farendBufData,
                  kBufSizeSamp, sizeof(int16_t));
 
-  // Initialize AECM core
+  // AECM コアを初期化
   if (InitCore() == -1) {
     return AECM_UNSPECIFIED_ERROR;
   }
 
-  // Initialize farend buffer
+  // 遠端バッファを初期化
   InitBuffer(&am.farendBuf);
 
-  am.initFlag = kInitCheck;  // indicates that initialization has been done
+  am.initFlag = kInitCheck;  // 初期化済みであることを示す
   am.bufSizeStart = kStartupFrames;
   am.ECstartup = 1;
   am.filtDelay = 0;
@@ -89,7 +88,7 @@ int32_t Init() {
 
   memset(&am.farendOld, 0, sizeof(am.farendOld));
 
-  // Default settings
+  // 既定設定
   aecConfig.echoMode = 3;
 
   if (SetConfig(aecConfig) == -1) {
@@ -99,8 +98,7 @@ int32_t Init() {
   return 0;
 }
 
-// Returns any error that is caused when buffering the
-// farend signal.
+// 遠端信号をバッファリングする際のエラーコードを返す。
 int32_t BufferFarend(const int16_t* farend) {
   // 最小構成: 簡易チェックのみ
   if (farend == NULL) return AECM_NULL_POINTER_ERROR;
@@ -130,9 +128,8 @@ int32_t Process(const int16_t* nearend,
   // 16kHz固定。I/Oブロック=FRAME_LEN（FRAME_LEN=PART_LEN=64 -> 64サンプル）
   const size_t nrOfSamples = FRAME_LEN;
 
-  // サウンドカードバッファ遅延は固定
-
-  const size_t nFrames = nrOfSamples / FRAME_LEN; // 64/64=1（16kHz固定）
+  // サウンドカード遅延は固定値
+  const size_t nFrames = nrOfSamples / FRAME_LEN;  // 64/64=1（16kHz固定）
 
   if (am.ECstartup) {
     if (out != nearend) {
@@ -151,7 +148,7 @@ int32_t Process(const int16_t* nearend,
     }
 
   } else {
-    // AECM is enabled
+    // AECM 有効時の処理
 
     // 1フレーム=1ブロック（FRAME_LEN=64）
     for (size_t i = 0; i < nFrames; i++) {
@@ -161,16 +158,16 @@ int32_t Process(const int16_t* nearend,
       short nmbrOfFilledBuffers =
           (short)available_read(&am.farendBuf) / FRAME_LEN;
 
-      // Check that there is data in the far end buffer
+      // 遠端バッファにデータがあるか確認
       if (nmbrOfFilledBuffers > 0) {
-        // Get the next FRAME_LEN samples from the farend buffer
+        // 次の FRAME_LEN 分を遠端バッファから取得
         ReadBuffer(&am.farendBuf, (void**)&farend_ptr, farend,
                           FRAME_LEN);
 
-        // Always store the last frame for use when we run out of data
+        // データ枯渇時に備え直近フレームを保存
         memcpy(am.farendOld, farend_ptr, FRAME_LEN * sizeof(short));
       } else {
-        // We have no data so we use the last played frame
+        // データが無ければ最後のフレームを再利用
         memcpy(farend, am.farendOld, FRAME_LEN * sizeof(short));
         farend_ptr = farend;
       }
@@ -180,7 +177,7 @@ int32_t Process(const int16_t* nearend,
         EstimateBufDelay();
       }
 
-      // Call the AECM
+      // AECM 本体を呼び出す
       /*ProcessFrame(farend, &nearend[FRAME_LEN * i],
        &out[FRAME_LEN * i]);*/
       if (ProcessFrame(

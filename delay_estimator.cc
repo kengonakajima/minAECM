@@ -14,9 +14,9 @@
 static const int kShiftsAtZero = 13;  // 2値スペクトルが 0 のときの右シフト量。
 static const int kShiftsLinearSlope = 3;
 
-static const int32_t kProbabilityOffset = 1024;      // 2 in Q9.
-static const int32_t kProbabilityLowerLimit = 8704;  // 17 in Q9.
-static const int32_t kProbabilityMinSpread = 2816;   // 5.5 in Q9.
+static const int32_t kProbabilityOffset = 1024;      // Q9 で 2.
+static const int32_t kProbabilityLowerLimit = 8704;  // Q9 で 17.
+static const int32_t kProbabilityMinSpread = 2816;   // Q9 で 5.5.
 
 // ロバスト検証関連の定数
 static const float kHistogramMax = 3000.f;
@@ -77,12 +77,9 @@ static void BitCountComparison(uint32_t binary_vector,
 // 詳細はコメント内コード参照。
 //
 // 入力:
-//  - candidate_delay   : The delay to validate.
-//  - valley_depth_q14  : The cost function has a valley/minimum at the
-//                        `candidate_delay` location.  `valley_depth_q14` is the
-//                        cost function difference between the minimum and
-//                        maximum locations.  The value is in the Q14 domain.
-//  - valley_level_q14  : Is the cost function value at the minimum, in Q14.
+//  - candidate_delay   : 検証対象の遅延。
+//  - valley_depth_q14  : コスト関数の谷の深さ (Q14)。候補と最悪値の差。
+//  - valley_level_q14  : コスト関数の最小値 (Q14)。
 static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
                                              int candidate_delay,
                                              int32_t valley_depth_q14,
@@ -102,7 +99,7 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
   self->candidate_hits++;
 
   // `histogram` はビンごとに異なる更新を行う。
-  // 1. The `candidate_delay` histogram bin is increased with the
+  // 1. `candidate_delay` のヒストグラムビンは信頼度 (valley_depth) に応じて増加させる。
   //    `valley_depth`, which is a simple measure of how reliable the
   //    `candidate_delay` is.  The histogram is not increased above
   //    `kHistogramMax`.
@@ -124,7 +121,7 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
         (self->mean_bit_counts[self->compare_delay] - valley_level_q14) *
         kQ14Scaling;
   }
-  // 4. All other bins are decreased with `valley_depth`.
+  // 4. その他のビンは valley_depth で減少させる。
   for (int i = 0; i < MAX_DELAY; ++i) {
     int is_in_last_set = (i >= self->last_delay - 2) &&
                          (i <= self->last_delay + 1) && (i != candidate_delay);
@@ -133,7 +130,7 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
     self->histogram[i] -=
         decrease_in_last_set * is_in_last_set +
         valley_depth * (!is_in_last_set && !is_in_candidate_set);
-    // 5. No histogram bin can go below 0.
+    // 5. ビンは 0 未満にならないよう制限。
     if (self->histogram[i] < 0) {
       self->histogram[i] = 0;
     }
@@ -149,19 +146,15 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
 //     non-causal state, breaking a possible echo control algorithm.  Hence, we
 //     open up for a quicker change by allowing the change even if the
 //     `candidate_delay` is not the most likely one according to the histogram.
-//  2. There's a minimum number of hits (kMinRequiredHits) and the histogram
-//     value has to reached a minimum (kMinHistogramThreshold) to be valid.
-//  3. The action is also depending on the filter length used for echo control.
-//     If the delay difference is larger than what the filter can capture, we
-//     also move quicker towards a change.
+//  2. ヒット数が kMinRequiredHits 以上で、ヒストグラムが最小値を超えている。
+//  3. フィルタ長を超える遅延差の場合は遷移を早める。
 // 詳細はコメント内コード参照。
 //
 // 入力:
-//  - candidate_delay     : The delay to validate.
+//  - candidate_delay     : 検証対象の遅延。
 //
 // 戻り値:
-//  - is_histogram_valid  : 1 - The `candidate_delay` is valid.
-//                          0 - Otherwise.
+//  - is_histogram_valid  : 1 なら候補が有効、0 なら無効。
 static int HistogramBasedValidation(const BinaryDelayEstimator* self,
                                     int candidate_delay) {
   float fraction = 1.f;
@@ -169,22 +162,14 @@ static int HistogramBasedValidation(const BinaryDelayEstimator* self,
   const int delay_difference = candidate_delay - self->last_delay;
   int is_histogram_valid = 0;
 
-  // ヒストグラム検証は、候補ビンと `last_delay` 近傍の閾値を比較して行う。
-  // 
-  // 閾値は `last_delay` ビンの値に `fraction` を掛けたもの。
-  // `last_delay`.  The `fraction` is a piecewise linear function of the
-  // `delay_difference` between the `candidate_delay` and the `last_delay`
-  // フィルタ長の制約や因果性維持のために移行を早める条件がある。
-  //  i) a potential echo control filter can not handle these large differences.
-  // 
-  //     force an echo control into a non-causal state.
-  // さらにヒストグラムが最小閾値を超え、候補ヒット数が十分である必要がある。
-  // `kMinHistogramThreshold`.  In addition, we also require the number of
-  // `candidate_hits` to be more than `kMinRequiredHits` to remove spurious
-  // 
+  // ヒストグラム判定では last_delay の値に係数 fraction を掛けた閾値と
+  // 候補ビンを比較する。fraction は候補との差 (delay_difference) に応じて線形に変化し、
+  // 因果性維持やフィルタ長の制約を加味して遷移を早める場合がある。
+  // さらにヒット数が十分（kMinRequiredHits 以上）かつヒストグラムが最小閾値
+  // (`kMinHistogramThreshold`) を超える必要がある。
 
-  // 候補との差に応じた比較値 `histogram_threshold` を計算。
-  // 
+  // 候補との差に応じた比較値 histogram_threshold を計算。
+
   if (delay_difference > self->allowed_offset) {
     fraction = 1.f - kFractionSlope * (delay_difference - self->allowed_offset);
     fraction = (fraction > kMinFractionWhenPossiblyCausal
@@ -211,19 +196,15 @@ static int HistogramBasedValidation(const BinaryDelayEstimator* self,
 // ヒストグラム検証結果とロバスト統計を組み合わせる。
 // `is_instantaneous_valid` and the `is_histogram_valid` and combines them
 // 呼び出し前に HistogramBasedValidation() を実行しておく必要がある。
-// 
-// 具体的な組み合わせ方法はコード内コメントを参照。
+// 組み合わせ手順は下記コメントを参照。
 //
 // 入力:
-//  - candidate_delay         : The delay to validate.
-//  - is_instantaneous_valid  : The instantaneous validation performed in
-//                              ProcessBinarySpectrum().
-//  - is_histogram_valid      : The histogram based validation.
+//  - candidate_delay         : 検証対象の遅延。
+//  - is_instantaneous_valid  : ProcessBinarySpectrum() での即時判定。
+//  - is_histogram_valid      : ヒストグラムによる判定。
 //
 // 戻り値:
-//  - is_robust               : 1 - The candidate_delay is valid according to a
-//                                  combination of the two inputs.
-//                            : 0 - Otherwise.
+//  - is_robust               : 1 なら候補が信頼できる。0 ならそれ以外。
 static int RobustValidation(const BinaryDelayEstimator* self,
                             int candidate_delay,
                             int is_instantaneous_valid,
@@ -374,7 +355,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
   self->last_delay_probability++;
   // `candidate_delay` を検証し、信頼できる即時遅延が得られたか判断する。
   // 
-  //  1) The valley is distinct enough (`valley_depth` > `kProbabilityOffset`)
+  //  1) 谷が十分深いか (`valley_depth` > `kProbabilityOffset`)
   // 
   //  2) The depth of the valley is deep enough
   //      (`value_best_candidate` < `minimum_probability`)
