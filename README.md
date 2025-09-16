@@ -1,5 +1,13 @@
 # minAECM
 
+## LICENSE
+
+このレポジトリのコードは、WebRTCのソースに含まれるaecmモジュールのソースコードを、
+説明のために改変したものです。
+説明のために、文字数を減らすために、ライセンスのコメントを削減しています。
+
+もとのソースコードの各ファイルの冒頭部分には、以下の著作権表記が添付されています。
+
 
 /*
  *  Copyright (c) 2012 The WebRTC project authors. All Rights Reserved.

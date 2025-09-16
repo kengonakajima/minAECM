@@ -1,13 +1,3 @@
-/*
- *  Copyright (c) 2011 The WebRTC project authors. All Rights Reserved.
- *
- *  Use of this source code is governed by a BSD-style license
- *  that can be found in the LICENSE file in the root of the source
- *  tree. An additional intellectual property rights grant can be found
- *  in the file PATENTS.  All contributing project authors may
- *  be found in the AUTHORS file in the root of the source tree.
- */
-
 // This header file includes the inline functions in
 // the fix point signal processing library.
 
@@ -129,4 +119,3 @@ static __inline int16_t NormW16(int16_t a) {
 static __inline int32_t MulAccumW16(int16_t a, int16_t b, int32_t c) {
   return (a * b + c);
 }
-

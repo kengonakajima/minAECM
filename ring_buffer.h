@@ -1,13 +1,3 @@
-/*
- *  Copyright (c) 2011 The WebRTC project authors. All Rights Reserved.
- *
- *  Use of this source code is governed by a BSD-style license
- *  that can be found in the LICENSE file in the root of the source
- *  tree. An additional intellectual property rights grant can be found
- *  in the file PATENTS.  All contributing project authors may
- *  be found in the AUTHORS file in the root of the source tree.
- */
-
 // 任意データを保持するリングバッファ。スレッドセーフではありません。
 // 断りがない限り、関数は成功時 0・失敗時 -1 を返します。
 
