@@ -10,9 +10,6 @@
 
 // Header file including the delay estimator handle used for testing.
 
-#ifndef MODULES_AUDIO_PROCESSING_UTILITY_DELAY_ESTIMATOR_INTERNAL_H_
-#define MODULES_AUDIO_PROCESSING_UTILITY_DELAY_ESTIMATOR_INTERNAL_H_
-
 #include "delay_estimator.h"
 #include "aecm_defines.h"
 
@@ -47,5 +44,3 @@ typedef struct {
 } DelayEstimator;
 
  
-
-#endif  // MODULES_AUDIO_PROCESSING_UTILITY_DELAY_ESTIMATOR_INTERNAL_H_

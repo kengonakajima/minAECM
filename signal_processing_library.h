@@ -2,9 +2,6 @@
  * Minimal SPL header for minAECM (fixed-point utilities used by AECM).
  */
 
-#ifndef COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SIGNAL_PROCESSING_LIBRARY_H_
-#define COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SIGNAL_PROCESSING_LIBRARY_H_
-
 #include <stdint.h>
 #include <string.h>
 #include <limits.h>
@@ -52,5 +49,3 @@ int32_t DivW32W16(int32_t num, int16_t den);
 int ComplexFFT(int16_t vector[], int stages, int mode);
 int ComplexIFFT(int16_t vector[], int stages, int mode);
 void ComplexBitReverse(int16_t* __restrict complex_data, int stages);
-
-#endif  // COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SIGNAL_PROCESSING_LIBRARY_H_

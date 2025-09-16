@@ -8,9 +8,6 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef COMMON_AUDIO_SIGNAL_PROCESSING_COMPLEX_FFT_TABLES_H_
-#define COMMON_AUDIO_SIGNAL_PROCESSING_COMPLEX_FFT_TABLES_H_
-
 #include <stdint.h>
 
 static const int16_t kSinTable1024[] = {
@@ -128,5 +125,3 @@ static const int16_t kSinTable1024[] = {
     -5006,  -4807,  -4608,  -4409,  -4210,  -4011,  -3811,  -3611,  -3411,
     -3211,  -3011,  -2811,  -2610,  -2410,  -2209,  -2009,  -1808,  -1607,
     -1406,  -1206,  -1005,  -804,   -603,   -402,   -201};
-
-#endif  // COMMON_AUDIO_SIGNAL_PROCESSING_COMPLEX_FFT_TABLES_H_

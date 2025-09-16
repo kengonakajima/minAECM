@@ -8,9 +8,6 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef MODULES_AUDIO_PROCESSING_AECM_ECHO_CONTROL_MOBILE_H_
-#define MODULES_AUDIO_PROCESSING_AECM_ECHO_CONTROL_MOBILE_H_
-
 #include <stddef.h>
 #include <stdint.h>
 
@@ -52,7 +49,3 @@ int32_t Process(const int16_t* nearend,
 
 /* 動作モードの設定。0で成功。*/
 int32_t SetConfig(AecmConfig config);
-
- 
-
-#endif  // MODULES_AUDIO_PROCESSING_AECM_ECHO_CONTROL_MOBILE_H_

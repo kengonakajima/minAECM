@@ -11,11 +11,6 @@
 // This header file includes the inline functions in
 // the fix point signal processing library.
 
-#ifndef COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SPL_INL_H_
-#define COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SPL_INL_H_
-
-
-
 extern const int8_t kWebRtcSpl_CountLeadingZeros32_Table[64];
 
 // Don't call this directly except in tests!
@@ -135,5 +130,3 @@ static __inline int32_t MulAccumW16(int16_t a, int16_t b, int32_t c) {
   return (a * b + c);
 }
 
-
-#endif  // COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SPL_INL_H_

@@ -14,8 +14,6 @@
 
 #include "aecm_core.h"
 
-#include "ring_buffer.h"
-#include "real_fft.h"
 #include "echo_control_mobile.h"
 #include "delay_estimator_wrapper.h"
 

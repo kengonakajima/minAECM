@@ -17,8 +17,6 @@
 #include <string.h>
 
 #include "ring_buffer.h"
-#include "signal_processing_library.h"
-#include "aecm_defines.h"
 #include "aecm_core.h"
 
  

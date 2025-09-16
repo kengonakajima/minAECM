@@ -8,9 +8,6 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef COMMON_AUDIO_SIGNAL_PROCESSING_DOT_PRODUCT_WITH_SCALE_H_
-#define COMMON_AUDIO_SIGNAL_PROCESSING_DOT_PRODUCT_WITH_SCALE_H_
-
 #include <stdint.h>
 #include <string.h>
 
@@ -29,4 +26,3 @@ int32_t DotProductWithScale(const int16_t* vector1,
                                       const int16_t* vector2,
                                       size_t length,
                                       int scaling);
-#endif  // COMMON_AUDIO_SIGNAL_PROCESSING_DOT_PRODUCT_WITH_SCALE_H_

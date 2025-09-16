@@ -9,7 +9,6 @@
  */
 
 #include "delay_estimator.h"
-#include "aecm_defines.h"
 
 #include <stdlib.h>
 #include <string.h>

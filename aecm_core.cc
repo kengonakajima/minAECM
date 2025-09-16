@@ -14,7 +14,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "signal_processing_library.h"
 #include "echo_control_mobile.h"
 #include "delay_estimator_wrapper.h"
 

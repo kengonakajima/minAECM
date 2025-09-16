@@ -8,9 +8,6 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef MODULES_AUDIO_PROCESSING_AECM_AECM_DEFINES_H_
-#define MODULES_AUDIO_PROCESSING_AECM_AECM_DEFINES_H_
-
 /* AECM_DYNAMIC_Q を無効化（教育用に定数Qで簡略化） */
 /* #define AECM_DYNAMIC_Q */
 
@@ -79,5 +76,3 @@
 /* NLP defines */
 #define NLP_COMP_LOW 3277     /* 0.2 in Q14 */
 #define NLP_COMP_HIGH ONE_Q14 /* 1 in Q14 */
-
-#endif

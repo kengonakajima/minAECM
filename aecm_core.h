@@ -12,9 +12,6 @@
 // グローバル既定インスタンス `g_aecm` を内部参照し、
 // すべての API をポインタ無しで利用できる。
 
-#ifndef MODULES_AUDIO_PROCESSING_AECM_AECM_CORE_H_
-#define MODULES_AUDIO_PROCESSING_AECM_AECM_CORE_H_
-
 #include "signal_processing_library.h"
 #include "real_fft.h"
 #include "aecm_defines.h"
@@ -237,5 +234,3 @@ void UpdateChannel(const uint16_t* X_mag,
  
 
  
-
-#endif

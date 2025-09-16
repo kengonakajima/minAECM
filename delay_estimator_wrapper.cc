@@ -12,9 +12,7 @@
 
 #include <string.h>
 
-#include "delay_estimator.h"
 #include "delay_estimator_internal.h"
-#include "aecm_defines.h"
 
  
 

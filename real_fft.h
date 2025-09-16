@@ -8,9 +8,6 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-#ifndef COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_REAL_FFT_H_
-#define COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_REAL_FFT_H_
-
 #include <stdint.h>
 
 // For ComplexFFT(), the maximum fft order is 10;
@@ -82,5 +79,3 @@ int RealForwardFFT(struct RealFFT* self,
 int RealInverseFFT(struct RealFFT* self,
                              const int16_t* complex_data_in,
                              int16_t* real_data_out);
-
-#endif  // COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_REAL_FFT_H_
