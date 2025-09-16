@@ -39,15 +39,14 @@ static const ALIGN8_BEG int16_t kSqrtHanning[] ALIGN8_END = {
 
 static void WindowAndFFT(int16_t* fft,
                          const int16_t* time_signal,
-                         ComplexInt16* freq_signal,
-                         int time_signal_scaling) {
+                         ComplexInt16* freq_signal) {
   // FFT of signal
   for (int i = 0; i < PART_LEN; i++) {
     // Window time domain signal and insert into real part of
     // transformation array `fft`
-    int16_t scaled_time_signal = time_signal[i] * (1 << time_signal_scaling);
+    int16_t scaled_time_signal = time_signal[i];
     fft[i] = (int16_t)((scaled_time_signal * kSqrtHanning[i]) >> 14);
-    scaled_time_signal = time_signal[i + PART_LEN] * (1 << time_signal_scaling);
+    scaled_time_signal = time_signal[i + PART_LEN];
     fft[PART_LEN + i] = (int16_t)(
         (scaled_time_signal * kSqrtHanning[PART_LEN - i]) >> 14);
   }
@@ -116,17 +115,13 @@ static void InverseFFTAndWindow(int16_t* fft,
 //                              the frequency domain array
 // return value                 The Q-domain of current frequency values
 //
-static int TimeToFrequencyDomain(const int16_t* time_signal,
-                                 ComplexInt16* freq_signal,
-                                 uint16_t* freq_signal_abs,
-                                 uint32_t* freq_signal_sum_abs) {
-  int time_signal_scaling = 0;
-
+static void TimeToFrequencyDomain(const int16_t* time_signal,
+                                  ComplexInt16* freq_signal,
+                                  uint16_t* freq_signal_abs,
+                                  uint32_t* freq_signal_sum_abs) {
   int16_t fft[PART_LEN4];
 
-  // 動的Qは使わないため、固定スケーリング（0）。
-
-  WindowAndFFT(fft, time_signal, freq_signal, time_signal_scaling);
+  WindowAndFFT(fft, time_signal, freq_signal);
 
   // Extract imaginary and real part, calculate the magnitude for
   // all frequency bins
@@ -155,7 +150,6 @@ static int TimeToFrequencyDomain(const int16_t* time_signal,
     (*freq_signal_sum_abs) += (uint32_t)freq_signal_abs[i];
   }
 
-  return time_signal_scaling;
 }
 
  
@@ -188,12 +182,12 @@ int ProcessBlock(const int16_t* farend,
 
   // Transform far end signal from time domain to frequency domain.
   uint32_t xfaSum = 0;
-  int far_q = TimeToFrequencyDomain(g_aecm.xBuf, dfw, xfa, &xfaSum);
+  TimeToFrequencyDomain(g_aecm.xBuf, dfw, xfa, &xfaSum);
 
   // Transform noisy near end signal from time domain to frequency domain.
   uint32_t dfaNoisySum = 0;
-  int16_t zerosDBufNoisy =
-      TimeToFrequencyDomain(g_aecm.dBufNoisy, dfw, dfaNoisy, &dfaNoisySum);
+  TimeToFrequencyDomain(g_aecm.dBufNoisy, dfw, dfaNoisy, &dfaNoisySum);
+  int16_t zerosDBufNoisy = 0;
   g_aecm.dfaNoisyQDomainOld = g_aecm.dfaNoisyQDomain;
   g_aecm.dfaNoisyQDomain = (int16_t)zerosDBufNoisy;
 
@@ -205,7 +199,7 @@ int ProcessBlock(const int16_t* farend,
   // Save far-end history and estimate delay
   UpdateFarHistory(xfa);
   if (AddFarSpectrum(&g_aecm.delay_estimator_farend, xfa,
-                               far_q) == -1) {
+                               0) == -1) {
     return -1;
   }
   int delay = DelayEstimatorProcess(&g_aecm.delay_estimator, dfaNoisy,
