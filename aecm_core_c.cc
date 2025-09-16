@@ -156,12 +156,12 @@ static void TimeToFrequencyDomain(const int16_t* time_signal,
 int ProcessBlock(const int16_t* farend,
                             const int16_t* nearend,
                             int16_t* output) {
-  // 周波数領域バッファ
+  // 周波数領域バッファ（X(k), D(k) の複素成分）
   ComplexInt16 dfw[PART_LEN2];
-  // 近端/遠端スペクトルの絶対値
+  // |X(k)|, |D(k)| の絶対値スペクトル
   uint16_t xfa[PART_LEN1];
   uint16_t dfaNoisy[PART_LEN1];
-  // エコー推定（Qスケール固定）
+  // |Ŷ(k)|: 予測エコー振幅（チャネル通過後）
   int32_t echoEst32[PART_LEN1];
 
   // Determine startup state. There are three states:
@@ -231,12 +231,13 @@ int ProcessBlock(const int16_t* farend,
   int16_t supGain = CalcSuppressionGain();
 
   // Calculate Wiener filter H(k)
-  uint16_t* ptrDfaClean = dfaNoisy;  // |D_clean| proxy
+  uint16_t* ptrDfaClean = dfaNoisy;  // |D_clean(k)| proxy
   int16_t hnl[PART_LEN1];
   int16_t numPosCoef = 0;
   for (int i = 0; i < PART_LEN1; i++) {
     // Far end signal through channel estimate in Q8
     // How much can we shift right to preserve resolution
+    // Ŷ(k) の緩和更新（g_aecm.echoFilt ≒ 過去の |Ŷ(k)|）
     int32_t tmp32no1 = echoEst32[i] - g_aecm.echoFilt[i];
     g_aecm.echoFilt[i] += (int32_t)(((int64_t)tmp32no1 * 50) >> 8);  // ζ = 50/256 update (EMA)
 
@@ -246,7 +247,7 @@ int ProcessBlock(const int16_t* farend,
     int16_t resolutionDiff;
     if (zeros32 + zeros16 > 16) {
       // Multiplication is safe
-      // Result in Q(RESOLUTION_CHANNEL + RESOLUTION_SUPGAIN)
+      // Result in Q(RESOLUTION_CHANNEL + RESOLUTION_SUPGAIN) for |Ŷ(k)|·G(k)
       echoEst32Gained = UMUL_32_16((uint32_t)g_aecm.echoFilt[i], (uint16_t)supGain);
       resolutionDiff = 14 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
     } else {
@@ -289,7 +290,7 @@ int ProcessBlock(const int16_t* farend,
                                            : tmp16no2 >> qDomainDiff;
     }
 
-    // Wiener filter coefficients, resulting hnl in Q14 (H(k) = 1 - |Ŷ|/|D|)
+    // Wienerフィルタ係数 H(k) = 1 - |Ŷ(k)| / |D(k)| （結果は Q14）
     if (echoEst32Gained == 0) {
       hnl[i] = ONE_Q14;
     } else if (g_aecm.nearFilt[i] == 0) {
@@ -341,7 +342,7 @@ int ProcessBlock(const int16_t* farend,
   }
 
   // NLPゲイン計算と乗算を常時実行。
-  ComplexInt16 efw[PART_LEN2];  // Error spectrum E(k)
+  ComplexInt16 efw[PART_LEN2];  // エラー複素スペクトル E(k) = H(k)·D(k)
   for (int i = 0; i < PART_LEN1; i++) {
     // Truncate values close to zero and one.
     if (hnl[i] > NLP_COMP_HIGH) {
