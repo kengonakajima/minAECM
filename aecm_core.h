@@ -8,9 +8,9 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-// Performs echo control (suppression) with FFT routines in fixed-point.
-// グローバルのデフォルトインスタンス `g_aecm` を内部で参照し、
-// すべての API はポインタ無しで利用できます。
+// 固定小数点 FFT ルーチンによるエコー抑圧を実装。
+// グローバル既定インスタンス `g_aecm` を内部参照し、
+// すべての API をポインタ無しで利用できる。
 
 #ifndef MODULES_AUDIO_PROCESSING_AECM_AECM_CORE_H_
 #define MODULES_AUDIO_PROCESSING_AECM_AECM_CORE_H_
@@ -24,10 +24,10 @@ extern "C" {
 
  
 
-#ifdef MSC_VER  // visual c++
+#ifdef MSC_VER  // Visual C++
 #define ALIGN8_BEG __declspec(align(8))
 #define ALIGN8_END
-#else  // gcc or icc
+#else  // gcc または icc
 #define ALIGN8_BEG
 #define ALIGN8_END __attribute__((aligned(8)))
 #endif
@@ -42,7 +42,7 @@ typedef struct {
   int xBufReadPos;
   int knownDelay;
   int lastKnownDelay;
-  int firstVAD;  // Parameter to control poorly initialized channels
+  int firstVAD;  // 初期化が不十分なチャネルを制御するためのフラグ
 
   // フレーム/ブロック一致のため、中間フレーム用リングバッファは不要
 
@@ -75,8 +75,8 @@ typedef struct {
   int16_t hStored[PART_LEN1];
   int16_t hAdapt16[PART_LEN1];
   int32_t hAdapt32[PART_LEN1];
-  int16_t xBuf[PART_LEN2];       // farend x[n]
-  int16_t yBuf[PART_LEN2];       // nearend y[n]
+  int16_t xBuf[PART_LEN2];       // 遠端信号 x[n]
+  int16_t yBuf[PART_LEN2];       // 近端信号 y[n]
   int16_t eOverlapBuf[PART_LEN];
 
   int32_t sMagSmooth[PART_LEN1];
@@ -114,10 +114,10 @@ extern AecmCore g_aecm;
 
 ////////////////////////////////////////////////////////////////////////////////
 // デフォルトインスタンス g_aecm を初期化（再初期化可）。
-// Return value: 0 成功, -1 失敗
+// 戻り値: 0 なら成功、-1 なら失敗
 int InitCore();
 
-// Create/Freeは不要（単一インスタンス、固定長バッファ）。
+// Create/Free は不要（単一インスタンスかつ固定長バッファ運用）。
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -145,61 +145,61 @@ void BufferFarFrame(const int16_t* const x_frame);
 void FetchFarFrame(int16_t* const x_frame, int knownDelay);
 
 ////////////////////////////////////////////////////////////////////////////////
-// Moves the pointer to the next entry and inserts `x_spectrum` in its buffer
+// ポインタを次エントリへ進め、`x_spectrum` をバッファへ格納する
 // （内部Qは固定で0）。
 //
-// Inputs:
-//      - self          : Pointer to the delay estimation instance
-//      - x_spectrum    : Pointer to the far end spectrum
+// 入力:
+//      - self          : 遅延推定インスタンスへのポインタ
+//      - x_spectrum    : 遠端スペクトルへのポインタ
 //
-// Far スペクトル履歴（g_aecm）を更新（固定Q=0のため Q は保持しない）。
+// g_aecm の遠端スペクトル履歴を更新（Q=0 固定のため Q は保持しない）。
 void UpdateFarHistory(uint16_t* x_spectrum);
 
 ////////////////////////////////////////////////////////////////////////////////
-// Returns a pointer to the far end spectrum aligned to current near end
-// spectrum. The function DelayEstimatorProcess(...) should have been
-// called before AlignedFarX(...). Otherwise, you get the pointer to the
-// previous frame. The memory is only valid until the next call of
-// DelayEstimatorProcess(...).
+// 近端に整列した遠端スペクトルのポインタを返す。
+// 事前に DelayEstimatorProcess(...) を実行していることが前提。
+// そうでない場合は前フレームのポインタが返る。
+// メモリは次に DelayEstimatorProcess(...) を呼ぶまで有効。
+// 
 //
-// Inputs:
-//      - self              : Pointer to the AECM instance.
-//      - delay             : Current delay estimate.
+// 入力:
+//      - self              : AECM インスタンスへのポインタ
+//      - delay             : 現在の遅延推定値
 //
-// Return value:
-//      - x_spectrum        : Pointer to the aligned far end spectrum
-//                            NULL - Error
+// 戻り値:
+//      - x_spectrum        : 整列済み遠端スペクトルへのポインタ
+//                            NULL ならエラー
 //
 // 近端に整列済みの Far スペクトルを返す（g_aecm 内の履歴に基づく）。
 // 固定Q=0のため、Q出力は行わない。
 const uint16_t* AlignedFarX(int delay);
 
 ///////////////////////////////////////////////////////////////////////////////
-// This function calculates the suppression gain that is used in the
-// Wiener filter.
+// Wiener フィルタで使用する抑圧ゲインを計算する。
+// 
 //
-// Inputs:
-//      - aecm              : Pointer to the AECM instance.
+// 入力:
+//      - aecm              : AECM インスタンスへのポインタ
 //
-// Return value:
-//      - supGain           : Suppression gain with which to scale the noise
-//                            level (Q14).
+// 戻り値:
+//      - supGain           : 雑音レベルに掛ける抑圧ゲイン
+//                            （Q14）
 //
 // 抑圧ゲイン（NLP）を算出（g_aecm を参照）。
 int16_t CalcSuppressionGain();
 
 ///////////////////////////////////////////////////////////////////////////////
-// This function calculates the log of energies for nearend, farend and
-// estimated echoes. There is also an update of energy decision levels,
-// i.e. internal VAD.
+// 近端・遠端・推定エコーのエネルギーログを計算し、
+// 内部 VAD の閾値も更新する。
+// 
 //
-// Inputs:
-//      - aecm              : Pointer to the AECM instance.
-//      - X_mag             : Pointer to farend magnitude spectrum.
-//      - Y_energy          : Near end energy for current block（固定Q=0）。
+// 入力:
+//      - aecm              : AECM インスタンスへのポインタ
+//      - X_mag             : 遠端スペクトル振幅へのポインタ
+//      - Y_energy          : 現ブロックの近端エネルギー（Q=0）
 //
-// Output:
-//     - S_mag              : Estimated echo in Q(RESOLUTION_CHANNEL16)。
+// 出力:
+//     - S_mag              : 推定エコー（Q=RESOLUTION_CHANNEL16）
 //
 // 近端/遠端/推定エコーのエネルギーを計算し、VAD 閾値などを更新（g_aecm）。
 void CalcEnergies(const uint16_t* X_mag,
@@ -207,25 +207,25 @@ void CalcEnergies(const uint16_t* X_mag,
                        int32_t* S_mag);
 
 ///////////////////////////////////////////////////////////////////////////////
-// This function calculates the step size used in channel estimation
-// Inputs:
-//      - aecm              : Pointer to the AECM instance.
-// Return value:
-//      - mu                : Stepsize in log2(), i.e. number of shifts.
+// チャネル推定で使用するステップサイズを計算する。
+// 入力:
+//      - aecm              : AECM インスタンスへのポインタ
+// 戻り値:
+//      - mu                : log2 表現のステップサイズ（シフト量）
 // NLMS ステップサイズ（log2）を計算（g_aecm）。
 int16_t CalcStepSize();
 
 ///////////////////////////////////////////////////////////////////////////////
-// This function performs channel estimation.
-// NLMS and decision on channel storage.
-// Inputs:
-//      - aecm              : Pointer to the AECM instance.
-//      - X_mag             : Absolute value of the farend signal（Q0）
-//      - x_q               : Q-domain of the farend signal（常に0を指定）
-//      - Y_mag             : Absolute value of the nearend signal（固定Q=0）
-//      - mu                : NLMS step size.
-// Input/Output:
-//      - S_mag             : Estimated echo in Q(RESOLUTION_CHANNEL16)。
+// チャネル推定を実行する。
+// NLMS 更新とチャネル保存の判定を兼ねる。
+// 入力:
+//      - aecm              : AECM インスタンスへのポインタ
+//      - X_mag             : 遠端信号の絶対値スペクトル（Q0）
+//      - x_q               : 遠端信号の Q ドメイン（常に 0）
+//      - Y_mag             : 近端信号の絶対値スペクトル（Q0）
+//      - mu                : NLMS ステップサイズ
+// 入出力:
+//      - S_mag             : 推定エコー（Q=RESOLUTION_CHANNEL16）
 // チャネル推定（NLMS）を実行し、保存/復元の判定も行う（g_aecm）。
 void UpdateChannel(const uint16_t* X_mag,
                         int16_t x_q,

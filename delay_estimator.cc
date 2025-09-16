@@ -20,30 +20,30 @@
  
  
 
-// Number of right shifts for scaling is linearly depending on number of bits in
-// the far-end binary spectrum.
-static const int kShiftsAtZero = 13;  // Right shifts at zero binary spectrum.
+// スケーリングの右シフト回数は遠端2値スペクトルのビット数に線形依存する。
+// 
+static const int kShiftsAtZero = 13;  // 2値スペクトルが 0 のときの右シフト量。
 static const int kShiftsLinearSlope = 3;
 
 static const int32_t kProbabilityOffset = 1024;      // 2 in Q9.
 static const int32_t kProbabilityLowerLimit = 8704;  // 17 in Q9.
 static const int32_t kProbabilityMinSpread = 2816;   // 5.5 in Q9.
 
-// Robust validation settings
+// ロバスト検証関連の定数
 static const float kHistogramMax = 3000.f;
 static const float kLastHistogramMax = 250.f;
 static const float kMinHistogramThreshold = 1.5f;
 static const int kMinRequiredHits = 10;
 static const int kMaxHitsWhenPossiblyNonCausal = 10;
 static const int kMaxHitsWhenPossiblyCausal = 1000;
-static const float kQ14Scaling = 1.f / (1 << 14);  // Scaling by 2^14 to get Q0.
+static const float kQ14Scaling = 1.f / (1 << 14);  // 2^14 で割って Q0 に変換。
 static const float kFractionSlope = 0.05f;
 static const float kMinFractionWhenPossiblyCausal = 0.5f;
 static const float kMinFractionWhenPossiblyNonCausal = 0.25f;
 
  
 
-// Counts and returns number of bits of a 32-bit word.
+// 32bit ワードに含まれるビット数を数えて返す。
 static int BitCount(uint32_t u32) {
   uint32_t tmp =
       u32 - ((u32 >> 1) & 033333333333) - ((u32 >> 2) & 011111111111);
@@ -54,15 +54,15 @@ static int BitCount(uint32_t u32) {
   return ((int)tmp);
 }
 
-// Compares the `binary_vector` with all rows of the `binary_matrix` and counts
-// per row the number of times they have the same value.
+// `binary_vector` を `binary_matrix` の各行と比較し、
+// 行ごとに一致するビット数を数える。
 //
-// Inputs:
+// 入力:
 //      - binary_vector     : binary "vector" stored in a long
 //      - binary_matrix     : binary "matrix" stored as a vector of long
 //      - matrix_size       : size of binary "matrix"
 //
-// Output:
+// 出力:
 //      - bit_counts        : "Vector" stored as a long, containing for each
 //                            row the number of times the matrix row and the
 //                            input vector have the same value
@@ -71,23 +71,23 @@ static void BitCountComparison(uint32_t binary_vector,
                                const uint32_t* binary_matrix,
                                int matrix_size,
                                int32_t* bit_counts) {
-  // Compare `binary_vector` with all rows of the `binary_matrix`
+  // `binary_vector` を各行と比較
   for (int n = 0; n < matrix_size; n++) {
     bit_counts[n] = (int32_t)BitCount(binary_vector ^ binary_matrix[n]);
   }
 }
 
-// Collects necessary statistics for the HistogramBasedValidation().  This
-// function has to be called prior to calling HistogramBasedValidation().  The
-// statistics updated and used by the HistogramBasedValidation() are:
+// HistogramBasedValidation() に必要な統計量を更新する。
+// この関数は HistogramBasedValidation() より先に呼び出す必要がある。
+// 更新される統計量は以下の通り。
 //  1. the number of `candidate_hits`, which states for how long we have had the
 //     same `candidate_delay`
 //  2. the `histogram` of candidate delays over time.  This histogram is
 //     weighted with respect to a reliability measure and time-varying to cope
 //     with possible delay shifts.
-// For further description see commented code.
+// 詳細はコメント内コード参照。
 //
-// Inputs:
+// 入力:
 //  - candidate_delay   : The delay to validate.
 //  - valley_depth_q14  : The cost function has a valley/minimum at the
 //                        `candidate_delay` location.  `valley_depth_q14` is the
@@ -104,15 +104,15 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
                                            ? kMaxHitsWhenPossiblyNonCausal
                                            : kMaxHitsWhenPossiblyCausal;
 
-  // Expect same history sizes.
-  // Reset `candidate_hits` if we have a new candidate.
+  // 履歴サイズが同じであることを期待。
+  // 新しい候補が出た場合は `candidate_hits` をリセット。
   if (candidate_delay != self->last_candidate_delay) {
     self->candidate_hits = 0;
     self->last_candidate_delay = candidate_delay;
   }
   self->candidate_hits++;
 
-  // The `histogram` is updated differently across the bins.
+  // `histogram` はビンごとに異なる更新を行う。
   // 1. The `candidate_delay` histogram bin is increased with the
   //    `valley_depth`, which is a simple measure of how reliable the
   //    `candidate_delay` is.  The histogram is not increased above
@@ -151,11 +151,11 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
   }
 }
 
-// Validates the `candidate_delay`, estimated in ProcessBinarySpectrum(),
-// based on a mix of counting concurring hits with a modified histogram
-// of recent delay estimates.  In brief a candidate is valid (returns 1) if it
-// is the most likely according to the histogram.  There are a couple of
-// exceptions that are worth mentioning:
+// ProcessBinarySpectrum() で求めた `candidate_delay` を検証する。
+// 一致回数のカウントと修正ヒストグラムの組み合わせで評価する。
+// 簡単に言えば、ヒストグラム上もっとも尤度が高ければ候補を採用（1）。
+// 
+// 例外条件も存在する。
 //  1. If the `candidate_delay` < `last_delay` it can be that we are in a
 //     non-causal state, breaking a possible echo control algorithm.  Hence, we
 //     open up for a quicker change by allowing the change even if the
@@ -165,12 +165,12 @@ static void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
 //  3. The action is also depending on the filter length used for echo control.
 //     If the delay difference is larger than what the filter can capture, we
 //     also move quicker towards a change.
-// For further description see commented code.
+// 詳細はコメント内コード参照。
 //
-// Input:
+// 入力:
 //  - candidate_delay     : The delay to validate.
 //
-// Return value:
+// 戻り値:
 //  - is_histogram_valid  : 1 - The `candidate_delay` is valid.
 //                          0 - Otherwise.
 static int HistogramBasedValidation(const BinaryDelayEstimator* self,
@@ -180,22 +180,22 @@ static int HistogramBasedValidation(const BinaryDelayEstimator* self,
   const int delay_difference = candidate_delay - self->last_delay;
   int is_histogram_valid = 0;
 
-  // The histogram based validation of `candidate_delay` is done by comparing
-  // the `histogram` at bin `candidate_delay` with a `histogram_threshold`.
-  // This `histogram_threshold` equals a `fraction` of the `histogram` at bin
+  // ヒストグラム検証は、候補ビンと `last_delay` 近傍の閾値を比較して行う。
+  // 
+  // 閾値は `last_delay` ビンの値に `fraction` を掛けたもの。
   // `last_delay`.  The `fraction` is a piecewise linear function of the
   // `delay_difference` between the `candidate_delay` and the `last_delay`
-  // allowing for a quicker move if
+  // フィルタ長の制約や因果性維持のために移行を早める条件がある。
   //  i) a potential echo control filter can not handle these large differences.
-  // ii) keeping `last_delay` instead of updating to `candidate_delay` could
+  // 
   //     force an echo control into a non-causal state.
-  // We further require the histogram to have reached a minimum value of
+  // さらにヒストグラムが最小閾値を超え、候補ヒット数が十分である必要がある。
   // `kMinHistogramThreshold`.  In addition, we also require the number of
   // `candidate_hits` to be more than `kMinRequiredHits` to remove spurious
-  // values.
+  // 
 
-  // Calculate a comparison histogram value (`histogram_threshold`) that is
-  // depending on the distance between the `candidate_delay` and `last_delay`.
+  // 候補との差に応じた比較値 `histogram_threshold` を計算。
+  // 
   if (delay_difference > self->allowed_offset) {
     fraction = 1.f - kFractionSlope * (delay_difference - self->allowed_offset);
     fraction = (fraction > kMinFractionWhenPossiblyCausal
@@ -218,20 +218,20 @@ static int HistogramBasedValidation(const BinaryDelayEstimator* self,
   return is_histogram_valid;
 }
 
-// Performs a robust validation of the `candidate_delay` estimated in
-// ProcessBinarySpectrum().  The algorithm takes the
+// ProcessBinarySpectrum() で求めた `candidate_delay` をロバストに検証する。
+// ヒストグラム検証結果とロバスト統計を組み合わせる。
 // `is_instantaneous_valid` and the `is_histogram_valid` and combines them
-// into a robust validation.  The HistogramBasedValidation() has to be called
-// prior to this call.
-// For further description on how the combination is done, see commented code.
+// 呼び出し前に HistogramBasedValidation() を実行しておく必要がある。
+// 
+// 具体的な組み合わせ方法はコード内コメントを参照。
 //
-// Inputs:
+// 入力:
 //  - candidate_delay         : The delay to validate.
 //  - is_instantaneous_valid  : The instantaneous validation performed in
 //                              ProcessBinarySpectrum().
 //  - is_histogram_valid      : The histogram based validation.
 //
-// Return value:
+// 戻り値:
 //  - is_robust               : 1 - The candidate_delay is valid according to a
 //                                  combination of the two inputs.
 //                            : 0 - Otherwise.
@@ -241,7 +241,7 @@ static int RobustValidation(const BinaryDelayEstimator* self,
                             int is_histogram_valid) {
   int is_robust = 0;
 
-  // The final robust validation is based on the two algorithms; 1) the
+  // 最終判定は (1) ヒストグラム検証 と (2) ロバスト統計 の結果に基づく。
   // `is_instantaneous_valid` and 2) the histogram based with result stored in
   // `is_histogram_valid`.
   //   i) Before we actually have a valid estimate (`last_delay` == -2), we say
@@ -252,7 +252,7 @@ static int RobustValidation(const BinaryDelayEstimator* self,
   //  ii) Otherwise, we need both algorithms to be certain
   //      (`is_instantaneous_valid` AND `is_histogram_valid`)
   is_robust |= is_instantaneous_valid && is_histogram_valid;
-  // iii) With one exception, i.e., the histogram based algorithm can overrule
+  // ヒストグラム検証が優先される例外もある。
   //      the instantaneous one if `is_histogram_valid` = 1 and the histogram
   //      is significantly strong.
   is_robust |= is_histogram_valid &&
@@ -270,13 +270,13 @@ void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self) {
 
 void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* handle,
                                  uint32_t binary_far_spectrum) {
-  // Shift binary spectrum history and insert current `binary_far_spectrum`.
+  // バイナリスペクトル履歴をシフトし、現在の `binary_far_spectrum` を追加。
   memmove(&(handle->binary_far_history[1]), &(handle->binary_far_history[0]),
           (MAX_DELAY - 1) * sizeof(uint32_t));
   handle->binary_far_history[0] = binary_far_spectrum;
 
-  // Shift history of far-end binary spectrum bit counts and insert bit count
-  // of current `binary_far_spectrum`.
+  // 遠端バイナリスペクトルのビット数履歴をシフトし、現在のビット数を追加。
+  // 
   memmove(&(handle->far_bit_counts[1]), &(handle->far_bit_counts[0]),
           (MAX_DELAY - 1) * sizeof(int));
   handle->far_bit_counts[0] = BitCount(binary_far_spectrum);
@@ -291,7 +291,7 @@ void InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
   self->minimum_probability = kMaxBitCountsQ9;          // 32 in Q9.
   self->last_delay_probability = (int)kMaxBitCountsQ9;  // 32 in Q9.
 
-  // Default return value if we're unable to estimate. -1 is used for errors.
+  // 推定不能時の既定値。エラーには -1 を返す。
   self->last_delay = -2;
 
   self->last_candidate_delay = -2;
@@ -318,29 +318,29 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
   // lookahead=0 固定のため履歴操作なし
   self->binary_near_history[0] = binary_near_spectrum;
 
-  // Compare with delayed spectra and store the `bit_counts` for each delay.
+  // 遅延ごとのスペクトルと比較し、`bit_counts` に格納。
   BitCountComparison(binary_near_spectrum, self->farend->binary_far_history,
                      MAX_DELAY, self->bit_counts);
 
-  // Update `mean_bit_counts`, which is the smoothed version of `bit_counts`.
+  // `bit_counts` を平滑化した `mean_bit_counts` を更新。
   for (int i = 0; i < MAX_DELAY; i++) {
     // `bit_counts` is constrained to [0, 32], meaning we can smooth with a
-    // factor up to 2^26. We use Q9.
-    int32_t bit_count = (self->bit_counts[i] << 9);  // Q9.
+    // 係数は最大 2^26。Q9 表現を使用。
+    int32_t bit_count = (self->bit_counts[i] << 9);  // Q9 表現。
 
-    // Update `mean_bit_counts` only when far-end signal has something to
-    // contribute. If `far_bit_counts` is zero the far-end signal is weak and
-    // we likely have a poor echo condition, hence don't update.
+    // 遠端信号が十分に存在するときのみ `mean_bit_counts` を更新。
+    // `far_bit_counts` が 0 なら遠端は弱く、エコー条件が悪いとみなす。
+    // その場合は更新しない。
     if (self->farend->far_bit_counts[i] > 0) {
-      // Make number of right shifts piecewise linear w.r.t. `far_bit_counts`.
+      // 右シフト量を `far_bit_counts` に応じた区分線形で調整。
       int shifts = kShiftsAtZero;
       shifts -= (kShiftsLinearSlope * self->farend->far_bit_counts[i]) >> 4;
       MeanEstimator(bit_count, shifts, &(self->mean_bit_counts[i]));
     }
   }
 
-  // Find `candidate_delay`, `value_best_candidate` and `value_worst_candidate`
-  // of `mean_bit_counts`.
+  // `candidate_delay` と良/悪候補の値を求める。
+  // 
   for (int i = 0; i < MAX_DELAY; i++) {
     if (self->mean_bit_counts[i] < value_best_candidate) {
       value_best_candidate = self->mean_bit_counts[i];
@@ -352,10 +352,10 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
   }
   valley_depth = value_worst_candidate - value_best_candidate;
 
-  // The `value_best_candidate` is a good indicator on the probability of
+  // `value_best_candidate` は一致確率を示す指標。
   // `candidate_delay` being an accurate delay (a small `value_best_candidate`
-  // means a good binary match). In the following sections we make a decision
-  // whether to update `last_delay` or not.
+  // 以下の処理で `last_delay` を更新するか判断する。
+  // 
   // 1) If the difference bit counts between the best and the worst delay
   //    candidates is too small we consider the situation to be unreliable and
   //    don't update `last_delay`.
@@ -365,13 +365,13 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
   //    ii) this corresponding value `last_delay_probability`, but updated at
   //        this time instant.
 
-  // Update `minimum_probability`.
+  // `minimum_probability` を更新。
   if ((self->minimum_probability > kProbabilityLowerLimit) &&
       (valley_depth > kProbabilityMinSpread)) {
-    // The "hard" threshold can't be lower than 17 (in Q9).
-    // The valley in the curve also has to be distinct, i.e., the
-    // difference between `value_worst_candidate` and `value_best_candidate` has
-    // to be large enough.
+    // ハード閾値は Q9 で 17 未満にならないようにする。
+    // 曲線の谷が十分深い（良候補と悪候補の差が大きい）ことも条件。
+    // 
+    // 
     int32_t threshold = value_best_candidate + kProbabilityOffset;
     if (threshold < kProbabilityLowerLimit) {
       threshold = kProbabilityLowerLimit;
@@ -380,13 +380,13 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
       self->minimum_probability = threshold;
     }
   }
-  // Update `last_delay_probability`.
-  // We use a Markov type model, i.e., a slowly increasing level over time.
+  // `last_delay_probability` を更新。
+  // マルコフ型モデルで徐々にレベルを上げる。
   self->last_delay_probability++;
-  // Validate `candidate_delay`.  We have a reliable instantaneous delay
-  // estimate if
+  // `candidate_delay` を検証し、信頼できる即時遅延が得られたか判断する。
+  // 
   //  1) The valley is distinct enough (`valley_depth` > `kProbabilityOffset`)
-  // and
+  // 
   //  2) The depth of the valley is deep enough
   //      (`value_best_candidate` < `minimum_probability`)
   //     and deeper than the best estimate so far
@@ -395,15 +395,15 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
                      ((value_best_candidate < self->minimum_probability) ||
                       (value_best_candidate < self->last_delay_probability)));
 
-  // Check for nonstationary farend signal.
+  // 遠端信号が非定常かを確認。
   const bool non_stationary_farend =
       std::any_of(self->farend->far_bit_counts,
                   self->farend->far_bit_counts + MAX_DELAY,
                   [](int a) { return a > 0; });
 
   if (non_stationary_farend) {
-    // Only update the validation statistics when the farend is nonstationary
-    // as the underlying estimates are otherwise frozen.
+    // 遠端が非定常のときのみ統計を更新する（定常なら推定値が凍結されるため）。
+    // 
     UpdateRobustValidationStatistics(self, candidate_delay, valley_depth,
                                      value_best_candidate);
   }
@@ -415,16 +415,16 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
                                        is_histogram_valid);
   }
 
-  // Only update the delay estimate when the farend is nonstationary and when
-  // a valid delay candidate is available.
+  // 遠端が非定常で、妥当な候補がある場合のみ遅延推定を更新。
+  // 
   if (non_stationary_farend && valid_candidate) {
     if (candidate_delay != self->last_delay) {
       self->last_delay_histogram =
           (self->histogram[candidate_delay] > kLastHistogramMax
                ? kLastHistogramMax
                : self->histogram[candidate_delay]);
-      // Adjust the histogram if we made a change to `last_delay`, though it was
-      // not the most likely one according to the histogram.
+      // `last_delay` を変更したがヒストグラム的に最尤でなかった場合、
+      // ヒストグラムを補正する。
       if (self->histogram[candidate_delay] <
           self->histogram[self->compare_delay]) {
         self->histogram[self->compare_delay] = self->histogram[candidate_delay];
@@ -437,8 +437,8 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
     self->compare_delay = self->last_delay;
   }
 
-  // Debug print every 100 calls: candidate (pre-hist), histogram value,
-  // hist_valid flag, and last_delay.
+  // 100 回ごとに候補やヒストグラム値などをデバッグ出力。
+  // 
   {
     static int dbg_counter = 0;
     dbg_counter++;

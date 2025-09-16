@@ -8,8 +8,8 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
-// A ring buffer to hold arbitrary data. Provides no thread safety. Unless
-// otherwise specified, functions return 0 on success and -1 on error.
+// 任意データを保持するリングバッファ。スレッドセーフではありません。
+// 断りがない限り、関数は成功時 0・失敗時 -1 を返します。
 
 #ifndef COMMON_AUDIO_RING_BUFFER_H_
 #define COMMON_AUDIO_RING_BUFFER_H_
@@ -40,38 +40,37 @@ void InitBufferWith(RingBuffer* handle,
                     size_t element_count,
                     size_t element_size);
 
-// Reads data from the buffer. Returns the number of elements that were read.
-// The `data_ptr` will point to the address where the read data is located.
-// If no data can be read, `data_ptr` is set to `NULL`. If all data can be read
-// without buffer wrap around then `data_ptr` will point to the location in the
-// buffer. Otherwise, the data will be copied to `data` (memory allocation done
-// by the user) and `data_ptr` points to the address of `data`. `data_ptr` is
-// only guaranteed to be valid until the next call to WriteBuffer().
+// バッファからデータを読み出し、読み取った要素数を返します。
+// `data_ptr` には読み出したデータが存在するアドレスが設定されます。
+// 読み出せるデータが無い場合は `data_ptr` に `NULL` を設定します。
+// ラップせず読み出せる場合は `data_ptr` がバッファ内の位置を指します。
+// それ以外ではデータを `data` にコピーし（メモリ確保は呼び出し側）、
+// `data_ptr` が `data` のアドレスを指します。`data_ptr` の有効期間は
+// 次に WriteBuffer() を呼び出すまでです。
 //
-// To force a copying to `data`, pass a null `data_ptr`.
+// 常に `data` へコピーさせたいときは `data_ptr` に NULL を渡します。
 //
-// Returns number of elements read.
+// 戻り値は読み出した要素数です。
 size_t ReadBuffer(RingBuffer* handle,
                          void** data_ptr,
                          void* data,
                          size_t element_count);
 
-// Writes `data` to buffer and returns the number of elements written.
+// `data` をバッファへ書き込み、書き込んだ要素数を返します。
 size_t WriteBuffer(RingBuffer* handle,
                           const void* data,
                           size_t element_count);
 
-// Moves the buffer read position and returns the number of elements moved.
-// Positive `element_count` moves the read position towards the write position,
-// that is, flushing the buffer. Negative `element_count` moves the read
-// position away from the the write position, that is, stuffing the buffer.
-// Returns number of elements moved.
+// 読み取り位置を移動し、移動した要素数を返します。
+// `element_count` が正なら書き込み位置へ近づけ（バッファをフラッシュ）、
+// 負なら書き込み位置から遠ざけます（バッファを詰める）。
+// 戻り値は移動した要素数です。
 int MoveReadPtr(RingBuffer* handle, int element_count);
 
-// Returns number of available elements to read.
+// 読み出し可能な要素数を返します。
 size_t available_read(const RingBuffer* handle);
 
-// Returns number of available elements for write.
+// 書き込み可能な要素数を返します。
 size_t available_write(const RingBuffer* handle);
 
 #ifdef __cplusplus

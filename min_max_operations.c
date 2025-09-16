@@ -9,7 +9,7 @@
  */
 
 /*
- * This file contains the implementation of functions used in minAECM:
+ * このファイルには minAECM で利用する関数の実装が含まれています:
  *   MaxAbsValueW16C()
  *
  */
@@ -18,7 +18,7 @@
 
 #include "signal_processing_library.h"
 
-// Maximum absolute value of word16 vector. C version for generic platforms.
+// word16 ベクトルの絶対値最大を求める（汎用プラットフォーム向け C 実装）。
 int16_t MaxAbsValueW16C(const int16_t* vector, size_t length) {
   int maximum = 0;
 
@@ -32,7 +32,7 @@ int16_t MaxAbsValueW16C(const int16_t* vector, size_t length) {
     }
   }
 
-  // Guard the case for abs(-32768).
+  // abs(-32768) のケースを保護。
   if (maximum > WORD16_MAX) {
     maximum = WORD16_MAX;
   }
