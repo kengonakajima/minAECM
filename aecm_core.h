@@ -146,8 +146,8 @@ void BufferFarFrame(const int16_t* const farend);
 void FetchFarFrame(int16_t* const farend, int knownDelay);
 
 ////////////////////////////////////////////////////////////////////////////////
-// Moves the pointer to the next entry and inserts `far_spectrum` and
-// corresponding Q-domain in its buffer（固定Q=0だが引数は互換のため維持）。
+// Moves the pointer to the next entry and inserts `far_spectrum` in its buffer
+// （内部Qは固定で0）。
 //
 // Inputs:
 //      - self          : Pointer to the delay estimation instance
@@ -200,7 +200,7 @@ int16_t CalcSuppressionGain();
 //      - nearEner          : Near end energy for current block（固定Q=0）。
 //
 // Output:
-//     - echoEst            : Estimated echo in Q(xfa_q+RESOLUTION_CHANNEL16).
+//     - echoEst            : Estimated echo in Q(RESOLUTION_CHANNEL16)。
 //
 // 近端/遠端/推定エコーのエネルギーを計算し、VAD 閾値などを更新（g_aecm）。
 void CalcEnergies(const uint16_t* far_spectrum,
@@ -221,12 +221,12 @@ int16_t CalcStepSize();
 // NLMS and decision on channel storage.
 // Inputs:
 //      - aecm              : Pointer to the AECM instance.
-//      - far_spectrum      : Absolute value of the farend signal in Q(far_q)
-//      - far_q             : Q-domain of the farend signal
+//      - far_spectrum      : Absolute value of the farend signal（Q0）
+//      - far_q             : Q-domain of the farend signal（常に0を指定）
 //      - dfa               : Absolute value of the nearend signal（固定Q=0）
 //      - mu                : NLMS step size.
 // Input/Output:
-//      - echoEst           : Estimated echo in Q(far_q+RESOLUTION_CHANNEL16).
+//      - echoEst           : Estimated echo in Q(RESOLUTION_CHANNEL16)。
 // チャネル推定（NLMS）を実行し、保存/復元の判定も行う（g_aecm）。
 void UpdateChannel(const uint16_t* far_spectrum,
                         int16_t far_q,

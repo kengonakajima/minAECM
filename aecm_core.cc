@@ -39,13 +39,12 @@ static const int16_t kChannelStored16kHz[PART_LEN1] = {
 
 
 
-// Moves the pointer to the next entry and inserts `far_spectrum` and
-// corresponding Q-domain in its buffer.
+// Moves the pointer to the next entry and inserts `far_spectrum` in its buffer
+// （Qは固定0）。
 //
 // Inputs:
 //      - self          : Pointer to the delay estimation instance
 //      - far_spectrum  : Pointer to the far end spectrum
-//      - far_q         : Q-domain of far end spectrum
 //
 void UpdateFarHistory(uint16_t* far_spectrum) {
   // Get new buffer position
@@ -68,10 +67,6 @@ void UpdateFarHistory(uint16_t* far_spectrum) {
 // Inputs:
 //      - self              : Pointer to the AECM instance.
 //      - delay             : Current delay estimate.
-//
-// Output:
-//      - far_q             : The Q-domain of the aligned far end spectrum
-//
 // Return value:
 //      - far_spectrum      : Pointer to the aligned far end spectrum
 //                            NULL - Error
@@ -306,7 +301,7 @@ static int16_t ExtractFractionPart(uint32_t a, int zeros) {
 }
 
 // Calculates and returns the log of `energy` in Q8. The input `energy` is
-// supposed to be in Q(`q_domain`).
+// supposed to be in Q(`q_domain`)（本縮約では q_domain=0）。
 static int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain) {
   static const int16_t kLogLowValue = PART_LEN_SHIFT << 7;
   int16_t log_energy_q8 = kLogLowValue;
@@ -481,12 +476,12 @@ int16_t CalcStepSize() {
 //
 //
 // @param  aecm         [i/o]   Handle of the AECM instance.
-// @param  far_spectrum [in]    Absolute value of the farend signal in Q(far_q)
-// @param  far_q        [in]    Q-domain of the farend signal
+// @param  far_spectrum [in]    Absolute value of the farend signal（Q0）
+// @param  far_q        [in]    Q-domain of the farend signal（常に0）
 // @param  dfa          [in]    Absolute value of the nearend signal
-// (Q[aecm->dfaQDomain])
+// (Q[aecm->dfaNoisyQDomain] = Q0)
 // @param  mu           [in]    NLMS step size.
-// @param  echoEst      [i/o]   Estimated echo in Q(far_q+RESOLUTION_CHANNEL16).
+// @param  echoEst      [i/o]   Estimated echo in Q(RESOLUTION_CHANNEL16)。
 //
 void UpdateChannel(const uint16_t* far_spectrum,
                               const int16_t far_q,

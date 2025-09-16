@@ -72,7 +72,7 @@ Q-domain 図解（minAECM／Delay Estimator 用）
 4) 本コードでの主なQと用途
 
   - Q15: 二値化しきい値（Delay Estimator の閾値スペクトル）
-    * BinarySpectrumFix 内で、入力スペクトル (Q[q_domain]) を Q15 に正規化して
+    * BinarySpectrumFix 内で、入力スペクトル（Q0固定）を Q15 に持ち上げて
       しきい値（Q15, int32）と比較 → 1bit化。
 
   - Q9:  不一致ビット数(cost)の平滑（mean_bit_counts）
@@ -84,17 +84,16 @@ Q-domain 図解（minAECM／Delay Estimator 用）
   - Q12/Q28: チャネル係数（channelAdapt16 は Q12, channelAdapt32 は Q28）
     * 16bit/32bit で解像度を使い分け、必要に応じてシフト併用。
 
-  - Q(q_domain): 振幅スペクトルの可変Q
-    * TimeToFrequencyDomain で振幅(uint16)と同時に q_domain を返す。
-    * BinarySpectrumFix 手前で Q15 に合わせる（<< (15 - q_domain)）。
+  - （動的Q）: オリジナルWebRTCでは振幅スペクトルのQが適応的に変化するが、
+    本縮約版では常に Q0 として扱う。
 
 -------------------------------------------------------------------------------
 5) 処理パイプラインとQの流れ（概要）
 
   時間領域（LPCM16: Q0 相当）
     ↓ 窓掛け(Q14)・FFT（中間は32bit）
-  周波数領域：|X| の振幅 と その q_domain（0..15）
-    ↓ BinarySpectrumFix： Q(q_domain) → Q15 に正規化 → しきい値(Q15)と比較
+  周波数領域：|X| の振幅（Q0）
+    ↓ BinarySpectrumFix： Q0 → Q15 に持ち上げ → しきい値(Q15)と比較
     → 32bitのビット列（帯域 k=12..43）
     ↓ ProcessBinarySpectrum：
        bit_counts(d)=popcount(N XOR F[d])  // Q0
@@ -104,10 +103,10 @@ Q-domain 図解（minAECM／Delay Estimator 用）
 
   ASCIIイメージ
 
-  [time int16] --(window Q14)--> [FFT] --(mag)--> [|X| (uint16), q_domain]
+  [time int16] --(window Q14)--> [FFT] --(mag)--> [|X| (uint16)]
                                               |-> near/far
                                               |
-                        [Q(q) -> Q15]--cmp--> [Binary 32b]
+                             [Q0 -> Q15]--cmp--> [Binary 32b]
                                               |
                            [XOR/POPCNT] -> bit_counts -> <<9 -> EMA(Q9)
                                                     \-> histogram(float)
@@ -139,8 +138,8 @@ Q-domain 図解（minAECM／Delay Estimator 用）
   - 乗算は32bit中間へ： int16×int16 → int32 で保持し、所望Qへ右シフト。
   - 飽和: SatW32ToW16 などで 16bit に戻す際にクリップ。
   - 丸め: >> の前に加算して丸める（MUL_16_16_RSFT_WITH_ROUND 等）。
-  - Q変換の一括化: BinarySpectrumFix では Q(q_domain)→Q15 に揃えてから比較し、
-    スケール不変な 1bit 判定を安定化。
+  - Q変換の一括化: 本縮約では BinarySpectrumFix 直前のスペクトルは Q0 固定のため
+    Q15 への持ち上げのみを行い、スケール不変な 1bit 判定を安定化。
 
 -------------------------------------------------------------------------------
 補足：対応コードの所在
@@ -148,7 +147,7 @@ Q-domain 図解（minAECM／Delay Estimator 用）
   - Q15 正規化と2値化: delay_estimator_wrapper.cc (BinarySpectrumFix)
   - cost 平滑(Q9):       delay_estimator.cc (ProcessBinarySpectrum, MeanEstimatorFix)
   - Q14 のゲイン等:      aecm_core_c.cc（hnl/NLP など）、aecm_defines.h (ONE_Q14)
-  - 動的Qの管理:         aecm_core_c.cc（dfaCleanQDomain, dfaNoisyQDomain など）
+  - 動的Qの管理:         aecm_core_c.cc（dfaCleanQDomain など、現在は0固定運用）
 
 
 
@@ -178,5 +177,3 @@ Q-domain 図解（minAECM／Delay Estimator 用）
   - 典型操作の感覚
       - 同じQ同士で加減算、乗算はQm×Qn→Q(m+n)になり右シフトで目的Qへ戻す、Q変換はビットシフト、16bitへ戻すときは飽
   和・丸め。
-
-

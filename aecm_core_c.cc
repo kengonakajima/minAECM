@@ -113,7 +113,6 @@ static void InverseFFTAndWindow(int16_t* fft,
 //                              array
 // freq_signal_sum_abs  [out]   Pointer to the sum of all absolute values in
 //                              the frequency domain array
-// return value                 The Q-domain of current frequency values
 //
 static void TimeToFrequencyDomain(const int16_t* time_signal,
                                   ComplexInt16* freq_signal,
