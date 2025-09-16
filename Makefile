@@ -49,8 +49,7 @@ AECM_CC_SRCS= \
 # （未使用のLPC/フィルタ/ダウンサンプル/ユーティリティ群は除外）
 AECM_C_SRCS= \
   ring_buffer.c \
-  complex_bit_reverse.c \
-  complex_fft.c
+  complex_bit_reverse.c
  
 
 AECM_OBJS=$(AECM_CC_SRCS:.cc=.o) $(AECM_C_SRCS:.c=.o)
