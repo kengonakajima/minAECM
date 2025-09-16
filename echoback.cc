@@ -18,9 +18,7 @@
 #include <vector>
 
 #include "echo_control_mobile.h"
-extern "C" {
 #include "aecm_defines.h"
-}
 
  
 

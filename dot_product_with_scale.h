@@ -14,10 +14,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // Calculates the dot product between two (int16_t) vectors.
 //
 // Input:
@@ -33,8 +29,4 @@ int32_t DotProductWithScale(const int16_t* vector1,
                                       const int16_t* vector2,
                                       size_t length,
                                       int scaling);
-
-#ifdef __cplusplus
-}
-#endif  // __cplusplus
 #endif  // COMMON_AUDIO_SIGNAL_PROCESSING_DOT_PRODUCT_WITH_SCALE_H_

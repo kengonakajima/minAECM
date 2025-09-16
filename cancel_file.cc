@@ -7,9 +7,7 @@
 #include <cstring>
 
 #include "echo_control_mobile.h"
-extern "C" {
 #include "aecm_defines.h"
-}
 
 struct Wav {
   // モノラル16kHz固定。sr/chは保持しない。

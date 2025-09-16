@@ -22,10 +22,6 @@ struct RealFFT {
   int order;
 };
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // Compute an FFT for a real-valued signal of length of 2^order,
 // where 1 < order <= MAX_FFT_ORDER. Transform length is determined by
 // `self->order` which must be preset by caller.
@@ -86,9 +82,5 @@ int RealForwardFFT(struct RealFFT* self,
 int RealInverseFFT(struct RealFFT* self,
                              const int16_t* complex_data_in,
                              int16_t* real_data_out);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif  // COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_REAL_FFT_H_

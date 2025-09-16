@@ -14,10 +14,6 @@
 #ifndef COMMON_AUDIO_RING_BUFFER_H_
 #define COMMON_AUDIO_RING_BUFFER_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stddef.h>  // size_t
 
 enum Wrap { SAME_WRAP, DIFF_WRAP };
@@ -72,9 +68,5 @@ size_t available_read(const RingBuffer* handle);
 
 // 書き込み可能な要素数を返します。
 size_t available_write(const RingBuffer* handle);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif  // COMMON_AUDIO_RING_BUFFER_H_

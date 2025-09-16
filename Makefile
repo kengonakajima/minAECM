@@ -23,6 +23,10 @@ CFLAGS=-g -O3 -mmacosx-version-min=10.13 \
   -ffunction-sections -fdata-sections $(WARN_C)
 LDFLAGS=-Wl,-dead_strip
 
+# C 実装も C++ としてビルドし、リンク指定子を単純化
+%.o: %.c
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++ -c $< -o $@
+
 
 all: libaecm.a echoback cancel_file
 	rm -f *.tmp

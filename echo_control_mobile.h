@@ -32,10 +32,6 @@ typedef struct {
   int16_t echoMode;  // 3 のみサポート
 } AecmConfig;
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 /*
  * 単一インスタンス（シングルトン）前提の極簡API。
  * 16 kHz/モノラル固定・ブロック長=64（FRAME_LEN）固定。
@@ -56,10 +52,6 @@ int32_t Process(const int16_t* nearend,
 
 /* 動作モードの設定。0で成功。*/
 int32_t SetConfig(AecmConfig config);
-
-#ifdef __cplusplus
-}
-#endif
 
  
 

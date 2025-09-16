@@ -34,10 +34,6 @@
 #define SAT(a, b, c) ((b) > (a) ? (a) : (b) < (c) ? (c) : (b))
 #define SHIFT_W32(x, c) ((c) >= 0 ? (x) * (1 << (c)) : (x) >> -(c))
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // Inline utilities (norm/sat/add etc.)
 #include "spl_inl.h"
 
@@ -57,9 +53,4 @@ int ComplexFFT(int16_t vector[], int stages, int mode);
 int ComplexIFFT(int16_t vector[], int stages, int mode);
 void ComplexBitReverse(int16_t* __restrict complex_data, int stages);
 
-#ifdef __cplusplus
-}
-#endif
-
 #endif  // COMMON_AUDIO_SIGNAL_PROCESSING_INCLUDE_SIGNAL_PROCESSING_LIBRARY_H_
-

@@ -15,10 +15,8 @@
 #ifndef MODULES_AUDIO_PROCESSING_AECM_AECM_CORE_H_
 #define MODULES_AUDIO_PROCESSING_AECM_AECM_CORE_H_
 
-extern "C" {
 #include "signal_processing_library.h"
 #include "real_fft.h"
-}
 #include "aecm_defines.h"
 #include "delay_estimator_internal.h"
 
