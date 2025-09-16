@@ -47,9 +47,7 @@ AECM_CC_SRCS= \
 
 # AECM の動作に必要な最小限の SPL/C 実装のみをビルド
 # （未使用のLPC/フィルタ/ダウンサンプル/ユーティリティ群は除外）
-AECM_C_SRCS= \
-  ring_buffer.c \
-  complex_bit_reverse.c
+AECM_C_SRCS=
  
 
 AECM_OBJS=$(AECM_CC_SRCS:.cc=.o) $(AECM_C_SRCS:.c=.o)

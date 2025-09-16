@@ -6,7 +6,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "ring_buffer.h"
 #include "aecm_core.h"
 
  

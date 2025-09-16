@@ -22,6 +22,17 @@
 #define SAT(a, b, c) ((b) > (a) ? (a) : (b) < (c) ? (c) : (b))
 #define SHIFT_W32(x, c) ((c) >= 0 ? (x) * (1 << (c)) : (x) >> -(c))
 
+enum Wrap { SAME_WRAP, DIFF_WRAP };
+
+typedef struct RingBuffer {
+  size_t read_pos;
+  size_t write_pos;
+  size_t element_count;
+  size_t element_size;
+  enum Wrap rw_wrap;
+  char* data;
+} RingBuffer;
+
 int CountLeadingZeros32(uint32_t n);
 int CountLeadingZeros64(uint64_t n);
 int16_t SatW32ToW16(int32_t value32);
@@ -39,6 +50,22 @@ int16_t MaxAbsValueW16C(const int16_t* vector, size_t length);
 uint32_t DivU32U16(uint32_t num, uint16_t den);
 int32_t DivW32W16(int32_t num, int16_t den);
 int32_t SqrtFloor(int32_t value);
+
+void InitBuffer(RingBuffer* handle);
+void InitBufferWith(RingBuffer* handle,
+                    void* backing,
+                    size_t element_count,
+                    size_t element_size);
+size_t ReadBuffer(RingBuffer* handle,
+                  void** data_ptr,
+                  void* data,
+                  size_t element_count);
+size_t WriteBuffer(RingBuffer* handle,
+                   const void* data,
+                   size_t element_count);
+int MoveReadPtr(RingBuffer* handle, int element_count);
+size_t available_read(const RingBuffer* handle);
+size_t available_write(const RingBuffer* handle);
 
 enum { kMaxFFTOrder = 10 };
 

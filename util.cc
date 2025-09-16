@@ -129,6 +129,190 @@ static const int16_t kSinTable1024[] = {
 #define CIFFTSFT 14
 #define CIFFTRND 1
 
+static const int16_t kBitReverseIndex7[112] = {
+    1,   64,  2,   32,  3,   96,  4,   16,  5,   80,  6,   48,  7,   112,
+    9,   72,  10,  40,  11,  104, 12,  24,  13,  88,  14,  56,  15,  120,
+    17,  68,  18,  36,  19,  100, 21,  84,  22,  52,  23,  116, 25,  76,
+    26,  44,  27,  108, 29,  92,  30,  60,  31,  124, 33,  66,  35,  98,
+    37,  82,  38,  50,  39,  114, 41,  74,  43,  106, 45,  90,  46,  58,
+    47,  122, 49,  70,  51,  102, 53,  86,  55,  118, 57,  78,  59,  110,
+    61,  94,  63,  126, 67,  97,  69,  81,  71,  113, 75,  105, 77,  89,
+    79,  121, 83,  101, 87,  117, 91,  109, 95,  125, 103, 115, 111, 123,
+};
+
+static size_t GetBufferReadRegions(RingBuffer* buf,
+                                   size_t element_count,
+                                   void** data_ptr_1,
+                                   size_t* data_ptr_bytes_1,
+                                   void** data_ptr_2,
+                                   size_t* data_ptr_bytes_2) {
+  const size_t readable = available_read(buf);
+  const size_t to_read = readable < element_count ? readable : element_count;
+  const size_t margin = buf->element_count - buf->read_pos;
+
+  if (to_read > margin) {
+    *data_ptr_1 = buf->data + buf->read_pos * buf->element_size;
+    *data_ptr_bytes_1 = margin * buf->element_size;
+    *data_ptr_2 = buf->data;
+    *data_ptr_bytes_2 = (to_read - margin) * buf->element_size;
+  } else {
+    *data_ptr_1 = buf->data + buf->read_pos * buf->element_size;
+    *data_ptr_bytes_1 = to_read * buf->element_size;
+    *data_ptr_2 = NULL;
+    *data_ptr_bytes_2 = 0;
+  }
+
+  return to_read;
+}
+
+void InitBuffer(RingBuffer* self) {
+  if (!self) {
+    return;
+  }
+  self->read_pos = 0;
+  self->write_pos = 0;
+  self->rw_wrap = SAME_WRAP;
+  if (self->data && self->element_count && self->element_size) {
+    memset(self->data, 0, self->element_count * self->element_size);
+  }
+}
+
+void InitBufferWith(RingBuffer* self,
+                    void* backing,
+                    size_t element_count,
+                    size_t element_size) {
+  if (!self || !backing || element_count == 0 || element_size == 0) {
+    return;
+  }
+  self->data = static_cast<char*>(backing);
+  self->element_count = element_count;
+  self->element_size = element_size;
+  InitBuffer(self);
+}
+
+size_t available_read(const RingBuffer* self) {
+  if (!self) {
+    return 0;
+  }
+  if (self->rw_wrap == SAME_WRAP) {
+    return self->write_pos - self->read_pos;
+  }
+  return self->element_count - self->read_pos + self->write_pos;
+}
+
+size_t available_write(const RingBuffer* self) {
+  if (!self) {
+    return 0;
+  }
+  return self->element_count - available_read(self);
+}
+
+size_t ReadBuffer(RingBuffer* self,
+                  void** data_ptr,
+                  void* data,
+                  size_t element_count) {
+  if (!self || !data) {
+    return 0;
+  }
+
+  void* buf_ptr_1 = NULL;
+  void* buf_ptr_2 = NULL;
+  size_t buf_bytes_1 = 0;
+  size_t buf_bytes_2 = 0;
+  const size_t read_count =
+      GetBufferReadRegions(self, element_count, &buf_ptr_1, &buf_bytes_1,
+                           &buf_ptr_2, &buf_bytes_2);
+  if (buf_bytes_2 > 0) {
+    memcpy(data, buf_ptr_1, buf_bytes_1);
+    memcpy(static_cast<char*>(data) + buf_bytes_1, buf_ptr_2, buf_bytes_2);
+    buf_ptr_1 = data;
+  } else if (!data_ptr) {
+    memcpy(data, buf_ptr_1, buf_bytes_1);
+  }
+
+  if (data_ptr) {
+    *data_ptr = read_count == 0 ? NULL : buf_ptr_1;
+  }
+
+  MoveReadPtr(self, static_cast<int>(read_count));
+  return read_count;
+}
+
+size_t WriteBuffer(RingBuffer* self,
+                   const void* data,
+                   size_t element_count) {
+  if (!self || !data) {
+    return 0;
+  }
+
+  const size_t free_elements = available_write(self);
+  const size_t to_write = free_elements < element_count ? free_elements : element_count;
+  size_t remaining = to_write;
+  const size_t margin = self->element_count - self->write_pos;
+
+  if (to_write > margin) {
+    memcpy(self->data + self->write_pos * self->element_size,
+           data, margin * self->element_size);
+    self->write_pos = 0;
+    remaining -= margin;
+    self->rw_wrap = DIFF_WRAP;
+  }
+
+  memcpy(self->data + self->write_pos * self->element_size,
+         static_cast<const char*>(data) + (to_write - remaining) * self->element_size,
+         remaining * self->element_size);
+  self->write_pos += remaining;
+
+  return to_write;
+}
+
+int MoveReadPtr(RingBuffer* self, int element_count) {
+  if (!self) {
+    return 0;
+  }
+
+  const int free_elements = static_cast<int>(available_write(self));
+  const int readable_elements = static_cast<int>(available_read(self));
+  int read_pos = static_cast<int>(self->read_pos);
+
+  if (element_count > readable_elements) {
+    element_count = readable_elements;
+  }
+  if (element_count < -free_elements) {
+    element_count = -free_elements;
+  }
+
+  read_pos += element_count;
+  if (read_pos > static_cast<int>(self->element_count)) {
+    read_pos -= static_cast<int>(self->element_count);
+    self->rw_wrap = SAME_WRAP;
+  }
+  if (read_pos < 0) {
+    read_pos += static_cast<int>(self->element_count);
+    self->rw_wrap = DIFF_WRAP;
+  }
+
+  self->read_pos = static_cast<size_t>(read_pos);
+  return element_count;
+}
+
+void ComplexBitReverse(int16_t* __restrict complex_data, int stages) {
+  (void)stages;
+  int32_t* ptr = reinterpret_cast<int32_t*>(complex_data);
+  for (int m = 0; m < 112; m += 2) {
+    int32_t tmp = ptr[kBitReverseIndex7[m]];
+    ptr[kBitReverseIndex7[m]] = ptr[kBitReverseIndex7[m + 1]];
+    ptr[kBitReverseIndex7[m + 1]] = tmp;
+  }
+}
+
+#define CFFTSFT 14
+#define CFFTRND 1
+#define CFFTRND2 16384
+
+#define CIFFTSFT 14
+#define CIFFTRND 1
+
 int CountLeadingZeros32(uint32_t n) {
   if (n == 0) {
     return 32;
