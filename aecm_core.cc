@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <math.h>
 
 #include "echo_control_mobile.h"
 #include "delay_estimator_wrapper.h"
@@ -11,10 +12,349 @@
 // デフォルトの単一インスタンス（ポインタ省略呼び出し用）
 AecmCore g_aecm;
 
- 
- 
+// ハニング窓の平方根（Q14）。
+static const ALIGN8_BEG int16_t kSqrtHanning[] ALIGN8_END = {
+    0,     399,   798,   1196,  1594,  1990,  2386,  2780,  3172,  3562,  3951,
+    4337,  4720,  5101,  5478,  5853,  6224,  6591,  6954,  7313,  7668,  8019,
+    8364,  8705,  9040,  9370,  9695,  10013, 10326, 10633, 10933, 11227, 11514,
+    11795, 12068, 12335, 12594, 12845, 13089, 13325, 13553, 13773, 13985, 14189,
+    14384, 14571, 14749, 14918, 15079, 15231, 15373, 15506, 15631, 15746, 15851,
+    15947, 16034, 16111, 16179, 16237, 16286, 16325, 16354, 16373, 16384};
 
+// 近似版の振幅計算は使わず、sqrtベースのみを使用
+static bool g_bypass_wiener = false;
+static bool g_bypass_nlp = false;
 
+void AecmCoreSetBypassWiener(int enable) { g_bypass_wiener = (enable != 0); }
+
+void AecmCoreSetBypassNlp(int enable) { g_bypass_nlp = (enable != 0); }
+
+void WindowAndFFT(int16_t* fft,
+                  const int16_t* time_signal,
+                  ComplexInt16* freq_signal) {
+  // 信号に対して FFT を実行
+  for (int i = 0; i < PART_LEN; i++) {
+    // 時間領域信号に窓を掛け、変換配列 `fft` の実部へ格納
+    int16_t scaled_time_signal = time_signal[i];
+    fft[i] = (int16_t)((scaled_time_signal * kSqrtHanning[i]) >> 14);
+    scaled_time_signal = time_signal[i + PART_LEN];
+    fft[PART_LEN + i] = (int16_t)((scaled_time_signal * kSqrtHanning[PART_LEN - i]) >> 14);
+  }
+
+  // FFT を計算し、最初の PART_LEN 個の複素サンプルだけを保持
+  // さらに虚部の符号を反転させる。
+  RealForwardFFT(&g_aecm.real_fft, fft, (int16_t*)freq_signal);
+  for (int i = 0; i < PART_LEN; i++) {
+    freq_signal[i].imag = -freq_signal[i].imag;
+  }
+}
+
+void InverseFFTAndWindow(int16_t* fft,
+                         ComplexInt16* efw,
+                         int16_t* output) {
+  // `efw` の内容を `fft` に移した後の逆 FFT 出力バッファとして再利用
+  int16_t* ifft_out = (int16_t*)efw;
+
+  // 合成処理
+  for (int i = 1, j = 2; i < PART_LEN; i += 1, j += 2) {
+    fft[j] = efw[i].real;
+    fft[j + 1] = -efw[i].imag;
+  }
+  fft[0] = efw[0].real;
+  fft[1] = -efw[0].imag;
+
+  fft[PART_LEN2] = efw[PART_LEN].real;
+  fft[PART_LEN2 + 1] = -efw[PART_LEN].imag;
+
+  // 逆 FFT を実行し、次ブロックでのスケール用に outCFFT を保持。
+  int outCFFT = RealInverseFFT(&g_aecm.real_fft, fft, ifft_out);
+  for (int i = 0; i < PART_LEN; i++) {
+    ifft_out[i] = (int16_t)MUL_16_16_RSFT_WITH_ROUND(ifft_out[i], kSqrtHanning[i], 14);
+    // 固定Q=0のため、出力シフトは outCFFT のみを考慮
+    int32_t tmp32no1 = SHIFT_W32((int32_t)ifft_out[i], outCFFT);
+    output[i] = (int16_t)SAT(WORD16_MAX, tmp32no1 + g_aecm.eOverlapBuf[i], WORD16_MIN);
+
+    tmp32no1 = (ifft_out[PART_LEN + i] * kSqrtHanning[PART_LEN - i]) >> 14;
+    tmp32no1 = SHIFT_W32(tmp32no1, outCFFT);
+    g_aecm.eOverlapBuf[i] = (int16_t)SAT(WORD16_MAX, tmp32no1, WORD16_MIN);
+  }
+
+  // 現ブロックの値を過去位置へコピーし、
+  // （`g_aecm.eOverlapBuf` のシフトは別処理で行う）
+  memcpy(g_aecm.xBuf, g_aecm.xBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
+  memcpy(g_aecm.yBuf, g_aecm.yBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
+}
+
+void TimeToFrequencyDomain(const int16_t* time_signal,
+                           ComplexInt16* freq_signal,
+                           uint16_t* freq_signal_abs,
+                           uint32_t* freq_signal_sum_abs) {
+  int16_t fft[PART_LEN4];
+
+  WindowAndFFT(fft, time_signal, freq_signal);
+
+  // 実部と虚部を取り出し、各ビンの振幅を計算
+  freq_signal[0].imag = 0;
+  freq_signal[PART_LEN].imag = 0;
+  freq_signal_abs[0] = (uint16_t)ABS_W16(freq_signal[0].real);
+  freq_signal_abs[PART_LEN] = (uint16_t)ABS_W16(freq_signal[PART_LEN].real);
+  (*freq_signal_sum_abs) = (uint32_t)(freq_signal_abs[0]) + (uint32_t)(freq_signal_abs[PART_LEN]);
+
+  for (int i = 1; i < PART_LEN; i++) {
+    if (freq_signal[i].real == 0) {
+      freq_signal_abs[i] = (uint16_t)ABS_W16(freq_signal[i].imag);
+    } else if (freq_signal[i].imag == 0) {
+      freq_signal_abs[i] = (uint16_t)ABS_W16(freq_signal[i].real);
+    } else {
+      int16_t abs_real = ABS_W16(freq_signal[i].real);
+      int16_t abs_imag = ABS_W16(freq_signal[i].imag);
+      int32_t sq_real = abs_real * abs_real;
+      int32_t sq_imag = abs_imag * abs_imag;
+      int32_t sum_sq = AddSatW32(sq_real, sq_imag);
+      int32_t mag = SqrtFloor(sum_sq);
+      freq_signal_abs[i] = (uint16_t)mag;
+    }
+    (*freq_signal_sum_abs) += (uint32_t)freq_signal_abs[i];
+  }
+}
+
+int ProcessBlock(const int16_t* x_block,
+                 const int16_t* y_block,
+                 int16_t* e_block) {
+  // 周波数領域バッファ（Y(k) の複素成分）
+  ComplexInt16 Y_freq[PART_LEN2];
+  // |X(k)|, |Y(k)| の絶対値スペクトル
+  uint16_t X_mag[PART_LEN1];
+  uint16_t Y_mag[PART_LEN1];
+  // |Ŝ(k)|: 予測エコー振幅（チャネル通過後）
+  int32_t S_mag[PART_LEN1];
+
+  // スタートアップ状態を判定する。段階は次の 3 つ:
+  // (0) 最初の CONV_LEN ブロック
+  // (1) さらに CONV_LEN ブロック
+  // (2) それ以降
+
+  if (g_aecm.startupState < 2) {
+    g_aecm.startupState = (g_aecm.totCount >= CONV_LEN) + (g_aecm.totCount >= CONV_LEN2);
+  }
+
+  // 近端/遠端の時間領域フレームをバッファへ蓄える
+  memcpy(g_aecm.xBuf + PART_LEN, x_block, sizeof(int16_t) * PART_LEN);
+  memcpy(g_aecm.yBuf + PART_LEN, y_block, sizeof(int16_t) * PART_LEN);
+
+  // 遠端信号 X(k) = FFT{x(n)} を算出し（|X| と Σ|X| を求める）
+  uint32_t X_mag_sum = 0;
+  TimeToFrequencyDomain(g_aecm.xBuf, Y_freq, X_mag, &X_mag_sum);
+
+  // 近端信号 Y(k) = FFT{y(n)} を算出し（|Y| と Σ|Y| を求める）
+  uint32_t Y_mag_sum = 0;
+  TimeToFrequencyDomain(g_aecm.yBuf, Y_freq, Y_mag, &Y_mag_sum);
+  g_aecm.dfaNoisyQDomainOld = g_aecm.dfaNoisyQDomain;
+  g_aecm.dfaNoisyQDomain = 0;
+
+  g_aecm.dfaCleanQDomainOld = g_aecm.dfaNoisyQDomainOld;
+  g_aecm.dfaCleanQDomain = g_aecm.dfaNoisyQDomain;
+
+  // 遠端スペクトル履歴を更新し、2値スペクトル照合で遅延を推定
+  UpdateFarHistory(X_mag);
+  if (AddFarSpectrum(&g_aecm.delay_estimator_farend, X_mag) == -1) {
+    return -1;
+  }
+  int delay = DelayEstimatorProcess(&g_aecm.delay_estimator, Y_mag);
+  if (delay == -1) {
+    return -1;
+  } else if (delay == -2) {
+    delay = 0;  // 遅延が不明な場合は 0 と仮定する。
+  }
+
+  // 推定した遅延に合わせて遠端スペクトルを整列
+  const uint16_t* X_mag_aligned = AlignedFarX(delay);
+  if (X_mag_aligned == NULL) return -1;
+
+  // エネルギーログ（log |X|, log |Ŷ|）を更新して VAD/閾値に反映
+  CalcEnergies(X_mag_aligned, Y_mag_sum, S_mag);
+
+  // 遠端エネルギーの変動に基づき NLMS のステップサイズ μ を算出
+  int16_t mu = CalcStepSize();
+
+  // 処理済みブロック数をインクリメント
+  g_aecm.totCount++;
+
+  // ここからチャネル推定アルゴリズム。NLMS 派生で、上で計算した
+  // 可変ステップ長を用いて更新する。
+  UpdateChannel(X_mag_aligned, 0 /*x_q*/, Y_mag, mu, S_mag);
+  int16_t gGain = CalcSuppressionGain();
+
+  // Wiener フィルタ H(k) を算出
+  uint16_t* Y_mag_clean = Y_mag;  // |Y_clean(k)| proxy
+  int16_t H_gain[PART_LEN1];
+  int16_t numPosCoef = 0;
+  double sum_gain = 0.0;
+  for (int i = 0; i < PART_LEN1; i++) {
+    int32_t tmp32no1 = S_mag[i] - g_aecm.sMagSmooth[i];
+    g_aecm.sMagSmooth[i] += (int32_t)(((int64_t)tmp32no1 * 50) >> 8);
+
+    int16_t zeros32 = NormW32(g_aecm.sMagSmooth[i]) + 1;
+    int16_t zeros16 = NormW16(gGain) + 1;
+    uint32_t sMagGained;
+    int16_t resolutionDiff;
+    if (zeros32 + zeros16 > 16) {
+      sMagGained = UMUL_32_16((uint32_t)g_aecm.sMagSmooth[i], (uint16_t)gGain);
+      resolutionDiff = 14 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
+    } else {
+      int16_t tmp16no1 = 17 - zeros32 - zeros16;
+      resolutionDiff = 14 + tmp16no1 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
+      if (zeros32 > tmp16no1) {
+        sMagGained = UMUL_32_16((uint32_t)g_aecm.sMagSmooth[i], gGain >> tmp16no1);
+      } else {
+        sMagGained = (g_aecm.sMagSmooth[i] >> tmp16no1) * gGain;
+      }
+    }
+
+    zeros16 = NormW16(g_aecm.yMagSmooth[i]);
+    int16_t y_mag_q_domain_diff = g_aecm.dfaCleanQDomain - g_aecm.dfaCleanQDomainOld;
+    int16_t qDomainDiff;
+    int16_t tmp16no1;
+    int16_t tmp16no2;
+    if (zeros16 < y_mag_q_domain_diff && g_aecm.yMagSmooth[i]) {
+      tmp16no1 = g_aecm.yMagSmooth[i] * (1 << zeros16);
+      qDomainDiff = zeros16 - y_mag_q_domain_diff;
+      tmp16no2 = Y_mag_clean[i] >> -qDomainDiff;
+    } else {
+      tmp16no1 = y_mag_q_domain_diff < 0
+                     ? g_aecm.yMagSmooth[i] >> -y_mag_q_domain_diff
+                     : g_aecm.yMagSmooth[i] * (1 << y_mag_q_domain_diff);
+      qDomainDiff = 0;
+      tmp16no2 = Y_mag_clean[i];
+    }
+    tmp32no1 = (int32_t)(tmp16no2 - tmp16no1);
+    tmp16no2 = (int16_t)(tmp32no1 >> 4);
+    tmp16no2 += tmp16no1;
+    zeros16 = NormW16(tmp16no2);
+    if ((tmp16no2) & (-qDomainDiff > zeros16)) {
+      g_aecm.yMagSmooth[i] = WORD16_MAX;
+    } else {
+      g_aecm.yMagSmooth[i] = qDomainDiff < 0 ? tmp16no2 * (1 << -qDomainDiff)
+                                             : tmp16no2 >> qDomainDiff;
+    }
+
+    if (sMagGained == 0) {
+      H_gain[i] = ONE_Q14;
+    } else if (g_aecm.yMagSmooth[i] == 0) {
+      H_gain[i] = 0;
+    } else {
+      sMagGained += (uint32_t)(g_aecm.yMagSmooth[i] >> 1);
+      uint32_t tmpU32 = DivU32U16(sMagGained, (uint16_t)g_aecm.yMagSmooth[i]);
+
+      tmp32no1 = (int32_t)SHIFT_W32(tmpU32, resolutionDiff);
+      if (tmp32no1 > ONE_Q14) {
+        H_gain[i] = 0;
+      } else if (tmp32no1 < 0) {
+        H_gain[i] = ONE_Q14;
+      } else {
+        H_gain[i] = ONE_Q14 - (int16_t)tmp32no1;
+        if (H_gain[i] < 0) {
+          H_gain[i] = 0;
+        }
+      }
+    }
+    if (H_gain[i]) {
+      numPosCoef++;
+    }
+  }
+  if (g_bypass_wiener) {
+    for (int i = 0; i < PART_LEN1; ++i) {
+      H_gain[i] = ONE_Q14;
+    }
+    numPosCoef = PART_LEN1;
+  }
+  for (int i = 0; i < PART_LEN1; i++) {
+    H_gain[i] = (int16_t)((H_gain[i] * H_gain[i]) >> 14);
+  }
+
+  const int kMinPrefBand = 4;
+  const int kMaxPrefBand = 24;
+  int32_t avgH32 = 0;
+  for (int i = kMinPrefBand; i <= kMaxPrefBand; i++) {
+    avgH32 += (int32_t)H_gain[i];
+  }
+  avgH32 /= (kMaxPrefBand - kMinPrefBand + 1);
+
+  for (int i = kMaxPrefBand; i < PART_LEN1; i++) {
+    if (H_gain[i] > (int16_t)avgH32) {
+      H_gain[i] = (int16_t)avgH32;
+    }
+  }
+
+  ComplexInt16 E_freq[PART_LEN2];
+  for (int i = 0; i < PART_LEN1; i++) {
+    if (H_gain[i] > NLP_COMP_HIGH) {
+      H_gain[i] = ONE_Q14;
+    } else if (H_gain[i] < NLP_COMP_LOW) {
+      H_gain[i] = 0;
+    }
+
+    int16_t nlpGain = (numPosCoef < 3) ? 0 : ONE_Q14;
+    if (g_bypass_nlp) {
+      nlpGain = ONE_Q14;
+    }
+
+    if ((H_gain[i] == ONE_Q14) && (nlpGain == ONE_Q14)) {
+      H_gain[i] = ONE_Q14;
+    } else {
+      H_gain[i] = (int16_t)((H_gain[i] * nlpGain) >> 14);
+    }
+
+    E_freq[i].real = (int16_t)(MUL_16_16_RSFT_WITH_ROUND(Y_freq[i].real, H_gain[i], 14));
+    E_freq[i].imag = (int16_t)(MUL_16_16_RSFT_WITH_ROUND(Y_freq[i].imag, H_gain[i], 14));
+    double gain_normalized = static_cast<double>(H_gain[i]) / static_cast<double>(ONE_Q14);
+    sum_gain += gain_normalized;
+  }
+  double avg_gain = sum_gain / PART_LEN1;
+  double suppression_db;
+  if (avg_gain <= 0.0) avg_gain = 0.0;
+  double clamped_gain = avg_gain;
+  const double kMinGain = 1e-3;
+  if (clamped_gain < kMinGain) clamped_gain = kMinGain;
+  suppression_db = 20.0 * log10(clamped_gain);
+
+  {
+    static int dbg_sup_counter = 0;
+    static double best_gain = 1.0;
+    static double best_db = 0.0;
+    static int initialized = 0;
+    dbg_sup_counter++;
+    if (!initialized || suppression_db < best_db) {
+      best_db = suppression_db;
+      best_gain = clamped_gain;
+      initialized = 1;
+    }
+    if (dbg_sup_counter % 100 == 0) {
+      fprintf(stderr,
+              "[Suppression] window=%d avg_gain=%.3f (%.1f dB)%s%s\n",
+              dbg_sup_counter,
+              best_gain,
+              best_db,
+              g_bypass_wiener ? " wiener-off" : "",
+              g_bypass_nlp ? " nlp-off" : "");
+      initialized = 0;
+    }
+  }
+
+  int16_t fft[PART_LEN4 + 2];
+  InverseFFTAndWindow(fft, E_freq, e_block);
+
+  {
+    static int dbg_ss_counter = 0;
+    dbg_ss_counter++;
+    if (dbg_ss_counter % 100 == 0) {
+      fprintf(stderr, "[AECM] block=%d startupState=%d\n",
+              dbg_ss_counter, (int)g_aecm.startupState);
+    }
+  }
+
+  return 0;
+}
 
 // 16 kHz 用エコーチャネルの初期化テーブル
 static const int16_t kChannelStored16kHz[PART_LEN1] = {
@@ -148,7 +488,7 @@ void ResetAdaptiveChannelC() {
 // 戻り値               :  0 - 成功
 //                        -1 - Error
 //
-int InitCoreImpl() {
+int InitCore() {
   // 16kHz 固定
 
   g_aecm.xBufWritePos = 0;
@@ -220,11 +560,6 @@ int InitCoreImpl() {
 
   return 0;
 }
-
-// デフォルトインスタンス初期化
-int InitCore() { return InitCoreImpl(); }
-
-// Freeは不要
 
 int ProcessFrame(const int16_t* x_frame,
                       const int16_t* y_frame,
@@ -617,12 +952,6 @@ void UpdateChannel(const uint16_t* X_mag,
 
 
 // Wiener フィルタで用いる抑圧ゲインを計算する。
-// 
-//
-// @param  aecm     [i/n]   Handle of the AECM instance.
-// @param  supGain  [out]   (Return value) Suppression gain with which to scale
-// 
-//                          level (Q14).
 int16_t CalcSuppressionGain() {
   int32_t tmp32no1;
 

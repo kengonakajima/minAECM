@@ -40,7 +40,6 @@ all: libaecm.a echoback cancel_file
 AECM_CC_SRCS= \
   echo_control_mobile.cc \
   aecm_core.cc \
-  aecm_core_c.cc \
   delay_estimator_wrapper.cc \
   delay_estimator.cc \
   util.cc
