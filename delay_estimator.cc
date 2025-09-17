@@ -17,7 +17,12 @@ inline uint32_t SetBit(uint32_t in, int pos) {
 
 
 
- 
+
+DelayEstimatorFarend g_delay_farend;
+DelayEstimator g_delay_instance;
+
+
+
 
 
 // スケーリングの右シフト回数は遠端2値スペクトルのビット数に線形依存する。
@@ -91,32 +96,34 @@ void BitCountComparison(uint32_t binary_vector,
 //  - candidate_delay   : 検証対象の遅延。
 //  - valley_depth_q14  : コスト関数の谷の深さ (Q14)。候補と最悪値の差。
 //  - valley_level_q14  : コスト関数の最小値 (Q14)。
-void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
+void UpdateRobustValidationStatistics(BinaryDelayEstimator* estimator_state,
                                       int candidate_delay,
                                       int32_t valley_depth_q14,
                                       int32_t valley_level_q14) {
+  BinaryDelayEstimator& estimator = *estimator_state;
+
   const float valley_depth = valley_depth_q14 * kQ14Scaling;
   float decrease_in_last_set = valley_depth;
-  const int max_hits_for_slow_change = (candidate_delay < self->last_delay)
+  const int max_hits_for_slow_change = (candidate_delay < estimator.last_delay)
                                            ? kMaxHitsWhenPossiblyNonCausal
                                            : kMaxHitsWhenPossiblyCausal;
 
   // 履歴サイズが同じであることを期待。
   // 新しい候補が出た場合は `candidate_hits` をリセット。
-  if (candidate_delay != self->last_candidate_delay) {
-    self->candidate_hits = 0;
-    self->last_candidate_delay = candidate_delay;
+  if (candidate_delay != estimator.last_candidate_delay) {
+    estimator.candidate_hits = 0;
+    estimator.last_candidate_delay = candidate_delay;
   }
-  self->candidate_hits++;
+  estimator.candidate_hits++;
 
   // `histogram` はビンごとに異なる更新を行う。
   // 1. `candidate_delay` のヒストグラムビンは信頼度 (valley_depth) に応じて増加させる。
   //    `valley_depth`, which is a simple measure of how reliable the
   //    `candidate_delay` is.  The histogram is not increased above
   //    `kHistogramMax`.
-  self->histogram[candidate_delay] += valley_depth;
-  if (self->histogram[candidate_delay] > kHistogramMax) {
-    self->histogram[candidate_delay] = kHistogramMax;
+  estimator.histogram[candidate_delay] += valley_depth;
+  if (estimator.histogram[candidate_delay] > kHistogramMax) {
+    estimator.histogram[candidate_delay] = kHistogramMax;
   }
   // 2. The histogram bins in the neighborhood of `candidate_delay` are
   //    unaffected.  The neighborhood is defined as x + {-2, -1, 0, 1}.
@@ -127,23 +134,23 @@ void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
   //    at the `candidate_delay`.  If we exceed this amount of hits the
   //    `candidate_delay` is a "potential" candidate and we start decreasing
   //    these histogram bins more rapidly with `valley_depth`.
-  if (self->candidate_hits < max_hits_for_slow_change) {
+  if (estimator.candidate_hits < max_hits_for_slow_change) {
     decrease_in_last_set =
-        (self->mean_bit_counts[self->compare_delay] - valley_level_q14) *
+        (estimator.mean_bit_counts[estimator.compare_delay] - valley_level_q14) *
         kQ14Scaling;
   }
   // 4. その他のビンは valley_depth で減少させる。
   for (int i = 0; i < MAX_DELAY; ++i) {
-    int is_in_last_set = (i >= self->last_delay - 2) &&
-                         (i <= self->last_delay + 1) && (i != candidate_delay);
+    int is_in_last_set = (i >= estimator.last_delay - 2) &&
+                         (i <= estimator.last_delay + 1) && (i != candidate_delay);
     int is_in_candidate_set =
         (i >= candidate_delay - 2) && (i <= candidate_delay + 1);
-    self->histogram[i] -=
+    estimator.histogram[i] -=
         decrease_in_last_set * is_in_last_set +
         valley_depth * (!is_in_last_set && !is_in_candidate_set);
     // 5. ビンは 0 未満にならないよう制限。
-    if (self->histogram[i] < 0) {
-      self->histogram[i] = 0;
+    if (estimator.histogram[i] < 0) {
+      estimator.histogram[i] = 0;
     }
   }
 }
@@ -166,11 +173,13 @@ void UpdateRobustValidationStatistics(BinaryDelayEstimator* self,
 //
 // 戻り値:
 //  - is_histogram_valid  : 1 なら候補が有効、0 なら無効。
-int HistogramBasedValidation(const BinaryDelayEstimator* self,
+int HistogramBasedValidation(const BinaryDelayEstimator* estimator_state,
                              int candidate_delay) {
+  const BinaryDelayEstimator& estimator = *estimator_state;
+
   float fraction = 1.f;
-  float histogram_threshold = self->histogram[self->compare_delay];
-  const int delay_difference = candidate_delay - self->last_delay;
+  float histogram_threshold = estimator.histogram[estimator.compare_delay];
+  const int delay_difference = candidate_delay - estimator.last_delay;
   int is_histogram_valid = 0;
 
   // ヒストグラム判定では last_delay の値に係数 fraction を掛けた閾値と
@@ -181,8 +190,8 @@ int HistogramBasedValidation(const BinaryDelayEstimator* self,
 
   // 候補との差に応じた比較値 histogram_threshold を計算。
 
-  if (delay_difference > self->allowed_offset) {
-    fraction = 1.f - kFractionSlope * (delay_difference - self->allowed_offset);
+  if (delay_difference > estimator.allowed_offset) {
+    fraction = 1.f - kFractionSlope * (delay_difference - estimator.allowed_offset);
     fraction = (fraction > kMinFractionWhenPossiblyCausal
                     ? fraction
                     : kMinFractionWhenPossiblyCausal);
@@ -197,8 +206,8 @@ int HistogramBasedValidation(const BinaryDelayEstimator* self,
                                                     : kMinHistogramThreshold);
 
   is_histogram_valid =
-      (self->histogram[candidate_delay] >= histogram_threshold) &&
-      (self->candidate_hits > kMinRequiredHits);
+      (estimator.histogram[candidate_delay] >= histogram_threshold) &&
+      (estimator.candidate_hits > kMinRequiredHits);
 
   return is_histogram_valid;
 }
@@ -216,10 +225,12 @@ int HistogramBasedValidation(const BinaryDelayEstimator* self,
 //
 // 戻り値:
 //  - is_robust               : 1 なら候補が信頼できる。0 ならそれ以外。
-int RobustValidation(const BinaryDelayEstimator* self,
+int RobustValidation(const BinaryDelayEstimator* estimator_state,
                      int candidate_delay,
                      int is_instantaneous_valid,
                      int is_histogram_valid) {
+  const BinaryDelayEstimator& estimator = *estimator_state;
+
   int is_robust = 0;
 
   // 最終判定は (1) ヒストグラム検証 と (2) ロバスト統計 の結果に基づく。
@@ -229,7 +240,7 @@ int RobustValidation(const BinaryDelayEstimator* self,
   //      a candidate is valid if either algorithm states so
   //      (`is_instantaneous_valid` OR `is_histogram_valid`).
   is_robust =
-      (self->last_delay < 0) && (is_instantaneous_valid || is_histogram_valid);
+      (estimator.last_delay < 0) && (is_instantaneous_valid || is_histogram_valid);
   //  ii) Otherwise, we need both algorithms to be certain
   //      (`is_instantaneous_valid` AND `is_histogram_valid`)
   is_robust |= is_instantaneous_valid && is_histogram_valid;
@@ -237,56 +248,60 @@ int RobustValidation(const BinaryDelayEstimator* self,
   //      the instantaneous one if `is_histogram_valid` = 1 and the histogram
   //      is significantly strong.
   is_robust |= is_histogram_valid &&
-               (self->histogram[candidate_delay] > self->last_delay_histogram);
+               (estimator.histogram[candidate_delay] > estimator.last_delay_histogram);
 
   return is_robust;
 }
 
-void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self) {
-  memset(self->binary_far_history, 0, sizeof(self->binary_far_history));
-  memset(self->far_bit_counts, 0, sizeof(self->far_bit_counts));
+void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* farend) {
+  memset(farend->binary_far_history, 0, sizeof(farend->binary_far_history));
+  memset(farend->far_bit_counts, 0, sizeof(farend->far_bit_counts));
 }
 
 
 
-void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* handle,
+void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* farend,
                                  uint32_t binary_far_spectrum) {
   // バイナリスペクトル履歴をシフトし、現在の `binary_far_spectrum` を追加。
-  memmove(&(handle->binary_far_history[1]), &(handle->binary_far_history[0]),
+  memmove(&(farend->binary_far_history[1]), &(farend->binary_far_history[0]),
           (MAX_DELAY - 1) * sizeof(uint32_t));
-  handle->binary_far_history[0] = binary_far_spectrum;
+  farend->binary_far_history[0] = binary_far_spectrum;
 
   // 遠端バイナリスペクトルのビット数履歴をシフトし、現在のビット数を追加。
   // 
-  memmove(&(handle->far_bit_counts[1]), &(handle->far_bit_counts[0]),
+  memmove(&(farend->far_bit_counts[1]), &(farend->far_bit_counts[0]),
           (MAX_DELAY - 1) * sizeof(int));
-  handle->far_bit_counts[0] = BitCount(binary_far_spectrum);
+  farend->far_bit_counts[0] = BitCount(binary_far_spectrum);
 }
-void InitBinaryDelayEstimator(BinaryDelayEstimator* self) {
-  memset(self->bit_counts, 0, sizeof(self->bit_counts));
-  memset(self->binary_near_history, 0, sizeof(self->binary_near_history));
+void InitBinaryDelayEstimator(BinaryDelayEstimator* estimator_state) {
+  BinaryDelayEstimator& estimator = *estimator_state;
+
+  memset(estimator.bit_counts, 0, sizeof(estimator.bit_counts));
+  memset(estimator.binary_near_history, 0, sizeof(estimator.binary_near_history));
   for (int i = 0; i <= MAX_DELAY; ++i) {
-    self->mean_bit_counts[i] = (20 << 9);  // 20 in Q9.
-    self->histogram[i] = 0.f;
+    estimator.mean_bit_counts[i] = (20 << 9);  // 20 in Q9.
+    estimator.histogram[i] = 0.f;
   }
-  self->minimum_probability = kMaxBitCountsQ9;          // 32 in Q9.
-  self->last_delay_probability = (int)kMaxBitCountsQ9;  // 32 in Q9.
+  estimator.minimum_probability = kMaxBitCountsQ9;          // 32 in Q9.
+  estimator.last_delay_probability = (int)kMaxBitCountsQ9;  // 32 in Q9.
 
   // 推定不能時の既定値。エラーには -1 を返す。
-  self->last_delay = -2;
+  estimator.last_delay = -2;
 
-  self->last_candidate_delay = -2;
-  self->compare_delay = MAX_DELAY;
-  self->candidate_hits = 0;
-  self->last_delay_histogram = 0.f;
+  estimator.last_candidate_delay = -2;
+  estimator.compare_delay = MAX_DELAY;
+  estimator.candidate_hits = 0;
+  estimator.last_delay_histogram = 0.f;
 
-  self->allowed_offset = 0;
+  estimator.allowed_offset = 0;
 }
 
 
 
-int ProcessBinarySpectrum(BinaryDelayEstimator* self,
+int ProcessBinarySpectrum(BinaryDelayEstimator* estimator_state,
                                  uint32_t binary_near_spectrum) {
+  BinaryDelayEstimator& estimator = *estimator_state;
+
   int candidate_delay = -1;
   int valid_candidate = 0;
   int hist_valid_dbg = 0;  // 0/1: histogram validity
@@ -297,38 +312,38 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
 
   
   // lookahead=0 固定のため履歴操作なし
-  self->binary_near_history[0] = binary_near_spectrum;
+  estimator.binary_near_history[0] = binary_near_spectrum;
 
   // 遅延ごとのスペクトルと比較し、`bit_counts` に格納。
-  BitCountComparison(binary_near_spectrum, self->farend->binary_far_history,
-                     MAX_DELAY, self->bit_counts);
+  BitCountComparison(binary_near_spectrum, estimator.farend->binary_far_history,
+                     MAX_DELAY, estimator.bit_counts);
 
   // `bit_counts` を平滑化した `mean_bit_counts` を更新。
   for (int i = 0; i < MAX_DELAY; i++) {
     // `bit_counts` is constrained to [0, 32], meaning we can smooth with a
     // 係数は最大 2^26。Q9 表現を使用。
-    int32_t bit_count = (self->bit_counts[i] << 9);  // Q9 表現。
+    int32_t bit_count = (estimator.bit_counts[i] << 9);  // Q9 表現。
 
     // 遠端信号が十分に存在するときのみ `mean_bit_counts` を更新。
     // `far_bit_counts` が 0 なら遠端は弱く、エコー条件が悪いとみなす。
     // その場合は更新しない。
-    if (self->farend->far_bit_counts[i] > 0) {
+    if (estimator.farend->far_bit_counts[i] > 0) {
       // 右シフト量を `far_bit_counts` に応じた区分線形で調整。
       int shifts = kShiftsAtZero;
-      shifts -= (kShiftsLinearSlope * self->farend->far_bit_counts[i]) >> 4;
-      MeanEstimator(bit_count, shifts, &(self->mean_bit_counts[i]));
+      shifts -= (kShiftsLinearSlope * estimator.farend->far_bit_counts[i]) >> 4;
+      MeanEstimator(bit_count, shifts, &(estimator.mean_bit_counts[i]));
     }
   }
 
   // `candidate_delay` と良/悪候補の値を求める。
   // 
   for (int i = 0; i < MAX_DELAY; i++) {
-    if (self->mean_bit_counts[i] < value_best_candidate) {
-      value_best_candidate = self->mean_bit_counts[i];
+    if (estimator.mean_bit_counts[i] < value_best_candidate) {
+      value_best_candidate = estimator.mean_bit_counts[i];
       candidate_delay = i;
     }
-    if (self->mean_bit_counts[i] > value_worst_candidate) {
-      value_worst_candidate = self->mean_bit_counts[i];
+    if (estimator.mean_bit_counts[i] > value_worst_candidate) {
+      value_worst_candidate = estimator.mean_bit_counts[i];
     }
   }
   valley_depth = value_worst_candidate - value_best_candidate;
@@ -347,7 +362,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
   //        this time instant.
 
   // `minimum_probability` を更新。
-  if ((self->minimum_probability > kProbabilityLowerLimit) &&
+  if ((estimator.minimum_probability > kProbabilityLowerLimit) &&
       (valley_depth > kProbabilityMinSpread)) {
     // ハード閾値は Q9 で 17 未満にならないようにする。
     // 曲線の谷が十分深い（良候補と悪候補の差が大きい）ことも条件。
@@ -357,13 +372,13 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
     if (threshold < kProbabilityLowerLimit) {
       threshold = kProbabilityLowerLimit;
     }
-    if (self->minimum_probability > threshold) {
-      self->minimum_probability = threshold;
+    if (estimator.minimum_probability > threshold) {
+      estimator.minimum_probability = threshold;
     }
   }
   // `last_delay_probability` を更新。
   // マルコフ型モデルで徐々にレベルを上げる。
-  self->last_delay_probability++;
+  estimator.last_delay_probability++;
   // `candidate_delay` を検証し、信頼できる即時遅延が得られたか判断する。
   // 
   //  1) 谷が十分深いか (`valley_depth` > `kProbabilityOffset`)
@@ -373,49 +388,49 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
   //     and deeper than the best estimate so far
   //      (`value_best_candidate` < `last_delay_probability`)
   valid_candidate = ((valley_depth > kProbabilityOffset) &&
-                     ((value_best_candidate < self->minimum_probability) ||
-                      (value_best_candidate < self->last_delay_probability)));
+                     ((value_best_candidate < estimator.minimum_probability) ||
+                      (value_best_candidate < estimator.last_delay_probability)));
 
   // 遠端信号が非定常かを確認。
   const bool non_stationary_farend =
-      std::any_of(self->farend->far_bit_counts,
-                  self->farend->far_bit_counts + MAX_DELAY,
+      std::any_of(estimator.farend->far_bit_counts,
+                  estimator.farend->far_bit_counts + MAX_DELAY,
                   [](int a) { return a > 0; });
 
   if (non_stationary_farend) {
     // 遠端が非定常のときのみ統計を更新する（定常なら推定値が凍結されるため）。
     // 
-    UpdateRobustValidationStatistics(self, candidate_delay, valley_depth,
+    UpdateRobustValidationStatistics(&estimator, candidate_delay, valley_depth,
                                      value_best_candidate);
   }
 
   {
-    int is_histogram_valid = HistogramBasedValidation(self, candidate_delay);
+    int is_histogram_valid = HistogramBasedValidation(&estimator, candidate_delay);
     hist_valid_dbg = is_histogram_valid;
-    valid_candidate = RobustValidation(self, candidate_delay, valid_candidate,
+    valid_candidate = RobustValidation(&estimator, candidate_delay, valid_candidate,
                                        is_histogram_valid);
   }
 
   // 遠端が非定常で、妥当な候補がある場合のみ遅延推定を更新。
   // 
   if (non_stationary_farend && valid_candidate) {
-    if (candidate_delay != self->last_delay) {
-      self->last_delay_histogram =
-          (self->histogram[candidate_delay] > kLastHistogramMax
+    if (candidate_delay != estimator.last_delay) {
+      estimator.last_delay_histogram =
+          (estimator.histogram[candidate_delay] > kLastHistogramMax
                ? kLastHistogramMax
-               : self->histogram[candidate_delay]);
+               : estimator.histogram[candidate_delay]);
       // `last_delay` を変更したがヒストグラム的に最尤でなかった場合、
       // ヒストグラムを補正する。
-      if (self->histogram[candidate_delay] <
-          self->histogram[self->compare_delay]) {
-        self->histogram[self->compare_delay] = self->histogram[candidate_delay];
+      if (estimator.histogram[candidate_delay] <
+          estimator.histogram[estimator.compare_delay]) {
+        estimator.histogram[estimator.compare_delay] = estimator.histogram[candidate_delay];
       }
     }
-    self->last_delay = candidate_delay;
-    if (value_best_candidate < self->last_delay_probability) {
-      self->last_delay_probability = value_best_candidate;
+    estimator.last_delay = candidate_delay;
+    if (value_best_candidate < estimator.last_delay_probability) {
+      estimator.last_delay_probability = value_best_candidate;
     }
-    self->compare_delay = self->last_delay;
+    estimator.compare_delay = estimator.last_delay;
   }
 
   // 100 回ごとに候補やヒストグラム値などをデバッグ出力。
@@ -426,15 +441,15 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
     if (dbg_counter % 100 == 0) {
       float hist_val = 0.f;
       if (candidate_delay >= 0 && candidate_delay < MAX_DELAY) {
-        hist_val = self->histogram[candidate_delay];
+        hist_val = estimator.histogram[candidate_delay];
       }
       fprintf(stderr,
               "[DelayEstimator] block=%d cand=%d hist_val=%.3f hist_valid=%d last=%d\n",
-              dbg_counter, candidate_delay, hist_val, hist_valid_dbg, self->last_delay);
+              dbg_counter, candidate_delay, hist_val, hist_valid_dbg, estimator.last_delay);
     }
   }
 
-  return self->last_delay;
+  return estimator.last_delay;
 }
 
 
@@ -479,64 +494,50 @@ static uint32_t BinarySpectrum(const uint16_t* spectrum,
   return out;
 }
 
-int InitDelayEstimatorFarend(void* handle) {
-  auto* self = static_cast<DelayEstimatorFarend*>(handle);
+int InitDelayEstimatorFarend() {
+  InitBinaryDelayEstimatorFarend(&g_delay_farend.binary_farend);
 
-  if (self == NULL) {
-    return -1;
-  }
-
-  InitBinaryDelayEstimatorFarend(&self->binary_farend);
-
-  self->spectrum_size = PART_LEN1;
-  memset(self->mean_far_spectrum, 0, sizeof(self->mean_far_spectrum));
-  self->far_spectrum_initialized = 0;
+  g_delay_farend.spectrum_size = PART_LEN1;
+  memset(g_delay_farend.mean_far_spectrum, 0,
+         sizeof(g_delay_farend.mean_far_spectrum));
+  g_delay_farend.far_spectrum_initialized = 0;
 
   return 0;
 }
 
-int AddFarSpectrum(void* handle, const uint16_t* far_spectrum) {
-  auto* self = static_cast<DelayEstimatorFarend*>(handle);
-
-  if (self == NULL || far_spectrum == NULL) {
+int AddFarSpectrum(const uint16_t* far_spectrum) {
+  if (far_spectrum == NULL) {
     return -1;
   }
 
   const uint32_t binary_spectrum = BinarySpectrum(
-      far_spectrum, self->mean_far_spectrum, &(self->far_spectrum_initialized));
-  AddBinaryFarSpectrum(&self->binary_farend, binary_spectrum);
+      far_spectrum, g_delay_farend.mean_far_spectrum,
+      &(g_delay_farend.far_spectrum_initialized));
+  AddBinaryFarSpectrum(&g_delay_farend.binary_farend, binary_spectrum);
 
   return 0;
 }
 
-int InitDelayEstimator(void* handle) {
-  auto* self = static_cast<DelayEstimator*>(handle);
+int InitDelayEstimator() {
+  g_delay_instance.binary_handle.farend = &g_delay_farend.binary_farend;
+  InitBinaryDelayEstimator(&g_delay_instance.binary_handle);
 
-  if (self == NULL) {
-    return -1;
-  }
-
-  if (self->farend_wrapper) {
-    self->binary_handle.farend = &self->farend_wrapper->binary_farend;
-  }
-  InitBinaryDelayEstimator(&self->binary_handle);
-
-  self->spectrum_size = PART_LEN1;
-  memset(self->mean_near_spectrum, 0, sizeof(self->mean_near_spectrum));
-  self->near_spectrum_initialized = 0;
+  g_delay_instance.spectrum_size = PART_LEN1;
+  memset(g_delay_instance.mean_near_spectrum, 0,
+         sizeof(g_delay_instance.mean_near_spectrum));
+  g_delay_instance.near_spectrum_initialized = 0;
 
   return 0;
 }
 
-int DelayEstimatorProcess(void* handle, const uint16_t* near_spectrum) {
-  auto* self = static_cast<DelayEstimator*>(handle);
-
-  if (self == NULL || near_spectrum == NULL) {
+int DelayEstimatorProcess(const uint16_t* near_spectrum) {
+  if (near_spectrum == NULL) {
     return -1;
   }
 
   const uint32_t binary_spectrum = BinarySpectrum(
-      near_spectrum, self->mean_near_spectrum, &(self->near_spectrum_initialized));
+      near_spectrum, g_delay_instance.mean_near_spectrum,
+      &(g_delay_instance.near_spectrum_initialized));
 
-  return ProcessBinarySpectrum(&self->binary_handle, binary_spectrum);
+  return ProcessBinarySpectrum(&g_delay_instance.binary_handle, binary_spectrum);
 }

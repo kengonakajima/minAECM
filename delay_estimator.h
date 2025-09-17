@@ -57,7 +57,6 @@ typedef struct {
   int spectrum_size;
 
   BinaryDelayEstimator binary_handle;
-  DelayEstimatorFarend* farend_wrapper;
 } DelayEstimator;
 
 // 動的確保APIは削除（固定長・単一インスタンス前提）。
@@ -66,12 +65,12 @@ typedef struct {
 // CreateBinaryDelayEstimatorFarend(...).
 //
 // Input:
-//    - self              : Pointer to the delay estimation far-end instance.
+//    - farend            : Pointer to the delay estimation far-end instance.
 //
 // Output:
-//    - self              : Initialized far-end instance.
+//    - farend            : Initialized far-end instance.
 //
-void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self);
+void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* farend);
 
 
 
@@ -80,26 +79,26 @@ void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self);
 // ProcessBinarySpectrum().
 //
 // Inputs:
-//    - self                  : Pointer to the delay estimation far-end
+//    - farend                : Pointer to the delay estimation far-end
 //                              instance.
 //    - binary_far_spectrum   : Far-end binary spectrum.
 //
 // Output:
-//    - self                  : Updated far-end instance.
+//    - farend                : Updated far-end instance.
 //
-void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* self, uint32_t binary_far_spectrum);
+void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* farend, uint32_t binary_far_spectrum);
 
 
 // Initializes the delay estimation instance created with
 // CreateBinaryDelayEstimator(...).
 //
 // Input:
-//    - self              : Pointer to the delay estimation instance.
+//    - estimator         : Pointer to the delay estimation instance.
 //
 // Output:
-//    - self              : Initialized instance.
+//    - estimator         : Initialized instance.
 //
-void InitBinaryDelayEstimator(BinaryDelayEstimator* self);
+void InitBinaryDelayEstimator(BinaryDelayEstimator* estimator);
 
 
 
@@ -110,17 +109,17 @@ void InitBinaryDelayEstimator(BinaryDelayEstimator* self);
 // value).
 //
 // Inputs:
-//    - self                  : Pointer to the delay estimation instance.
+//    - estimator             : Pointer to the delay estimation instance.
 //    - binary_near_spectrum  : Near-end binary spectrum of the current block.
 //
 // Output:
-//    - self                  : Updated instance.
+//    - estimator             : Updated instance.
 //
 // Return value:
 //    - delay                 :  >= 0 - Calculated delay value.
 //                              -2    - Insufficient data for estimation.
 //
-int ProcessBinarySpectrum(BinaryDelayEstimator* self, uint32_t binary_near_spectrum);
+int ProcessBinarySpectrum(BinaryDelayEstimator* estimator, uint32_t binary_near_spectrum);
 
 
 // Updates the `mean_value` recursively with a step size of 2^-`factor`. This
@@ -136,9 +135,13 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self, uint32_t binary_near_spect
 //
 void MeanEstimator(int32_t new_value, int factor, int32_t* mean_value);
 
-int InitDelayEstimatorFarend(void* handle);
-int AddFarSpectrum(void* handle, const uint16_t* far_spectrum);
-int InitDelayEstimator(void* handle);
-int DelayEstimatorProcess(void* handle, const uint16_t* near_spectrum);
+// Initializes the singleton far-end delay estimator state.
+int InitDelayEstimatorFarend();
+// Feeds a new far-end spectrum into the global delay estimator history.
+int AddFarSpectrum(const uint16_t* far_spectrum);
+// Initializes the singleton near-end delay estimator state.
+int InitDelayEstimator();
+// Processes the latest near-end spectrum and returns the estimated delay.
+int DelayEstimatorProcess(const uint16_t* near_spectrum);
 
  

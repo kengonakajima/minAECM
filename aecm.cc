@@ -30,9 +30,8 @@ int g_lastKnownDelay; // 直前処理で用いた遅延サンプル数
 int g_firstVAD; // VAD 初回検出フラグ
 
 
-int16_t g_xFrameBuf[FAR_BUF_LEN]; // 遠端フレームのリングバッファ実体
-DelayEstimatorFarend g_delay_estimator_farend; // 遠端側の二値遅延推定エンジン状態
-DelayEstimator g_delay_estimator; // 近端スペクトルを処理する遅延推定器
+// 遠端フレームのリングバッファ実体
+int16_t g_xFrameBuf[FAR_BUF_LEN];
 uint16_t g_xHistory[PART_LEN1 * MAX_DELAY]; // 遠端スペクトル履歴（遅延候補ごと）
 int g_xHistoryPos; // 遠端スペクトル履歴の書き込みインデックス
 
@@ -266,10 +265,10 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
 
   // 遠端スペクトル履歴を更新し、2値スペクトル照合で遅延を推定
   UpdateFarHistory(X_mag);
-  if (AddFarSpectrum(&g_delay_estimator_farend, X_mag) == -1) {
+  if (AddFarSpectrum(X_mag) == -1) {
     return -1;
   }  
-  int delay = DelayEstimatorProcess(&g_delay_estimator, Y_mag); // このdelayが4だったら4ブロック遅れ
+  int delay = DelayEstimatorProcess(Y_mag); // このdelayが4だったら4ブロック遅れ
   if (delay == -1) {
     return -1;
   } else if (delay == -2) {
@@ -613,12 +612,10 @@ int InitCore() {
 
   g_totCount = 0;
 
-  if (InitDelayEstimatorFarend(&g_delay_estimator_farend) != 0) {
+  if (InitDelayEstimatorFarend() != 0) {
     return -1;
   }
-  // 遠端側と遅延推定器を接続
-  g_delay_estimator.farend_wrapper = &g_delay_estimator_farend;
-  if (InitDelayEstimator(&g_delay_estimator) != 0) {
+  if (InitDelayEstimator() != 0) {
     return -1;
   }
   // 遠端履歴をゼロ初期化
