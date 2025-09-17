@@ -22,67 +22,63 @@ struct ComplexInt16 {
   int16_t imag;
 };
 
-struct AecmCore {
-  int xBufWritePos;
-  int xBufReadPos;
-  int knownDelay;
-  int lastKnownDelay;
-  int firstVAD;
+// AECM 単一インスタンスの状態（g_ 接頭辞のグローバルで保持）
+int g_xBufWritePos;
+int g_xBufReadPos;
+int g_knownDelay;
+int g_lastKnownDelay;
+int g_firstVAD;
 
-  int16_t xFrameBuf[FAR_BUF_LEN];
+int16_t g_xFrameBuf[FAR_BUF_LEN];
 
-  DelayEstimatorFarend delay_estimator_farend;
-  DelayEstimator delay_estimator;
-  uint16_t xHistory[PART_LEN1 * MAX_DELAY];
-  int xHistoryPos;
+DelayEstimatorFarend g_delay_estimator_farend;
+DelayEstimator g_delay_estimator;
+uint16_t g_xHistory[PART_LEN1 * MAX_DELAY];
+int g_xHistoryPos;
 
-  uint32_t totCount;
+uint32_t g_totCount;
 
-  int16_t dfaCleanQDomain;
-  int16_t dfaCleanQDomainOld;
-  int16_t dfaNoisyQDomain;
-  int16_t dfaNoisyQDomainOld;
+int16_t g_dfaCleanQDomain;
+int16_t g_dfaCleanQDomainOld;
+int16_t g_dfaNoisyQDomain;
+int16_t g_dfaNoisyQDomainOld;
 
-  int16_t nearLogEnergy[MAX_LOG_LEN];
-  int16_t farLogEnergy;
-  int16_t echoAdaptLogEnergy[MAX_LOG_LEN];
-  int16_t echoStoredLogEnergy[MAX_LOG_LEN];
+int16_t g_nearLogEnergy[MAX_LOG_LEN];
+int16_t g_farLogEnergy;
+int16_t g_echoAdaptLogEnergy[MAX_LOG_LEN];
+int16_t g_echoStoredLogEnergy[MAX_LOG_LEN];
 
-  int16_t hStored[PART_LEN1];
-  int16_t hAdapt16[PART_LEN1];
-  int32_t hAdapt32[PART_LEN1];
-  int16_t xBuf[PART_LEN2];
-  int16_t yBuf[PART_LEN2];
-  int16_t eOverlapBuf[PART_LEN];
+int16_t g_hStored[PART_LEN1];
+int16_t g_hAdapt16[PART_LEN1];
+int32_t g_hAdapt32[PART_LEN1];
+int16_t g_xBuf[PART_LEN2];
+int16_t g_yBuf[PART_LEN2];
+int16_t g_eOverlapBuf[PART_LEN];
 
-  int32_t sMagSmooth[PART_LEN1];
-  int16_t yMagSmooth[PART_LEN1];
+int32_t g_sMagSmooth[PART_LEN1];
+int16_t g_yMagSmooth[PART_LEN1];
 
-  int32_t mseAdaptOld;
-  int32_t mseStoredOld;
-  int32_t mseThreshold;
+int32_t g_mseAdaptOld;
+int32_t g_mseStoredOld;
+int32_t g_mseThreshold;
 
-  int16_t farEnergyMin;
-  int16_t farEnergyMax;
-  int16_t farEnergyMaxMin;
-  int16_t farEnergyVAD;
-  int16_t farEnergyMSE;
-  int currentVADValue;
-  int16_t vadUpdateCount;
+int16_t g_farEnergyMin;
+int16_t g_farEnergyMax;
+int16_t g_farEnergyMaxMin;
+int16_t g_farEnergyVAD;
+int16_t g_farEnergyMSE;
+int g_currentVADValue;
+int16_t g_vadUpdateCount;
 
-  int16_t startupState;
-  int16_t mseChannelCount;
-  int16_t supGain;
-  int16_t supGainOld;
+int16_t g_startupState;
+int16_t g_mseChannelCount;
+int16_t g_supGain;
+int16_t g_supGainOld;
 
-  int16_t supGainErrParamA;
-  int16_t supGainErrParamD;
-  int16_t supGainErrParamDiffAB;
-  int16_t supGainErrParamDiffBD;
-};
-
-// デフォルトの単一インスタンス（ポインタ省略呼び出し用）
-AecmCore g_aecm;
+int16_t g_supGainErrParamA;
+int16_t g_supGainErrParamD;
+int16_t g_supGainErrParamDiffAB;
+int16_t g_supGainErrParamDiffBD;
 
 // アプリ側ラッパ状態（単一インスタンス）
 
@@ -98,20 +94,16 @@ constexpr short kStartupFrames =
         : (kStartupFramesRaw > kBufSizeFrames ? kBufSizeFrames : kStartupFramesRaw);
 constexpr int kInitCheck = 42;
 
-struct AecMobile {
-  short bufSizeStart;
-  int knownDelay;
-  short farendOld[FRAME_LEN];
-  short initFlag;
-  short filtDelay;
-  int timeForDelayChange;
-  int ECstartup;
-  short lastDelayDiff;
-  RingBuffer farendBuf;
-  int16_t farendBufData[kBufSizeSamples];
-};
-
-static AecMobile g_mobile;
+short g_mobileBufSizeStart;
+int g_mobileKnownDelay;
+short g_mobileFarendOld[FRAME_LEN];
+short g_mobileInitFlag;
+short g_mobileFiltDelay;
+int g_mobileTimeForDelayChange;
+int g_mobileECstartup;
+short g_mobileLastDelayDiff;
+RingBuffer g_mobileFarendBuf;
+int16_t g_mobileFarendBufData[kBufSizeSamples];
 
 
 // 先行宣言（翻訳単位内のみで使用）。
@@ -192,17 +184,17 @@ void InverseFFTAndWindow(int16_t* fft,
     ifft_out[i] = (int16_t)MUL_16_16_RSFT_WITH_ROUND(ifft_out[i], kSqrtHanning[i], 14);
     // 固定Q=0のため、出力シフトは outCFFT のみを考慮
     int32_t tmp32no1 = SHIFT_W32((int32_t)ifft_out[i], outCFFT);
-    output[i] = (int16_t)SAT(WORD16_MAX, tmp32no1 + g_aecm.eOverlapBuf[i], WORD16_MIN);
+    output[i] = (int16_t)SAT(WORD16_MAX, tmp32no1 + g_eOverlapBuf[i], WORD16_MIN);
 
     tmp32no1 = (ifft_out[PART_LEN + i] * kSqrtHanning[PART_LEN - i]) >> 14;
     tmp32no1 = SHIFT_W32(tmp32no1, outCFFT);
-    g_aecm.eOverlapBuf[i] = (int16_t)SAT(WORD16_MAX, tmp32no1, WORD16_MIN);
+    g_eOverlapBuf[i] = (int16_t)SAT(WORD16_MAX, tmp32no1, WORD16_MIN);
   }
 
   // 現ブロックの値を過去位置へコピーし、
-  // （`g_aecm.eOverlapBuf` のシフトは別処理で行う）
-  memcpy(g_aecm.xBuf, g_aecm.xBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
-  memcpy(g_aecm.yBuf, g_aecm.yBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
+  // （`g_eOverlapBuf` のシフトは別処理で行う）
+  memcpy(g_xBuf, g_xBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
+  memcpy(g_yBuf, g_yBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
 }
 
 void TimeToFrequencyDomain(const int16_t* time_signal,
@@ -252,33 +244,33 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   // (1) さらに CONV_LEN ブロック
   // (2) それ以降
 
-  if (g_aecm.startupState < 2) {
-    g_aecm.startupState = (g_aecm.totCount >= CONV_LEN) + (g_aecm.totCount >= CONV_LEN2);
+  if (g_startupState < 2) {
+    g_startupState = (g_totCount >= CONV_LEN) + (g_totCount >= CONV_LEN2);
   }
 
   // 近端/遠端の時間領域フレームをバッファへ蓄える
-  memcpy(g_aecm.xBuf + PART_LEN, x_block, sizeof(int16_t) * PART_LEN);
-  memcpy(g_aecm.yBuf + PART_LEN, y_block, sizeof(int16_t) * PART_LEN);
+  memcpy(g_xBuf + PART_LEN, x_block, sizeof(int16_t) * PART_LEN);
+  memcpy(g_yBuf + PART_LEN, y_block, sizeof(int16_t) * PART_LEN);
 
   // 遠端信号 X(k) = FFT{x(n)} を算出し（|X| と Σ|X| を求める）
   uint32_t X_mag_sum = 0;
-  TimeToFrequencyDomain(g_aecm.xBuf, Y_freq, X_mag, &X_mag_sum);
+  TimeToFrequencyDomain(g_xBuf, Y_freq, X_mag, &X_mag_sum);
 
   // 近端信号 Y(k) = FFT{y(n)} を算出し（|Y| と Σ|Y| を求める）
   uint32_t Y_mag_sum = 0;
-  TimeToFrequencyDomain(g_aecm.yBuf, Y_freq, Y_mag, &Y_mag_sum);
-  g_aecm.dfaNoisyQDomainOld = g_aecm.dfaNoisyQDomain;
-  g_aecm.dfaNoisyQDomain = 0;
+  TimeToFrequencyDomain(g_yBuf, Y_freq, Y_mag, &Y_mag_sum);
+  g_dfaNoisyQDomainOld = g_dfaNoisyQDomain;
+  g_dfaNoisyQDomain = 0;
 
-  g_aecm.dfaCleanQDomainOld = g_aecm.dfaNoisyQDomainOld;
-  g_aecm.dfaCleanQDomain = g_aecm.dfaNoisyQDomain;
+  g_dfaCleanQDomainOld = g_dfaNoisyQDomainOld;
+  g_dfaCleanQDomain = g_dfaNoisyQDomain;
 
   // 遠端スペクトル履歴を更新し、2値スペクトル照合で遅延を推定
   UpdateFarHistory(X_mag);
-  if (AddFarSpectrum(&g_aecm.delay_estimator_farend, X_mag) == -1) {
+  if (AddFarSpectrum(&g_delay_estimator_farend, X_mag) == -1) {
     return -1;
   }  
-  int delay = DelayEstimatorProcess(&g_aecm.delay_estimator, Y_mag); // このdelayが4だったら4ブロック遅れ
+  int delay = DelayEstimatorProcess(&g_delay_estimator, Y_mag); // このdelayが4だったら4ブロック遅れ
   if (delay == -1) {
     return -1;
   } else if (delay == -2) {
@@ -296,7 +288,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   int16_t mu = CalcStepSize();
 
   // 処理済みブロック数をインクリメント
-  g_aecm.totCount++;
+  g_totCount++;
 
   // ここからチャネル推定アルゴリズム。NLMS 派生で、上で計算した
   // 可変ステップ長を用いて更新する。
@@ -309,39 +301,39 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   int16_t numPosCoef = 0;
   double sum_gain = 0.0;
   for (int i = 0; i < PART_LEN1; i++) {
-    int32_t tmp32no1 = S_mag[i] - g_aecm.sMagSmooth[i];
-    g_aecm.sMagSmooth[i] += (int32_t)(((int64_t)tmp32no1 * 50) >> 8);
+    int32_t tmp32no1 = S_mag[i] - g_sMagSmooth[i];
+    g_sMagSmooth[i] += (int32_t)(((int64_t)tmp32no1 * 50) >> 8);
 
-    int16_t zeros32 = NormW32(g_aecm.sMagSmooth[i]) + 1;
+    int16_t zeros32 = NormW32(g_sMagSmooth[i]) + 1;
     int16_t zeros16 = NormW16(gGain) + 1;
     uint32_t sMagGained;
     int16_t resolutionDiff;
     if (zeros32 + zeros16 > 16) {
-      sMagGained = UMUL_32_16((uint32_t)g_aecm.sMagSmooth[i], (uint16_t)gGain);
+      sMagGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], (uint16_t)gGain);
       resolutionDiff = 14 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
     } else {
       int16_t tmp16no1 = 17 - zeros32 - zeros16;
       resolutionDiff = 14 + tmp16no1 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
       if (zeros32 > tmp16no1) {
-        sMagGained = UMUL_32_16((uint32_t)g_aecm.sMagSmooth[i], gGain >> tmp16no1);
+        sMagGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], gGain >> tmp16no1);
       } else {
-        sMagGained = (g_aecm.sMagSmooth[i] >> tmp16no1) * gGain;
+        sMagGained = (g_sMagSmooth[i] >> tmp16no1) * gGain;
       }
     }
 
-    zeros16 = NormW16(g_aecm.yMagSmooth[i]);
-    int16_t y_mag_q_domain_diff = g_aecm.dfaCleanQDomain - g_aecm.dfaCleanQDomainOld;
+    zeros16 = NormW16(g_yMagSmooth[i]);
+    int16_t y_mag_q_domain_diff = g_dfaCleanQDomain - g_dfaCleanQDomainOld;
     int16_t qDomainDiff;
     int16_t tmp16no1;
     int16_t tmp16no2;
-    if (zeros16 < y_mag_q_domain_diff && g_aecm.yMagSmooth[i]) {
-      tmp16no1 = g_aecm.yMagSmooth[i] * (1 << zeros16);
+    if (zeros16 < y_mag_q_domain_diff && g_yMagSmooth[i]) {
+      tmp16no1 = g_yMagSmooth[i] * (1 << zeros16);
       qDomainDiff = zeros16 - y_mag_q_domain_diff;
       tmp16no2 = Y_mag_clean[i] >> -qDomainDiff;
     } else {
       tmp16no1 = y_mag_q_domain_diff < 0
-                     ? g_aecm.yMagSmooth[i] >> -y_mag_q_domain_diff
-                     : g_aecm.yMagSmooth[i] * (1 << y_mag_q_domain_diff);
+                     ? g_yMagSmooth[i] >> -y_mag_q_domain_diff
+                     : g_yMagSmooth[i] * (1 << y_mag_q_domain_diff);
       qDomainDiff = 0;
       tmp16no2 = Y_mag_clean[i];
     }
@@ -350,19 +342,19 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     tmp16no2 += tmp16no1;
     zeros16 = NormW16(tmp16no2);
     if ((tmp16no2) & (-qDomainDiff > zeros16)) {
-      g_aecm.yMagSmooth[i] = WORD16_MAX;
+      g_yMagSmooth[i] = WORD16_MAX;
     } else {
-      g_aecm.yMagSmooth[i] = qDomainDiff < 0 ? tmp16no2 * (1 << -qDomainDiff)
+      g_yMagSmooth[i] = qDomainDiff < 0 ? tmp16no2 * (1 << -qDomainDiff)
                                              : tmp16no2 >> qDomainDiff;
     }
 
     if (sMagGained == 0) {
       H_gain[i] = ONE_Q14;
-    } else if (g_aecm.yMagSmooth[i] == 0) {
+    } else if (g_yMagSmooth[i] == 0) {
       H_gain[i] = 0;
     } else {
-      sMagGained += (uint32_t)(g_aecm.yMagSmooth[i] >> 1);
-      uint32_t tmpU32 = DivU32U16(sMagGained, (uint16_t)g_aecm.yMagSmooth[i]);
+      sMagGained += (uint32_t)(g_yMagSmooth[i] >> 1);
+      uint32_t tmpU32 = DivU32U16(sMagGained, (uint16_t)g_yMagSmooth[i]);
 
       tmp32no1 = (int32_t)SHIFT_W32(tmpU32, resolutionDiff);
       if (tmp32no1 > ONE_Q14) {
@@ -467,7 +459,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     dbg_ss_counter++;
     if (dbg_ss_counter % 100 == 0) {
       fprintf(stderr, "[AECM] block=%d startupState=%d\n",
-              dbg_ss_counter, (int)g_aecm.startupState);
+              dbg_ss_counter, (int)g_startupState);
     }
   }
 
@@ -496,13 +488,13 @@ static const int16_t kChannelStored16kHz[PART_LEN1] = {
 //
 void UpdateFarHistory(uint16_t* x_spectrum) {
   // 新しいバッファ位置を算出
-  g_aecm.xHistoryPos++;
-  if (g_aecm.xHistoryPos >= MAX_DELAY) {
-    g_aecm.xHistoryPos = 0;
+  g_xHistoryPos++;
+  if (g_xHistoryPos >= MAX_DELAY) {
+    g_xHistoryPos = 0;
   }
   // Q-domain は固定Q=0のため保持不要
   // 遠端スペクトル用バッファを更新
-  memcpy(&(g_aecm.xHistory[g_aecm.xHistoryPos * PART_LEN1]), x_spectrum, sizeof(uint16_t) * PART_LEN1);
+  memcpy(&(g_xHistory[g_xHistoryPos * PART_LEN1]), x_spectrum, sizeof(uint16_t) * PART_LEN1);
 }
 
 // 現在の近端に整列した遠端スペクトルのポインタを返す
@@ -521,32 +513,32 @@ void UpdateFarHistory(uint16_t* x_spectrum) {
 const uint16_t* AlignedFarX(int delay) {
   int buffer_position = 0;
   // 元実装では DCHECK で検査していたが、最小構成では省略。
-  buffer_position = g_aecm.xHistoryPos - delay;
+  buffer_position = g_xHistoryPos - delay;
 
   // バッファ位置を正規化
   if (buffer_position < 0) {
     buffer_position += MAX_DELAY;
   }
   // 整列済みの遠端スペクトルを返す
-  return &(g_aecm.xHistory[buffer_position * PART_LEN1]);
+  return &(g_xHistory[buffer_position * PART_LEN1]);
 }
 
 // Create/Freeは廃止。InitCore()で内部状態を初期化する。
 
 void InitEchoPathCore(const int16_t* echo_path) {
   // 保存チャネルをリセット
-  memcpy(g_aecm.hStored, echo_path, sizeof(int16_t) * PART_LEN1);
+  memcpy(g_hStored, echo_path, sizeof(int16_t) * PART_LEN1);
   // 適応チャネルをリセット
-  memcpy(g_aecm.hAdapt16, echo_path, sizeof(int16_t) * PART_LEN1);
+  memcpy(g_hAdapt16, echo_path, sizeof(int16_t) * PART_LEN1);
   for (int i = 0; i < PART_LEN1; i++) {
-    g_aecm.hAdapt32[i] = (int32_t)g_aecm.hAdapt16[i] << 16;
+    g_hAdapt32[i] = (int32_t)g_hAdapt16[i] << 16;
   }
 
   // チャネル保存に関する変数を初期化
-  g_aecm.mseAdaptOld = 1000;
-  g_aecm.mseStoredOld = 1000;
-  g_aecm.mseThreshold = WORD32_MAX;
-  g_aecm.mseChannelCount = 0;
+  g_mseAdaptOld = 1000;
+  g_mseStoredOld = 1000;
+  g_mseThreshold = WORD32_MAX;
+  g_mseChannelCount = 0;
 }
 
 void CalcLinearEnergiesC(const uint16_t* X_mag,
@@ -557,9 +549,9 @@ void CalcLinearEnergiesC(const uint16_t* X_mag,
   // 遅延後の遠端信号と推定エコーのエネルギーを取得（保存/適応チャネル双方）
   // 
   for (int i = 0; i < PART_LEN1; i++) {
-    S_mag[i] = MUL_16_U16(g_aecm.hStored[i], X_mag[i]);
+    S_mag[i] = MUL_16_U16(g_hStored[i], X_mag[i]);
     (*X_energy) += (uint32_t)(X_mag[i]);
-    *S_energy_adapt += g_aecm.hAdapt16[i] * X_mag[i];
+    *S_energy_adapt += g_hAdapt16[i] * X_mag[i];
     (*S_energy_stored) += (uint32_t)S_mag[i];
   }
 }
@@ -567,30 +559,30 @@ void CalcLinearEnergiesC(const uint16_t* X_mag,
 void StoreAdaptiveChannelC(const uint16_t* X_mag,
                            int32_t* S_mag) {
   // 起動中は毎ブロック保存チャネルを更新
-  memcpy(g_aecm.hStored, g_aecm.hAdapt16, sizeof(int16_t) * PART_LEN1);
+  memcpy(g_hStored, g_hAdapt16, sizeof(int16_t) * PART_LEN1);
   // 推定エコーを再計算
   for (int i = 0; i < PART_LEN; i += 4) {
-    S_mag[i] = MUL_16_U16(g_aecm.hStored[i], X_mag[i]);
-    S_mag[i + 1] = MUL_16_U16(g_aecm.hStored[i + 1], X_mag[i + 1]);
-    S_mag[i + 2] = MUL_16_U16(g_aecm.hStored[i + 2], X_mag[i + 2]);
-    S_mag[i + 3] = MUL_16_U16(g_aecm.hStored[i + 3], X_mag[i + 3]);
+    S_mag[i] = MUL_16_U16(g_hStored[i], X_mag[i]);
+    S_mag[i + 1] = MUL_16_U16(g_hStored[i + 1], X_mag[i + 1]);
+    S_mag[i + 2] = MUL_16_U16(g_hStored[i + 2], X_mag[i + 2]);
+    S_mag[i + 3] = MUL_16_U16(g_hStored[i + 3], X_mag[i + 3]);
   }
   // PART_LEN1 は PART_LEN + 1
-  S_mag[PART_LEN] = MUL_16_U16(g_aecm.hStored[PART_LEN], X_mag[PART_LEN]);
+  S_mag[PART_LEN] = MUL_16_U16(g_hStored[PART_LEN], X_mag[PART_LEN]);
 }
 
 void ResetAdaptiveChannelC() {
   // 連続 2 回、保存チャネルの MSE が適応チャネルより十分小さい場合、
   // 適応チャネルをリセットする。
-  memcpy(g_aecm.hAdapt16, g_aecm.hStored, sizeof(int16_t) * PART_LEN1);
+  memcpy(g_hAdapt16, g_hStored, sizeof(int16_t) * PART_LEN1);
   // 32bit チャネル表現を復元
   for (int i = 0; i < PART_LEN; i += 4) {
-    g_aecm.hAdapt32[i] = (int32_t)g_aecm.hStored[i] << 16;
-    g_aecm.hAdapt32[i + 1] = (int32_t)g_aecm.hStored[i + 1] << 16;
-    g_aecm.hAdapt32[i + 2] = (int32_t)g_aecm.hStored[i + 2] << 16;
-    g_aecm.hAdapt32[i + 3] = (int32_t)g_aecm.hStored[i + 3] << 16;
+    g_hAdapt32[i] = (int32_t)g_hStored[i] << 16;
+    g_hAdapt32[i + 1] = (int32_t)g_hStored[i + 1] << 16;
+    g_hAdapt32[i + 2] = (int32_t)g_hStored[i + 2] << 16;
+    g_hAdapt32[i + 3] = (int32_t)g_hStored[i + 3] << 16;
   }
-  g_aecm.hAdapt32[PART_LEN] = (int32_t)g_aecm.hStored[PART_LEN] << 16;
+  g_hAdapt32[PART_LEN] = (int32_t)g_hStored[PART_LEN] << 16;
 }
 
 
@@ -609,65 +601,65 @@ void ResetAdaptiveChannelC() {
 int InitCore() {
   // 16kHz 固定
 
-  g_aecm.xBufWritePos = 0;
-  g_aecm.xBufReadPos = 0;
-  g_aecm.knownDelay = 0;
-  g_aecm.lastKnownDelay = 0;
+  g_xBufWritePos = 0;
+  g_xBufReadPos = 0;
+  g_knownDelay = 0;
+  g_lastKnownDelay = 0;
 
   // FRAME_LEN=PART_LEN のため中間フレーム用リングバッファは不要
 
-  memset(g_aecm.xBuf, 0, sizeof(g_aecm.xBuf));
-  memset(g_aecm.yBuf, 0, sizeof(g_aecm.yBuf));
-  memset(g_aecm.eOverlapBuf, 0, sizeof(g_aecm.eOverlapBuf));
+  memset(g_xBuf, 0, sizeof(g_xBuf));
+  memset(g_yBuf, 0, sizeof(g_yBuf));
+  memset(g_eOverlapBuf, 0, sizeof(g_eOverlapBuf));
 
-  g_aecm.totCount = 0;
+  g_totCount = 0;
 
-  if (InitDelayEstimatorFarend(&g_aecm.delay_estimator_farend) != 0) {
+  if (InitDelayEstimatorFarend(&g_delay_estimator_farend) != 0) {
     return -1;
   }
   // 遠端側と遅延推定器を接続
-  g_aecm.delay_estimator.farend_wrapper = &g_aecm.delay_estimator_farend;
-  if (InitDelayEstimator(&g_aecm.delay_estimator) != 0) {
+  g_delay_estimator.farend_wrapper = &g_delay_estimator_farend;
+  if (InitDelayEstimator(&g_delay_estimator) != 0) {
     return -1;
   }
   // 遠端履歴をゼロ初期化
-  memset(g_aecm.xHistory, 0, sizeof(uint16_t) * PART_LEN1 * MAX_DELAY);
-  g_aecm.xHistoryPos = MAX_DELAY;
+  memset(g_xHistory, 0, sizeof(uint16_t) * PART_LEN1 * MAX_DELAY);
+  g_xHistoryPos = MAX_DELAY;
 
-  g_aecm.dfaCleanQDomain = 0;
-  g_aecm.dfaCleanQDomainOld = 0;
-  g_aecm.dfaNoisyQDomain = 0;
-  g_aecm.dfaNoisyQDomainOld = 0;
+  g_dfaCleanQDomain = 0;
+  g_dfaCleanQDomainOld = 0;
+  g_dfaNoisyQDomain = 0;
+  g_dfaNoisyQDomainOld = 0;
 
-  memset(g_aecm.nearLogEnergy, 0, sizeof(g_aecm.nearLogEnergy));
-  g_aecm.farLogEnergy = 0;
-  memset(g_aecm.echoAdaptLogEnergy, 0, sizeof(g_aecm.echoAdaptLogEnergy));
-  memset(g_aecm.echoStoredLogEnergy, 0, sizeof(g_aecm.echoStoredLogEnergy));
+  memset(g_nearLogEnergy, 0, sizeof(g_nearLogEnergy));
+  g_farLogEnergy = 0;
+  memset(g_echoAdaptLogEnergy, 0, sizeof(g_echoAdaptLogEnergy));
+  memset(g_echoStoredLogEnergy, 0, sizeof(g_echoStoredLogEnergy));
 
   // エコーチャネルを既定形状（16 kHz 固定）で初期化
   InitEchoPathCore(kChannelStored16kHz);
 
-  memset(g_aecm.sMagSmooth, 0, sizeof(g_aecm.sMagSmooth));
-  memset(g_aecm.yMagSmooth, 0, sizeof(g_aecm.yMagSmooth));
+  memset(g_sMagSmooth, 0, sizeof(g_sMagSmooth));
+  memset(g_yMagSmooth, 0, sizeof(g_yMagSmooth));
 
-  g_aecm.farEnergyMin = WORD16_MAX;
-  g_aecm.farEnergyMax = WORD16_MIN;
-  g_aecm.farEnergyMaxMin = 0;
-  g_aecm.farEnergyVAD = FAR_ENERGY_MIN;  // 開始直後の誤検出（音声とみなさない）を防ぐ
+  g_farEnergyMin = WORD16_MAX;
+  g_farEnergyMax = WORD16_MIN;
+  g_farEnergyMaxMin = 0;
+  g_farEnergyVAD = FAR_ENERGY_MIN;  // 開始直後の誤検出（音声とみなさない）を防ぐ
                                         // 
-  g_aecm.farEnergyMSE = 0;
-  g_aecm.currentVADValue = 0;
-  g_aecm.vadUpdateCount = 0;
-  g_aecm.firstVAD = 1;
+  g_farEnergyMSE = 0;
+  g_currentVADValue = 0;
+  g_vadUpdateCount = 0;
+  g_firstVAD = 1;
 
-  g_aecm.startupState = 0;
-  g_aecm.supGain = SUPGAIN_DEFAULT;
-  g_aecm.supGainOld = SUPGAIN_DEFAULT;
+  g_startupState = 0;
+  g_supGain = SUPGAIN_DEFAULT;
+  g_supGainOld = SUPGAIN_DEFAULT;
 
-  g_aecm.supGainErrParamA = SUPGAIN_ERROR_PARAM_A;
-  g_aecm.supGainErrParamD = SUPGAIN_ERROR_PARAM_D;
-  g_aecm.supGainErrParamDiffAB = SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
-  g_aecm.supGainErrParamDiffBD = SUPGAIN_ERROR_PARAM_B - SUPGAIN_ERROR_PARAM_D;
+  g_supGainErrParamA = SUPGAIN_ERROR_PARAM_A;
+  g_supGainErrParamD = SUPGAIN_ERROR_PARAM_D;
+  g_supGainErrParamDiffAB = SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
+  g_supGainErrParamDiffBD = SUPGAIN_ERROR_PARAM_B - SUPGAIN_ERROR_PARAM_D;
 
   // コンパイル時に前提条件を static_assert で確認
   // アセンブリ実装が依存するため、修正時は該当ファイルを要確認。
@@ -686,7 +678,7 @@ int ProcessFrame(const int16_t* x_frame,
 
   // デフォルトインスタンスに対して Far をバッファし、既知遅延位置を取得
   BufferFarFrame(x_frame);
-  FetchFarFrame(x_block, g_aecm.knownDelay);
+  FetchFarFrame(x_block, g_knownDelay);
 
   // FRAME_LEN と PART_LEN を一致させたため、1ブロックで直接処理
   if (ProcessBlock(x_block, y_frame, e_frame) == -1) {
@@ -777,40 +769,40 @@ void CalcEnergies(const uint16_t* X_mag,
   // 近端エネルギーの対数を求め、バッファへ格納
 
   // バッファをシフト
-  memmove(g_aecm.nearLogEnergy + 1, g_aecm.nearLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
+  memmove(g_nearLogEnergy + 1, g_nearLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
 
   // 近端振幅積分の対数 (nearEner)
-  g_aecm.nearLogEnergy[0] = LogOfEnergyInQ8(Y_energy, g_aecm.dfaNoisyQDomain);
+  g_nearLogEnergy[0] = LogOfEnergyInQ8(Y_energy, g_dfaNoisyQDomain);
 
   CalcLinearEnergiesC(X_mag, S_mag, &tmpFar, &tmpAdapt, &tmpStored);
 
   // ログ履歴バッファをシフト
-  memmove(g_aecm.echoAdaptLogEnergy + 1, g_aecm.echoAdaptLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
-  memmove(g_aecm.echoStoredLogEnergy + 1, g_aecm.echoStoredLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
+  memmove(g_echoAdaptLogEnergy + 1, g_echoAdaptLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
+  memmove(g_echoStoredLogEnergy + 1, g_echoStoredLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
 
   // 遅延後遠端エネルギーの対数
-  g_aecm.farLogEnergy = LogOfEnergyInQ8(tmpFar, 0);
+  g_farLogEnergy = LogOfEnergyInQ8(tmpFar, 0);
 
   // 適応チャネル経由推定エコーの対数エネルギー
-  g_aecm.echoAdaptLogEnergy[0] = LogOfEnergyInQ8(tmpAdapt, RESOLUTION_CHANNEL16);
+  g_echoAdaptLogEnergy[0] = LogOfEnergyInQ8(tmpAdapt, RESOLUTION_CHANNEL16);
 
   // 保存チャネル経由推定エコーの対数エネルギー
-  g_aecm.echoStoredLogEnergy[0] = LogOfEnergyInQ8(tmpStored, RESOLUTION_CHANNEL16);
+  g_echoStoredLogEnergy[0] = LogOfEnergyInQ8(tmpStored, RESOLUTION_CHANNEL16);
 
   // 遠端エネルギー関連の閾値（最小・最大・VAD・MSE）を更新
-  if (g_aecm.farLogEnergy > FAR_ENERGY_MIN) {
-    if (g_aecm.startupState == 0) {
+  if (g_farLogEnergy > FAR_ENERGY_MIN) {
+    if (g_startupState == 0) {
       increase_max_shifts = 2;
       decrease_min_shifts = 2;
       increase_min_shifts = 8;
     }
 
-    g_aecm.farEnergyMin = AsymFilt(g_aecm.farEnergyMin, g_aecm.farLogEnergy, increase_min_shifts, decrease_min_shifts);
-    g_aecm.farEnergyMax = AsymFilt(g_aecm.farEnergyMax, g_aecm.farLogEnergy, increase_max_shifts, decrease_max_shifts);
-    g_aecm.farEnergyMaxMin = (g_aecm.farEnergyMax - g_aecm.farEnergyMin);
+    g_farEnergyMin = AsymFilt(g_farEnergyMin, g_farLogEnergy, increase_min_shifts, decrease_min_shifts);
+    g_farEnergyMax = AsymFilt(g_farEnergyMax, g_farLogEnergy, increase_max_shifts, decrease_max_shifts);
+    g_farEnergyMaxMin = (g_farEnergyMax - g_farEnergyMin);
 
     // 可変 VAD 領域サイズを算出
-    tmp16 = 2560 - g_aecm.farEnergyMin;
+    tmp16 = 2560 - g_farEnergyMin;
     if (tmp16 > 0) {
       tmp16 = (int16_t)((tmp16 * FAR_ENERGY_VAD_REGION) >> 9);
     } else {
@@ -818,47 +810,47 @@ void CalcEnergies(const uint16_t* X_mag,
     }
     tmp16 += FAR_ENERGY_VAD_REGION;
 
-    if ((g_aecm.startupState == 0) | (g_aecm.vadUpdateCount > 1024)) {
+    if ((g_startupState == 0) | (g_vadUpdateCount > 1024)) {
       // 起動中または VAD 更新停止中
-      g_aecm.farEnergyVAD = g_aecm.farEnergyMin + tmp16;
+      g_farEnergyVAD = g_farEnergyMin + tmp16;
     } else {
-      if (g_aecm.farEnergyVAD > g_aecm.farLogEnergy) {
-        g_aecm.farEnergyVAD += (g_aecm.farLogEnergy + tmp16 - g_aecm.farEnergyVAD) >> 6;
-        g_aecm.vadUpdateCount = 0;
+      if (g_farEnergyVAD > g_farLogEnergy) {
+        g_farEnergyVAD += (g_farLogEnergy + tmp16 - g_farEnergyVAD) >> 6;
+        g_vadUpdateCount = 0;
       } else {
-        g_aecm.vadUpdateCount++;
+        g_vadUpdateCount++;
       }
     }
     // MSE 閾値を VAD より少し高く設定
-    g_aecm.farEnergyMSE = g_aecm.farEnergyVAD + (1 << 8);
+    g_farEnergyMSE = g_farEnergyVAD + (1 << 8);
   }
 
   // VAD 状態を更新
-  if (g_aecm.farLogEnergy > g_aecm.farEnergyVAD) {
-    if ((g_aecm.startupState == 0) | (g_aecm.farEnergyMaxMin > FAR_ENERGY_DIFF)) {
+  if (g_farLogEnergy > g_farEnergyVAD) {
+    if ((g_startupState == 0) | (g_farEnergyMaxMin > FAR_ENERGY_DIFF)) {
       // 起動中、または入力音声レベルのダイナミクスが大きい
-      g_aecm.currentVADValue = 1;
+      g_currentVADValue = 1;
     }
   } else {
-    g_aecm.currentVADValue = 0;
+    g_currentVADValue = 0;
   }
-  if ((g_aecm.currentVADValue) && (g_aecm.firstVAD)) {
-    g_aecm.firstVAD = 0;
-    if (g_aecm.echoAdaptLogEnergy[0] > g_aecm.nearLogEnergy[0]) {
+  if ((g_currentVADValue) && (g_firstVAD)) {
+    g_firstVAD = 0;
+    if (g_echoAdaptLogEnergy[0] > g_nearLogEnergy[0]) {
       // 推定エコーが近端信号より強い場合、
       // 初期値が大きすぎたと判断し、
       // チャネルを 1/8 にスケールダウンする。
       for (int i = 0; i < PART_LEN1; i++) {
-        g_aecm.hAdapt16[i] >>= 3;
+        g_hAdapt16[i] >>= 3;
       }
       // 合わせて推定エコーのログ値も調整。
-      g_aecm.echoAdaptLogEnergy[0] -= (3 << 8);
-      g_aecm.firstVAD = 1;
+      g_echoAdaptLogEnergy[0] -= (3 << 8);
+      g_firstVAD = 1;
     }
   }
 }
 
-// g_aecm の状態を基に NLMS のステップサイズ μ を決定する。
+// g_ 系の状態を基に NLMS のステップサイズ μ を決定する。
 // 戻り値は log2 系（2^-μ）のシフト量として扱い、遠端エネルギーや
 // スタートアップ状態に応じて自動調整される。
 int16_t CalcStepSize() {
@@ -868,16 +860,16 @@ int16_t CalcStepSize() {
 
   // ここでは NLMS 型チャネル推定で用いるステップサイズ μ を計算
   // 
-  if (!g_aecm.currentVADValue) {
+  if (!g_currentVADValue) {
     // 遠端エネルギーが低すぎる場合は更新しない
     mu = 0;
-  } else if (g_aecm.startupState > 0) {
-    if (g_aecm.farEnergyMin >= g_aecm.farEnergyMax) {
+  } else if (g_startupState > 0) {
+    if (g_farEnergyMin >= g_farEnergyMax) {
       mu = MU_MIN;
     } else {
-      tmp16 = (g_aecm.farLogEnergy - g_aecm.farEnergyMin);
+      tmp16 = (g_farLogEnergy - g_farEnergyMin);
       tmp32 = tmp16 * MU_DIFF;
-      tmp32 = DivW32W16(tmp32, g_aecm.farEnergyMaxMin);
+      tmp32 = DivW32W16(tmp32, g_farEnergyMaxMin);
       mu = MU_MIN - 1 - (int16_t)(tmp32);
       // -1 することで端数処理の代わりとし、若干大きめのステップにする
       // （NLMS での丸め誤差を補う目的）
@@ -915,11 +907,11 @@ void UpdateChannel(const uint16_t* X_mag,
     for (int i = 0; i < PART_LEN1; i++) {
       // オーバーフロー防止のためチャネルと遠端の正規化量を算出
       // 
-      zerosCh = NormU32(g_aecm.hAdapt32[i]);
+      zerosCh = NormU32(g_hAdapt32[i]);
       zerosFar = NormU32((uint32_t)X_mag[i]);
       if (zerosCh + zerosFar > 31) {
         // 乗算しても安全な状態
-        tmpU32no1 = UMUL_32_16(g_aecm.hAdapt32[i], X_mag[i]);
+        tmpU32no1 = UMUL_32_16(g_hAdapt32[i], X_mag[i]);
         shiftChFar = 0;
       } else {
         // 乗算前にシフトダウンが必要
@@ -930,7 +922,7 @@ void UpdateChannel(const uint16_t* X_mag,
         {
           uint32_t shifted = (shiftChFar >= 32)
                                   ? 0u
-                                  : (uint32_t)(g_aecm.hAdapt32[i] >> shiftChFar);
+                                  : (uint32_t)(g_hAdapt32[i] >> shiftChFar);
           tmpU32no1 = shifted * X_mag[i];
         }
       }
@@ -941,13 +933,13 @@ void UpdateChannel(const uint16_t* X_mag,
       } else {
         zerosDfa = 32;
       }
-      tmp16no1 = zerosDfa - 2 + g_aecm.dfaNoisyQDomain - RESOLUTION_CHANNEL32 - x_q + shiftChFar;
+      tmp16no1 = zerosDfa - 2 + g_dfaNoisyQDomain - RESOLUTION_CHANNEL32 - x_q + shiftChFar;
       if (zerosNum > tmp16no1 + 1) {
         xfaQ = tmp16no1;
         yMagQ = zerosDfa - 2;
       } else {
         xfaQ = zerosNum - 2;
-        yMagQ = RESOLUTION_CHANNEL32 + x_q - g_aecm.dfaNoisyQDomain - shiftChFar + xfaQ;
+        yMagQ = RESOLUTION_CHANNEL32 + x_q - g_dfaNoisyQDomain - shiftChFar + xfaQ;
       }
       // 同じ Q ドメインに揃えて加算
       tmpU32no1 = SHIFT_W32(tmpU32no1, xfaQ);
@@ -992,12 +984,12 @@ void UpdateChannel(const uint16_t* X_mag,
         } else {
           tmp32no2 = SHIFT_W32(tmp32no2, shift2ResChan);
         }
-        g_aecm.hAdapt32[i] = AddSatW32(g_aecm.hAdapt32[i], tmp32no2);
-        if (g_aecm.hAdapt32[i] < 0) {
+        g_hAdapt32[i] = AddSatW32(g_hAdapt32[i], tmp32no2);
+        if (g_hAdapt32[i] < 0) {
           // チャネル利得が負にならないよう強制
-          g_aecm.hAdapt32[i] = 0;
+          g_hAdapt32[i] = 0;
         }
-        g_aecm.hAdapt16[i] = (int16_t)(g_aecm.hAdapt32[i] >> 16);
+        g_hAdapt16[i] = (int16_t)(g_hAdapt32[i] >> 16);
       }
     }
   }
@@ -1005,61 +997,61 @@ void UpdateChannel(const uint16_t* X_mag,
 
 
   // チャネルを保存するか復元するかを判定
-  if ((g_aecm.startupState == 0) & (g_aecm.currentVADValue)) {
+  if ((g_startupState == 0) & (g_currentVADValue)) {
     // 起動中は毎ブロックチャネルを保存し、
     // 推定エコーも再計算する
     StoreAdaptiveChannelC(X_mag, S_mag);
   } else {
-    if (g_aecm.farLogEnergy < g_aecm.farEnergyMSE) {
-      g_aecm.mseChannelCount = 0;
+    if (g_farLogEnergy < g_farEnergyMSE) {
+      g_mseChannelCount = 0;
     } else {
-      g_aecm.mseChannelCount++;
+      g_mseChannelCount++;
     }
     // 検証に十分なデータがあれば、保存を検討
-    if (g_aecm.mseChannelCount >= (MIN_MSE_COUNT + 10)) {
+    if (g_mseChannelCount >= (MIN_MSE_COUNT + 10)) {
       // 十分なデータが揃った
       // 適応版と保存版の MSE を計算
       // 実際には平均絶対誤差に近い指標
       mseStored = 0;
       mseAdapt = 0;
       for (int i = 0; i < MIN_MSE_COUNT; i++) {
-        tmp32no1 = ((int32_t)g_aecm.echoStoredLogEnergy[i] - (int32_t)g_aecm.nearLogEnergy[i]);
+        tmp32no1 = ((int32_t)g_echoStoredLogEnergy[i] - (int32_t)g_nearLogEnergy[i]);
         tmp32no2 = ABS_W32(tmp32no1);
         mseStored += tmp32no2;
 
-        tmp32no1 = ((int32_t)g_aecm.echoAdaptLogEnergy[i] - (int32_t)g_aecm.nearLogEnergy[i]);
+        tmp32no1 = ((int32_t)g_echoAdaptLogEnergy[i] - (int32_t)g_nearLogEnergy[i]);
         tmp32no2 = ABS_W32(tmp32no1);
         mseAdapt += tmp32no2;
       }
       if (((mseStored << MSE_RESOLUTION) < (MIN_MSE_DIFF * mseAdapt)) &
-          ((g_aecm.mseStoredOld << MSE_RESOLUTION) <
-           (MIN_MSE_DIFF * g_aecm.mseAdaptOld))) {
+          ((g_mseStoredOld << MSE_RESOLUTION) <
+           (MIN_MSE_DIFF * g_mseAdaptOld))) {
         // 保存チャネルの方が連続して適応チャネルより低い誤差なら、
         // 適応チャネルをリセットする。
         ResetAdaptiveChannelC();
       } else if (((MIN_MSE_DIFF * mseStored) > (mseAdapt << MSE_RESOLUTION)) &
-                 (mseAdapt < g_aecm.mseThreshold) &
-                 (g_aecm.mseAdaptOld < g_aecm.mseThreshold)) {
+                 (mseAdapt < g_mseThreshold) &
+                 (g_mseAdaptOld < g_mseThreshold)) {
         // 適応チャネルの方が連続して保存チャネルより低い誤差なら、
         // 
         // 適応チャネルを保存版として採用する。
         StoreAdaptiveChannelC(X_mag, S_mag);
 
         // 閾値を更新
-        if (g_aecm.mseThreshold == WORD32_MAX) {
-          g_aecm.mseThreshold = (mseAdapt + g_aecm.mseAdaptOld);
+        if (g_mseThreshold == WORD32_MAX) {
+          g_mseThreshold = (mseAdapt + g_mseAdaptOld);
         } else {
-          int scaled_threshold = g_aecm.mseThreshold * 5 / 8;
-          g_aecm.mseThreshold += ((mseAdapt - scaled_threshold) * 205) >> 8;
+          int scaled_threshold = g_mseThreshold * 5 / 8;
+          g_mseThreshold += ((mseAdapt - scaled_threshold) * 205) >> 8;
         }
       }
 
       // カウンタをリセット
-      g_aecm.mseChannelCount = 0;
+      g_mseChannelCount = 0;
 
       // MSE を記録する。
-      g_aecm.mseStoredOld = mseStored;
-      g_aecm.mseAdaptOld = mseAdapt;
+      g_mseStoredOld = mseStored;
+      g_mseAdaptOld = mseAdapt;
     }
   }
   // チャネル保存/復元の判定ここまで
@@ -1078,49 +1070,49 @@ int16_t CalcSuppressionGain() {
   // 推定エコー誤差の組み合わせに基づき、遠端信号レベルに応じて調整する。
   // 遠端レベルが低ければ信号無しとみなし、抑圧ゲインを 0 に近づける。
   // 
-  if (!g_aecm.currentVADValue) {
+  if (!g_currentVADValue) {
     supGain = 0;
   } else {
     // ダブルトークの可能性に備えて調整する。誤差変動が大きければ
     // ダブルトーク（または悪いチャネル）とみなし、
-    tmp16no1 = (g_aecm.nearLogEnergy[0] - g_aecm.echoStoredLogEnergy[0] - ENERGY_DEV_OFFSET);
+    tmp16no1 = (g_nearLogEnergy[0] - g_echoStoredLogEnergy[0] - ENERGY_DEV_OFFSET);
     dE = ABS_W16(tmp16no1);
 
     if (dE < ENERGY_DEV_TOL) {
       // ダブルトークでなければ推定品質に応じて抑圧量を増やす
       // カウンタも更新
       if (dE < SUPGAIN_EPC_DT) {
-        tmp32no1 = g_aecm.supGainErrParamDiffAB * dE;
+        tmp32no1 = g_supGainErrParamDiffAB * dE;
         tmp32no1 += (SUPGAIN_EPC_DT >> 1);
         tmp16no1 = (int16_t)DivW32W16(tmp32no1, SUPGAIN_EPC_DT);
-        supGain = g_aecm.supGainErrParamA - tmp16no1;
+        supGain = g_supGainErrParamA - tmp16no1;
       } else {
-        tmp32no1 = g_aecm.supGainErrParamDiffBD * (ENERGY_DEV_TOL - dE);
+        tmp32no1 = g_supGainErrParamDiffBD * (ENERGY_DEV_TOL - dE);
         tmp32no1 += ((ENERGY_DEV_TOL - SUPGAIN_EPC_DT) >> 1);
         tmp16no1 = (int16_t)DivW32W16(tmp32no1, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
-        supGain = g_aecm.supGainErrParamD + tmp16no1;
+        supGain = g_supGainErrParamD + tmp16no1;
       }
     } else {
       // ダブルトークの兆候があれば既定値を適用
-      supGain = g_aecm.supGainErrParamD;
+      supGain = g_supGainErrParamD;
     }
   }
 
-  if (supGain > g_aecm.supGainOld) {
+  if (supGain > g_supGainOld) {
     tmp16no1 = supGain;
   } else {
-    tmp16no1 = g_aecm.supGainOld;
+    tmp16no1 = g_supGainOld;
   }
-  g_aecm.supGainOld = supGain;
-  if (tmp16no1 < g_aecm.supGain) {
-    g_aecm.supGain += (int16_t)((tmp16no1 - g_aecm.supGain) >> 4);
+  g_supGainOld = supGain;
+  if (tmp16no1 < g_supGain) {
+    g_supGain += (int16_t)((tmp16no1 - g_supGain) >> 4);
   } else {
-    g_aecm.supGain += (int16_t)((tmp16no1 - g_aecm.supGain) >> 4);
+    g_supGain += (int16_t)((tmp16no1 - g_supGain) >> 4);
   }
 
   // 抑圧ゲイン更新ここまで
 
-  return g_aecm.supGain;
+  return g_supGain;
 }
 
 void BufferFarFrame(const int16_t* const x_frame) {
@@ -1128,139 +1120,148 @@ void BufferFarFrame(const int16_t* const x_frame) {
   int writeLen = xLen, writePos = 0;
 
   // 書き込み位置をリングバッファ境界で折り返すか確認
-  while (g_aecm.xBufWritePos + writeLen > FAR_BUF_LEN) {
+  while (g_xBufWritePos + writeLen > FAR_BUF_LEN) {
     // 折り返す前に残り領域へ書き込む
-    writeLen = FAR_BUF_LEN - g_aecm.xBufWritePos;
-    memcpy(g_aecm.xFrameBuf + g_aecm.xBufWritePos, x_frame + writePos, sizeof(int16_t) * writeLen);
-    g_aecm.xBufWritePos = 0;
+    writeLen = FAR_BUF_LEN - g_xBufWritePos;
+    memcpy(g_xFrameBuf + g_xBufWritePos, x_frame + writePos, sizeof(int16_t) * writeLen);
+    g_xBufWritePos = 0;
     writePos = writeLen;
     writeLen = xLen - writeLen;
   }
 
-  memcpy(g_aecm.xFrameBuf + g_aecm.xBufWritePos, x_frame + writePos, sizeof(int16_t) * writeLen);
-  g_aecm.xBufWritePos += writeLen;
+  memcpy(g_xFrameBuf + g_xBufWritePos, x_frame + writePos, sizeof(int16_t) * writeLen);
+  g_xBufWritePos += writeLen;
 }
 
 void FetchFarFrame(int16_t* const x_frame, const int knownDelay) {
   const int xLen = FRAME_LEN;
   int readLen = xLen;
   int readPos = 0;
-  int delayChange = knownDelay - g_aecm.lastKnownDelay;
+  int delayChange = knownDelay - g_lastKnownDelay;
 
-  g_aecm.xBufReadPos -= delayChange;
+  g_xBufReadPos -= delayChange;
 
   // 遅延調整で読取位置が範囲外なら補正
-  while (g_aecm.xBufReadPos < 0) {
-    g_aecm.xBufReadPos += FAR_BUF_LEN;
+  while (g_xBufReadPos < 0) {
+    g_xBufReadPos += FAR_BUF_LEN;
   }
-  while (g_aecm.xBufReadPos > FAR_BUF_LEN - 1) {
-    g_aecm.xBufReadPos -= FAR_BUF_LEN;
+  while (g_xBufReadPos > FAR_BUF_LEN - 1) {
+    g_xBufReadPos -= FAR_BUF_LEN;
   }
 
-  g_aecm.lastKnownDelay = knownDelay;
+  g_lastKnownDelay = knownDelay;
 
   // 読取位置も境界で折り返すか確認
-  while (g_aecm.xBufReadPos + readLen > FAR_BUF_LEN) {
+  while (g_xBufReadPos + readLen > FAR_BUF_LEN) {
     // 折り返す前に残り領域から読み出す
-    readLen = FAR_BUF_LEN - g_aecm.xBufReadPos;
-    memcpy(x_frame + readPos, g_aecm.xFrameBuf + g_aecm.xBufReadPos, sizeof(int16_t) * readLen);
-    g_aecm.xBufReadPos = 0;
+    readLen = FAR_BUF_LEN - g_xBufReadPos;
+    memcpy(x_frame + readPos, g_xFrameBuf + g_xBufReadPos, sizeof(int16_t) * readLen);
+    g_xBufReadPos = 0;
     readPos = readLen;
     readLen = xLen - readLen;
   }
-  memcpy(x_frame + readPos, g_aecm.xFrameBuf + g_aecm.xBufReadPos, sizeof(int16_t) * readLen);
-  g_aecm.xBufReadPos += readLen;
+  memcpy(x_frame + readPos, g_xFrameBuf + g_xBufReadPos, sizeof(int16_t) * readLen);
+  g_xBufReadPos += readLen;
 }
 
 
 static int EstimateBufDelay() {
-  short nSampFar = static_cast<short>(available_read(&g_mobile.farendBuf));
+  short nSampFar = static_cast<short>(available_read(&g_mobileFarendBuf));
   short nSampSndCard = kFixedMsInSndCardBuf * kSamplesPerMs16k;
   short delayNew = nSampSndCard - nSampFar;
 
   if (delayNew < FRAME_LEN) {
-    MoveReadPtr(&g_mobile.farendBuf, FRAME_LEN);
+    MoveReadPtr(&g_mobileFarendBuf, FRAME_LEN);
     delayNew += FRAME_LEN;
   }
 
-  g_mobile.filtDelay =
-      static_cast<short>(MAX(0, (8 * g_mobile.filtDelay + 2 * delayNew) / 10));
+  g_mobileFiltDelay =
+      static_cast<short>(MAX(0, (8 * g_mobileFiltDelay + 2 * delayNew) / 10));
 
-  short diff = g_mobile.filtDelay - g_mobile.knownDelay;
+  short diff = g_mobileFiltDelay - g_mobileKnownDelay;
   if (diff > 224) {
-    if (g_mobile.lastDelayDiff < 96) {
-      g_mobile.timeForDelayChange = 0;
+    if (g_mobileLastDelayDiff < 96) {
+      g_mobileTimeForDelayChange = 0;
     } else {
-      g_mobile.timeForDelayChange++;
+      g_mobileTimeForDelayChange++;
     }
-  } else if (diff < 96 && g_mobile.knownDelay > 0) {
-    if (g_mobile.lastDelayDiff > 224) {
-      g_mobile.timeForDelayChange = 0;
+  } else if (diff < 96 && g_mobileKnownDelay > 0) {
+    if (g_mobileLastDelayDiff > 224) {
+      g_mobileTimeForDelayChange = 0;
     } else {
-      g_mobile.timeForDelayChange++;
+      g_mobileTimeForDelayChange++;
     }
   } else {
-    g_mobile.timeForDelayChange = 0;
+    g_mobileTimeForDelayChange = 0;
   }
-  g_mobile.lastDelayDiff = diff;
+  g_mobileLastDelayDiff = diff;
 
-  if (g_mobile.timeForDelayChange > 25) {
-    g_mobile.knownDelay = MAX(static_cast<int>(g_mobile.filtDelay) - (2 * FRAME_LEN), 0);
+  if (g_mobileTimeForDelayChange > 25) {
+    g_mobileKnownDelay = MAX(static_cast<int>(g_mobileFiltDelay) - (2 * FRAME_LEN), 0);
   }
+  g_knownDelay = g_mobileKnownDelay;
   return 0;
 }
 
 int32_t Init() {
-  memset(&g_mobile, 0, sizeof(g_mobile));
-  InitBufferWith(&g_mobile.farendBuf, g_mobile.farendBufData, kBufSizeSamples, sizeof(int16_t));
+  g_mobileBufSizeStart = 0;
+  g_mobileKnownDelay = 0;
+  memset(g_mobileFarendOld, 0, sizeof(g_mobileFarendOld));
+  g_mobileInitFlag = 0;
+  g_mobileFiltDelay = 0;
+  g_mobileTimeForDelayChange = 0;
+  g_mobileECstartup = 0;
+  g_mobileLastDelayDiff = 0;
+  memset(&g_mobileFarendBuf, 0, sizeof(g_mobileFarendBuf));
+  InitBufferWith(&g_mobileFarendBuf, g_mobileFarendBufData, kBufSizeSamples, sizeof(int16_t));
 
   if (InitCore() == -1) return -1;
 
-  InitBuffer(&g_mobile.farendBuf);
+  InitBuffer(&g_mobileFarendBuf);
 
-  g_mobile.initFlag = kInitCheck;
-  g_mobile.bufSizeStart = kStartupFrames;
-  g_mobile.ECstartup = 1;
-  g_mobile.filtDelay = 0;
-  g_mobile.timeForDelayChange = 0;
-  g_mobile.knownDelay = 0;
-  g_mobile.lastDelayDiff = 0;
+  g_mobileInitFlag = kInitCheck;
+  g_mobileBufSizeStart = kStartupFrames;
+  g_mobileECstartup = 1;
+  g_mobileFiltDelay = 0;
+  g_mobileTimeForDelayChange = 0;
+  g_mobileKnownDelay = 0;
+  g_mobileLastDelayDiff = 0;
 
-  memset(g_mobile.farendOld, 0, sizeof(g_mobile.farendOld));
+  memset(g_mobileFarendOld, 0, sizeof(g_mobileFarendOld));
 
   return 0;
 }
 
 int32_t BufferFarend(const int16_t* farend) {
   if (farend == NULL) return -1;
-  if (g_mobile.initFlag != kInitCheck) return -2;
+  if (g_mobileInitFlag != kInitCheck) return -2;
 
-  WriteBuffer(&g_mobile.farendBuf, farend, FRAME_LEN);
+  WriteBuffer(&g_mobileFarendBuf, farend, FRAME_LEN);
   return 0;
 }
 
 int32_t Process(const int16_t* nearend, int16_t* out) {
   if (nearend == NULL) return -1;
   if (out == NULL) return -2;
-  if (g_mobile.initFlag != kInitCheck) return -3;
+  if (g_mobileInitFlag != kInitCheck) return -3;
 
   const size_t nrOfSamples = FRAME_LEN;
   const size_t nFrames = nrOfSamples / FRAME_LEN;  // 64/64=1（16kHz固定）
 
-  if (g_mobile.ECstartup) {
+  if (g_mobileECstartup) {
     if (out != nearend) {
       memcpy(out, nearend, sizeof(short) * nrOfSamples);
     }
 
     short nmbrOfFilledBuffers =
-        static_cast<short>(available_read(&g_mobile.farendBuf) / FRAME_LEN);
-    if (nmbrOfFilledBuffers >= g_mobile.bufSizeStart) {
-      if (nmbrOfFilledBuffers > g_mobile.bufSizeStart) {
-        MoveReadPtr(&g_mobile.farendBuf,
-                    static_cast<int>(available_read(&g_mobile.farendBuf)) -
-                        static_cast<int>(g_mobile.bufSizeStart) * FRAME_LEN);
+        static_cast<short>(available_read(&g_mobileFarendBuf) / FRAME_LEN);
+    if (nmbrOfFilledBuffers >= g_mobileBufSizeStart) {
+      if (nmbrOfFilledBuffers > g_mobileBufSizeStart) {
+        MoveReadPtr(&g_mobileFarendBuf,
+                    static_cast<int>(available_read(&g_mobileFarendBuf)) -
+                        static_cast<int>(g_mobileBufSizeStart) * FRAME_LEN);
       }
-      g_mobile.ECstartup = 0;
+      g_mobileECstartup = 0;
     }
   } else {
     for (size_t i = 0; i < nFrames; i++) {
@@ -1268,14 +1269,14 @@ int32_t Process(const int16_t* nearend, int16_t* out) {
       int16_t* farend_ptr = nullptr;
 
       short nmbrOfFilledBuffers =
-          static_cast<short>(available_read(&g_mobile.farendBuf) / FRAME_LEN);
+          static_cast<short>(available_read(&g_mobileFarendBuf) / FRAME_LEN);
 
       if (nmbrOfFilledBuffers > 0) {
-        ReadBuffer(&g_mobile.farendBuf, reinterpret_cast<void**>(&farend_ptr),
+        ReadBuffer(&g_mobileFarendBuf, reinterpret_cast<void**>(&farend_ptr),
                    farend, FRAME_LEN);
-        memcpy(g_mobile.farendOld, farend_ptr, FRAME_LEN * sizeof(short));
+        memcpy(g_mobileFarendOld, farend_ptr, FRAME_LEN * sizeof(short));
       } else {
-        memcpy(farend, g_mobile.farendOld, FRAME_LEN * sizeof(short));
+        memcpy(farend, g_mobileFarendOld, FRAME_LEN * sizeof(short));
         farend_ptr = farend;
       }
 
