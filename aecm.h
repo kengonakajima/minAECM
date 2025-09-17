@@ -6,9 +6,6 @@
 
 #include "aecm_defines.h"
 
-// シンプルな真偽値。
-enum { AecmFalse = 0, AecmTrue };
-
 // エラーコード
 #define AECM_UNSPECIFIED_ERROR 12000
 #define AECM_UNSUPPORTED_FUNCTION_ERROR 12001
