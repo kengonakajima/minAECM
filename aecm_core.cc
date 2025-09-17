@@ -672,12 +672,10 @@ void CalcEnergies(const uint16_t* X_mag,
   g_aecm.farLogEnergy = LogOfEnergyInQ8(tmpFar, 0);
 
   // 適応チャネル経由推定エコーの対数エネルギー
-  g_aecm.echoAdaptLogEnergy[0] =
-      LogOfEnergyInQ8(tmpAdapt, RESOLUTION_CHANNEL16);
+  g_aecm.echoAdaptLogEnergy[0] = LogOfEnergyInQ8(tmpAdapt, RESOLUTION_CHANNEL16);
 
   // 保存チャネル経由推定エコーの対数エネルギー
-  g_aecm.echoStoredLogEnergy[0] =
-      LogOfEnergyInQ8(tmpStored, RESOLUTION_CHANNEL16);
+  g_aecm.echoStoredLogEnergy[0] = LogOfEnergyInQ8(tmpStored, RESOLUTION_CHANNEL16);
 
   // 遠端エネルギー関連の閾値（最小・最大・VAD・MSE）を更新
   if (g_aecm.farLogEnergy > FAR_ENERGY_MIN) {
@@ -705,8 +703,7 @@ void CalcEnergies(const uint16_t* X_mag,
       g_aecm.farEnergyVAD = g_aecm.farEnergyMin + tmp16;
     } else {
       if (g_aecm.farEnergyVAD > g_aecm.farLogEnergy) {
-        g_aecm.farEnergyVAD +=
-            (g_aecm.farLogEnergy + tmp16 - g_aecm.farEnergyVAD) >> 6;
+        g_aecm.farEnergyVAD += (g_aecm.farLogEnergy + tmp16 - g_aecm.farEnergyVAD) >> 6;
         g_aecm.vadUpdateCount = 0;
       } else {
         g_aecm.vadUpdateCount++;

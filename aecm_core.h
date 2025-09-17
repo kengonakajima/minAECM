@@ -22,27 +22,27 @@ typedef struct {
 } ComplexInt16;
 
 typedef struct {
-  int xBufWritePos;
-  int xBufReadPos;
-  int knownDelay;
-  int lastKnownDelay;
+  int xBufWritePos; // 遠端リングバッファの書き込みインデックス
+  int xBufReadPos;  // 遠端リングバッファの読み出しインデックス
+  int knownDelay;   // 既知の整数サンプル遅延
+  int lastKnownDelay; // 直前フレームでの遅延推定値
   int firstVAD;  // 初期化が不十分なチャネルを制御するためのフラグ
 
   // フレーム/ブロック一致のため、中間フレーム用リングバッファは不要
 
-  int16_t xFrameBuf[FAR_BUF_LEN];
+  int16_t xFrameBuf[FAR_BUF_LEN]; // 遠端フレーム用の作業バッファ
 
   // mult は 16k 固定運用のため不要
   
 
   // Delay estimation variables（固定長値型）
-  DelayEstimatorFarend delay_estimator_farend;
-  DelayEstimator delay_estimator;
+  DelayEstimatorFarend delay_estimator_farend; // 遅延推定の遠端状態
+  DelayEstimator delay_estimator; // 遅延推定のメイン状態
   // Far end history variables
-  uint16_t xHistory[PART_LEN1 * MAX_DELAY];
-  int xHistoryPos;
+  uint16_t xHistory[PART_LEN1 * MAX_DELAY]; // 遠端スペクトル履歴バッファ
+  int xHistoryPos; // 遠端スペクトル履歴の現在位置
 
-  uint32_t totCount;
+  uint32_t totCount; // 処理済みブロック数の累計
 
   // Q ドメインは教育用に固定（0）で運用。
   int16_t dfaCleanQDomain;     // 常に 0
@@ -50,44 +50,44 @@ typedef struct {
   int16_t dfaNoisyQDomain;     // 常に 0
   int16_t dfaNoisyQDomainOld;  // 常に 0
 
-  int16_t nearLogEnergy[MAX_BUF_LEN];
-  int16_t farLogEnergy;
-  int16_t echoAdaptLogEnergy[MAX_BUF_LEN];
-  int16_t echoStoredLogEnergy[MAX_BUF_LEN];
+  int16_t nearLogEnergy[MAX_BUF_LEN]; // 近端ログエネルギー履歴
+  int16_t farLogEnergy; // 遠端ログエネルギーの最新値
+  int16_t echoAdaptLogEnergy[MAX_BUF_LEN]; // 適応エコーのログエネルギー履歴
+  int16_t echoStoredLogEnergy[MAX_BUF_LEN]; // 保存エコーのログエネルギー履歴
 
   // バッファは素直な配列として保持（NEON用のアラインメントは不要）
-  int16_t hStored[PART_LEN1];
-  int16_t hAdapt16[PART_LEN1];
-  int32_t hAdapt32[PART_LEN1];
+  int16_t hStored[PART_LEN1]; // 保存済みエコーチャネル（Q0）
+  int16_t hAdapt16[PART_LEN1]; // 適応チャネル係数（16ビット）
+  int32_t hAdapt32[PART_LEN1]; // 適応チャネル係数（32ビット精度）
   int16_t xBuf[PART_LEN2];       // 遠端信号 x[n]
   int16_t yBuf[PART_LEN2];       // 近端信号 y[n]
-  int16_t eOverlapBuf[PART_LEN];
+  int16_t eOverlapBuf[PART_LEN]; // wOLA の重畳バッファ
 
-  int32_t sMagSmooth[PART_LEN1];
-  int16_t yMagSmooth[PART_LEN1];
+  int32_t sMagSmooth[PART_LEN1]; // 推定エコー振幅の平滑値
+  int16_t yMagSmooth[PART_LEN1]; // 近端振幅の平滑値
   
 
-  int32_t mseAdaptOld;
-  int32_t mseStoredOld;
-  int32_t mseThreshold;
+  int32_t mseAdaptOld; // 適応チャネルの旧MSE
+  int32_t mseStoredOld; // 保存チャネルの旧MSE
+  int32_t mseThreshold; // 新旧チャネル比較用のMSE閾値
 
-  int16_t farEnergyMin;
-  int16_t farEnergyMax;
-  int16_t farEnergyMaxMin;
-  int16_t farEnergyVAD;
-  int16_t farEnergyMSE;
-  int currentVADValue;
-  int16_t vadUpdateCount;
+  int16_t farEnergyMin; // 遠端エネルギーの最小値履歴
+  int16_t farEnergyMax; // 遠端エネルギーの最大値履歴
+  int16_t farEnergyMaxMin; // 最大値と最小値の差分
+  int16_t farEnergyVAD; // 遠端VAD判定用エネルギー
+  int16_t farEnergyMSE; // MSE計算用の遠端エネルギー
+  int currentVADValue; // 直近のVAD判定値
+  int16_t vadUpdateCount; // VAD更新のカウンタ
 
-  int16_t startupState;
-  int16_t mseChannelCount;
-  int16_t supGain;
-  int16_t supGainOld;
+  int16_t startupState; // 起動フェーズの状態管理
+  int16_t mseChannelCount; // MSE比較継続のカウンタ
+  int16_t supGain; // 現在の抑圧ゲイン
+  int16_t supGainOld; // 前回の抑圧ゲイン
 
-  int16_t supGainErrParamA;
-  int16_t supGainErrParamD;
-  int16_t supGainErrParamDiffAB;
-  int16_t supGainErrParamDiffBD;
+  int16_t supGainErrParamA; // 抑圧ゲイン制御パラメータA
+  int16_t supGainErrParamD; // 抑圧ゲイン制御パラメータD
+  int16_t supGainErrParamDiffAB; // パラメータA-Bの差分値
+  int16_t supGainErrParamDiffBD; // パラメータB-Dの差分値
 
 } AecmCore;
 
