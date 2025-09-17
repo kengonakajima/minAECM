@@ -6,7 +6,7 @@
 #include <fstream>
 #include <cstring>
 
-#include "aecm_core.h"
+#include "aecm.h"
 #include "aecm_defines.h"
 
 struct Wav {

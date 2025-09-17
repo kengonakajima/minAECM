@@ -1,4 +1,4 @@
-#include "aecm_core.h"
+#include "aecm.h"
 
 #include <math.h>
 #include <stddef.h>

@@ -1,5 +1,5 @@
-#ifndef AECM_CORE_H_
-#define AECM_CORE_H_
+#ifndef AECM_H_
+#define AECM_H_
 
 #include <stddef.h>
 #include <stdint.h>
@@ -29,4 +29,4 @@ int32_t Process(const int16_t* nearend, int16_t* out);
 void SetBypassWiener(int enable);
 void SetBypassNlp(int enable);
 
-#endif  // AECM_CORE_H_
+#endif  // AECM_H_

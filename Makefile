@@ -38,7 +38,7 @@ all: libaecm.a echoback cancel_file
 
 # AECM に必要な最小ソース群（MIPS/NEON/テスト類は除外）
 AECM_CC_SRCS= \
-  aecm_core.cc \
+  aecm.cc \
   delay_estimator.cc \
   util.cc
 
