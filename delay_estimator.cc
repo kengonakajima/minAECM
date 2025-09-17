@@ -253,29 +253,30 @@ int RobustValidation(const BinaryDelayEstimator* estimator_state,
   return is_robust;
 }
 
-void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* farend) {
-  memset(farend->binary_far_history, 0, sizeof(farend->binary_far_history));
-  memset(farend->far_bit_counts, 0, sizeof(farend->far_bit_counts));
+void InitBinaryDelayEstimatorFarend() {
+  BinaryDelayEstimatorFarend& farend = g_delay_farend.binary_farend;
+  memset(farend.binary_far_history, 0, sizeof(farend.binary_far_history));
+  memset(farend.far_bit_counts, 0, sizeof(farend.far_bit_counts));
 }
 
 
 
-void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* farend,
-                                 uint32_t binary_far_spectrum) {
+void AddBinaryFarSpectrum(uint32_t binary_far_spectrum) {
+  BinaryDelayEstimatorFarend& farend = g_delay_farend.binary_farend;
   // バイナリスペクトル履歴をシフトし、現在の `binary_far_spectrum` を追加。
-  memmove(&(farend->binary_far_history[1]), &(farend->binary_far_history[0]),
+  memmove(&(farend.binary_far_history[1]), &(farend.binary_far_history[0]),
           (MAX_DELAY - 1) * sizeof(uint32_t));
-  farend->binary_far_history[0] = binary_far_spectrum;
+  farend.binary_far_history[0] = binary_far_spectrum;
 
   // 遠端バイナリスペクトルのビット数履歴をシフトし、現在のビット数を追加。
   // 
-  memmove(&(farend->far_bit_counts[1]), &(farend->far_bit_counts[0]),
+  memmove(&(farend.far_bit_counts[1]), &(farend.far_bit_counts[0]),
           (MAX_DELAY - 1) * sizeof(int));
-  farend->far_bit_counts[0] = BitCount(binary_far_spectrum);
+  farend.far_bit_counts[0] = BitCount(binary_far_spectrum);
 }
-void InitBinaryDelayEstimator(BinaryDelayEstimator* estimator_state) {
-  BinaryDelayEstimator& estimator = *estimator_state;
-
+void InitBinaryDelayEstimator() {
+  BinaryDelayEstimator& estimator = g_delay_instance.binary_handle;
+  estimator.farend = &g_delay_farend.binary_farend;
   memset(estimator.bit_counts, 0, sizeof(estimator.bit_counts));
   memset(estimator.binary_near_history, 0, sizeof(estimator.binary_near_history));
   for (int i = 0; i <= MAX_DELAY; ++i) {
@@ -298,9 +299,8 @@ void InitBinaryDelayEstimator(BinaryDelayEstimator* estimator_state) {
 
 
 
-int ProcessBinarySpectrum(BinaryDelayEstimator* estimator_state,
-                                 uint32_t binary_near_spectrum) {
-  BinaryDelayEstimator& estimator = *estimator_state;
+int ProcessBinarySpectrum(uint32_t binary_near_spectrum) {
+  BinaryDelayEstimator& estimator = g_delay_instance.binary_handle;
 
   int candidate_delay = -1;
   int valid_candidate = 0;
@@ -495,7 +495,7 @@ static uint32_t BinarySpectrum(const uint16_t* spectrum,
 }
 
 int InitDelayEstimatorFarend() {
-  InitBinaryDelayEstimatorFarend(&g_delay_farend.binary_farend);
+  InitBinaryDelayEstimatorFarend();
 
   g_delay_farend.spectrum_size = PART_LEN1;
   memset(g_delay_farend.mean_far_spectrum, 0,
@@ -513,14 +513,13 @@ int AddFarSpectrum(const uint16_t* far_spectrum) {
   const uint32_t binary_spectrum = BinarySpectrum(
       far_spectrum, g_delay_farend.mean_far_spectrum,
       &(g_delay_farend.far_spectrum_initialized));
-  AddBinaryFarSpectrum(&g_delay_farend.binary_farend, binary_spectrum);
+  AddBinaryFarSpectrum(binary_spectrum);
 
   return 0;
 }
 
 int InitDelayEstimator() {
-  g_delay_instance.binary_handle.farend = &g_delay_farend.binary_farend;
-  InitBinaryDelayEstimator(&g_delay_instance.binary_handle);
+  InitBinaryDelayEstimator();
 
   g_delay_instance.spectrum_size = PART_LEN1;
   memset(g_delay_instance.mean_near_spectrum, 0,
@@ -539,5 +538,5 @@ int DelayEstimatorProcess(const uint16_t* near_spectrum) {
       near_spectrum, g_delay_instance.mean_near_spectrum,
       &(g_delay_instance.near_spectrum_initialized));
 
-  return ProcessBinarySpectrum(&g_delay_instance.binary_handle, binary_spectrum);
+  return ProcessBinarySpectrum(binary_spectrum);
 }

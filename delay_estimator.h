@@ -1,6 +1,3 @@
-// Performs delay estimation on binary converted spectra.
-// The return value is  0 - OK and -1 - Error, unless otherwise stated.
-
 #include <stdint.h>
 #include "aecm_defines.h"
 
@@ -61,65 +58,25 @@ typedef struct {
 
 // 動的確保APIは削除（固定長・単一インスタンス前提）。
 
-// Initializes the delay estimation far-end instance created with
-// CreateBinaryDelayEstimatorFarend(...).
-//
-// Input:
-//    - farend            : Pointer to the delay estimation far-end instance.
-//
-// Output:
-//    - farend            : Initialized far-end instance.
-//
-void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* farend);
+// Initializes the delay estimation far-end state.
+void InitBinaryDelayEstimatorFarend();
 
 
 
-// Adds the binary far-end spectrum to the internal far-end history buffer. This
-// spectrum is used as reference when calculating the delay using
-// ProcessBinarySpectrum().
-//
-// Inputs:
-//    - farend                : Pointer to the delay estimation far-end
-//                              instance.
-//    - binary_far_spectrum   : Far-end binary spectrum.
-//
-// Output:
-//    - farend                : Updated far-end instance.
-//
-void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* farend, uint32_t binary_far_spectrum);
+// Adds the far-end binary spectrum to the internal history buffer.
+void AddBinaryFarSpectrum(uint32_t binary_far_spectrum);
 
 
-// Initializes the delay estimation instance created with
-// CreateBinaryDelayEstimator(...).
-//
-// Input:
-//    - estimator         : Pointer to the delay estimation instance.
-//
-// Output:
-//    - estimator         : Initialized instance.
-//
-void InitBinaryDelayEstimator(BinaryDelayEstimator* estimator);
+// Initializes the near-end binary delay estimator state.
+void InitBinaryDelayEstimator();
 
 
 
-// Estimates and returns the delay between the binary far-end and binary near-
-// end spectra. It is assumed the binary far-end spectrum has been added using
-// AddBinaryFarSpectrum() prior to this call. The value will be offset by
-// the lookahead (i.e. the lookahead should be subtracted from the returned
-// value).
-//
-// Inputs:
-//    - estimator             : Pointer to the delay estimation instance.
-//    - binary_near_spectrum  : Near-end binary spectrum of the current block.
-//
-// Output:
-//    - estimator             : Updated instance.
-//
+// Processes a near-end binary spectrum and returns the current delay estimate.
 // Return value:
 //    - delay                 :  >= 0 - Calculated delay value.
 //                              -2    - Insufficient data for estimation.
-//
-int ProcessBinarySpectrum(BinaryDelayEstimator* estimator, uint32_t binary_near_spectrum);
+int ProcessBinarySpectrum(uint32_t binary_near_spectrum);
 
 
 // Updates the `mean_value` recursively with a step size of 2^-`factor`. This

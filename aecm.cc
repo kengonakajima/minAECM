@@ -289,7 +289,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   g_totCount++;
 
   // ここからチャネル推定アルゴリズム。NLMS 派生で、上で計算した
-  // 可変ステップ長を用いて更新する。
+  // 可変ステップ長を用いてhAdaptを更新する。
   UpdateChannel(X_mag_aligned, 0 /*x_q*/, Y_mag, mu, S_mag);
   int16_t gGain = CalcSuppressionGain();
 
@@ -539,7 +539,7 @@ void InitEchoPathCore(const int16_t* echo_path) {
   g_mseChannelCount = 0;
 }
 
-void CalcLinearEnergiesC(const uint16_t* X_mag,
+void CalcLinearEnergies(const uint16_t* X_mag,
                          int32_t* S_mag,
                          uint32_t* X_energy,
                          uint32_t* S_energy_adapt,
@@ -554,7 +554,7 @@ void CalcLinearEnergiesC(const uint16_t* X_mag,
   }
 }
 
-void StoreAdaptiveChannelC(const uint16_t* X_mag,
+void StoreAdaptiveChannel(const uint16_t* X_mag,
                            int32_t* S_mag) {
   // 起動中は毎ブロック保存チャネルを更新
   memcpy(g_hStored, g_hAdapt16, sizeof(int16_t) * PART_LEN1);
@@ -569,7 +569,7 @@ void StoreAdaptiveChannelC(const uint16_t* X_mag,
   S_mag[PART_LEN] = MUL_16_U16(g_hStored[PART_LEN], X_mag[PART_LEN]);
 }
 
-void ResetAdaptiveChannelC() {
+void ResetAdaptiveChannel() {
   // 連続 2 回、保存チャネルの MSE が適応チャネルより十分小さい場合、
   // 適応チャネルをリセットする。
   memcpy(g_hAdapt16, g_hStored, sizeof(int16_t) * PART_LEN1);
@@ -765,7 +765,7 @@ void CalcEnergies(const uint16_t* X_mag,
   // 近端振幅積分の対数 (nearEner)
   g_nearLogEnergy[0] = LogOfEnergyInQ8(Y_energy, g_dfaNoisyQDomain);
 
-  CalcLinearEnergiesC(X_mag, S_mag, &tmpFar, &tmpAdapt, &tmpStored);
+  CalcLinearEnergies(X_mag, S_mag, &tmpFar, &tmpAdapt, &tmpStored);
 
   // ログ履歴バッファをシフト
   memmove(g_echoAdaptLogEnergy + 1, g_echoAdaptLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
@@ -991,7 +991,7 @@ void UpdateChannel(const uint16_t* X_mag,
   if ((g_startupState == 0) & (g_currentVADValue)) {
     // 起動中は毎ブロックチャネルを保存し、
     // 推定エコーも再計算する
-    StoreAdaptiveChannelC(X_mag, S_mag);
+    StoreAdaptiveChannel(X_mag, S_mag);
   } else {
     if (g_farLogEnergy < g_farEnergyMSE) {
       g_mseChannelCount = 0;
@@ -1019,14 +1019,14 @@ void UpdateChannel(const uint16_t* X_mag,
            (MIN_MSE_DIFF * g_mseAdaptOld))) {
         // 保存チャネルの方が連続して適応チャネルより低い誤差なら、
         // 適応チャネルをリセットする。
-        ResetAdaptiveChannelC();
+        ResetAdaptiveChannel();
       } else if (((MIN_MSE_DIFF * mseStored) > (mseAdapt << MSE_RESOLUTION)) &
                  (mseAdapt < g_mseThreshold) &
                  (g_mseAdaptOld < g_mseThreshold)) {
         // 適応チャネルの方が連続して保存チャネルより低い誤差なら、
         // 
         // 適応チャネルを保存版として採用する。
-        StoreAdaptiveChannelC(X_mag, S_mag);
+        StoreAdaptiveChannel(X_mag, S_mag);
 
         // 閾値を更新
         if (g_mseThreshold == WORD32_MAX) {
