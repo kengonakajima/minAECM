@@ -6,7 +6,7 @@
 #include <fstream>
 #include <cstring>
 
-#include "echo_control_mobile.h"
+#include "aecm_core.h"
 #include "aecm_defines.h"
 
 struct Wav {
@@ -51,7 +51,6 @@ int main(int argc, char** argv){
   }
   size_t N = std::min(x.samples.size(), y.samples.size()) / (size_t)AECM_BLOCK_SIZE;
   if (Init() != 0){ std::fprintf(stderr, "AECM init failed\n"); return 1; }
-  AecmConfig cfg{}; cfg.echoMode = 3; SetConfig(cfg);
   std::vector<int16_t> processed;
   processed.resize(N * AECM_BLOCK_SIZE);
   for (size_t n=0;n<N;n++){

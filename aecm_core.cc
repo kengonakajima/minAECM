@@ -1,16 +1,135 @@
 #include "aecm_core.h"
 
+#include <math.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <math.h>
 
-#include "echo_control_mobile.h"
+#include "delay_estimator_internal.h"
 #include "delay_estimator_wrapper.h"
+#include "util.h"
+
+#ifdef MSC_VER  // Visual C++
+#define ALIGN8_BEG __declspec(align(8))
+#define ALIGN8_END
+#else  // gcc または icc
+#define ALIGN8_BEG
+#define ALIGN8_END __attribute__((aligned(8)))
+#endif
+
+struct ComplexInt16 {
+  int16_t real;
+  int16_t imag;
+};
+
+struct AecmCore {
+  int xBufWritePos;
+  int xBufReadPos;
+  int knownDelay;
+  int lastKnownDelay;
+  int firstVAD;
+
+  int16_t xFrameBuf[FAR_BUF_LEN];
+
+  DelayEstimatorFarend delay_estimator_farend;
+  DelayEstimator delay_estimator;
+  uint16_t xHistory[PART_LEN1 * MAX_DELAY];
+  int xHistoryPos;
+
+  uint32_t totCount;
+
+  int16_t dfaCleanQDomain;
+  int16_t dfaCleanQDomainOld;
+  int16_t dfaNoisyQDomain;
+  int16_t dfaNoisyQDomainOld;
+
+  int16_t nearLogEnergy[MAX_LOG_LEN];
+  int16_t farLogEnergy;
+  int16_t echoAdaptLogEnergy[MAX_LOG_LEN];
+  int16_t echoStoredLogEnergy[MAX_LOG_LEN];
+
+  int16_t hStored[PART_LEN1];
+  int16_t hAdapt16[PART_LEN1];
+  int32_t hAdapt32[PART_LEN1];
+  int16_t xBuf[PART_LEN2];
+  int16_t yBuf[PART_LEN2];
+  int16_t eOverlapBuf[PART_LEN];
+
+  int32_t sMagSmooth[PART_LEN1];
+  int16_t yMagSmooth[PART_LEN1];
+
+  int32_t mseAdaptOld;
+  int32_t mseStoredOld;
+  int32_t mseThreshold;
+
+  int16_t farEnergyMin;
+  int16_t farEnergyMax;
+  int16_t farEnergyMaxMin;
+  int16_t farEnergyVAD;
+  int16_t farEnergyMSE;
+  int currentVADValue;
+  int16_t vadUpdateCount;
+
+  int16_t startupState;
+  int16_t mseChannelCount;
+  int16_t supGain;
+  int16_t supGainOld;
+
+  int16_t supGainErrParamA;
+  int16_t supGainErrParamD;
+  int16_t supGainErrParamDiffAB;
+  int16_t supGainErrParamDiffBD;
+};
 
 // デフォルトの単一インスタンス（ポインタ省略呼び出し用）
 AecmCore g_aecm;
+
+// アプリ側ラッパ状態（単一インスタンス）
+namespace {
+
+constexpr int kBufSizeFrames = 50;  // 遠端バッファ長（フレーム数）
+constexpr size_t kBufSizeSamples = kBufSizeFrames * FRAME_LEN;
+constexpr int kSamplesPerMs16k = 16;  // 16 kHz 固定
+constexpr short kFixedMsInSndCardBuf = 60;  // 50ms 遅延 + 10ms マージン
+constexpr short kStartupFramesRaw =
+    static_cast<short>((kFixedMsInSndCardBuf * kSamplesPerMs16k) / FRAME_LEN);
+constexpr short kStartupFrames =
+    kStartupFramesRaw <= 0
+        ? 1
+        : (kStartupFramesRaw > kBufSizeFrames ? kBufSizeFrames : kStartupFramesRaw);
+constexpr int kInitCheck = 42;
+
+struct AecMobile {
+  short bufSizeStart;
+  int knownDelay;
+  short farendOld[FRAME_LEN];
+  short initFlag;
+  short filtDelay;
+  int timeForDelayChange;
+  int ECstartup;
+  short lastDelayDiff;
+  RingBuffer farendBuf;
+  int16_t farendBufData[kBufSizeSamples];
+};
+
+static AecMobile g_mobile;
+
+}  // namespace
+
+// 先行宣言（翻訳単位内のみで使用）。
+void UpdateFarHistory(uint16_t* x_spectrum);
+const uint16_t* AlignedFarX(int delay);
+void CalcEnergies(const uint16_t* X_mag, uint32_t Y_energy, int32_t* S_mag);
+int16_t CalcStepSize();
+void UpdateChannel(const uint16_t* X_mag,
+                   int16_t x_q,
+                   const uint16_t* const Y_mag,
+                   int16_t mu,
+                   int32_t* S_mag);
+int16_t CalcSuppressionGain();
+void BufferFarFrame(const int16_t* const x_frame);
+void FetchFarFrame(int16_t* const x_frame, int knownDelay);
 
 // ハニング窓の平方根（Q14）。
 static const ALIGN8_BEG int16_t kSqrtHanning[] ALIGN8_END = {
@@ -25,9 +144,13 @@ static const ALIGN8_BEG int16_t kSqrtHanning[] ALIGN8_END = {
 static bool g_bypass_wiener = false;
 static bool g_bypass_nlp = false;
 
-void AecmCoreSetBypassWiener(int enable) { g_bypass_wiener = (enable != 0); }
+static void SetBypassWienerInternal(int enable) {
+  g_bypass_wiener = (enable != 0);
+}
 
-void AecmCoreSetBypassNlp(int enable) { g_bypass_nlp = (enable != 0); }
+static void SetBypassNlpInternal(int enable) {
+  g_bypass_nlp = (enable != 0);
+}
 
 void WindowAndFFT(int16_t* fft,
                   const int16_t* time_signal,
@@ -1052,4 +1175,140 @@ void FetchFarFrame(int16_t* const x_frame, const int knownDelay) {
   g_aecm.xBufReadPos += readLen;
 }
 
- 
+
+static int EstimateBufDelay() {
+  short nSampFar = static_cast<short>(available_read(&g_mobile.farendBuf));
+  short nSampSndCard = kFixedMsInSndCardBuf * kSamplesPerMs16k;
+  short delayNew = nSampSndCard - nSampFar;
+
+  if (delayNew < FRAME_LEN) {
+    MoveReadPtr(&g_mobile.farendBuf, FRAME_LEN);
+    delayNew += FRAME_LEN;
+  }
+
+  g_mobile.filtDelay =
+      static_cast<short>(MAX(0, (8 * g_mobile.filtDelay + 2 * delayNew) / 10));
+
+  short diff = g_mobile.filtDelay - g_mobile.knownDelay;
+  if (diff > 224) {
+    if (g_mobile.lastDelayDiff < 96) {
+      g_mobile.timeForDelayChange = 0;
+    } else {
+      g_mobile.timeForDelayChange++;
+    }
+  } else if (diff < 96 && g_mobile.knownDelay > 0) {
+    if (g_mobile.lastDelayDiff > 224) {
+      g_mobile.timeForDelayChange = 0;
+    } else {
+      g_mobile.timeForDelayChange++;
+    }
+  } else {
+    g_mobile.timeForDelayChange = 0;
+  }
+  g_mobile.lastDelayDiff = diff;
+
+  if (g_mobile.timeForDelayChange > 25) {
+    g_mobile.knownDelay = MAX(static_cast<int>(g_mobile.filtDelay) - (2 * FRAME_LEN), 0);
+  }
+  return 0;
+}
+
+int32_t Init() {
+  memset(&g_mobile, 0, sizeof(g_mobile));
+  InitBufferWith(&g_mobile.farendBuf, g_mobile.farendBufData, kBufSizeSamples,
+                 sizeof(int16_t));
+
+  if (InitCore() == -1) {
+    return AECM_UNSPECIFIED_ERROR;
+  }
+
+  InitBuffer(&g_mobile.farendBuf);
+
+  g_mobile.initFlag = kInitCheck;
+  g_mobile.bufSizeStart = kStartupFrames;
+  g_mobile.ECstartup = 1;
+  g_mobile.filtDelay = 0;
+  g_mobile.timeForDelayChange = 0;
+  g_mobile.knownDelay = 0;
+  g_mobile.lastDelayDiff = 0;
+
+  memset(g_mobile.farendOld, 0, sizeof(g_mobile.farendOld));
+
+  return 0;
+}
+
+int32_t BufferFarend(const int16_t* farend) {
+  if (farend == NULL) {
+    return AECM_NULL_POINTER_ERROR;
+  }
+  if (g_mobile.initFlag != kInitCheck) {
+    return AECM_UNINITIALIZED_ERROR;
+  }
+
+  WriteBuffer(&g_mobile.farendBuf, farend, FRAME_LEN);
+  return 0;
+}
+
+int32_t Process(const int16_t* nearend, int16_t* out) {
+  if (nearend == NULL) {
+    return AECM_NULL_POINTER_ERROR;
+  }
+  if (out == NULL) {
+    return AECM_NULL_POINTER_ERROR;
+  }
+  if (g_mobile.initFlag != kInitCheck) {
+    return AECM_UNINITIALIZED_ERROR;
+  }
+
+  const size_t nrOfSamples = FRAME_LEN;
+  const size_t nFrames = nrOfSamples / FRAME_LEN;  // 64/64=1（16kHz固定）
+
+  if (g_mobile.ECstartup) {
+    if (out != nearend) {
+      memcpy(out, nearend, sizeof(short) * nrOfSamples);
+    }
+
+    short nmbrOfFilledBuffers =
+        static_cast<short>(available_read(&g_mobile.farendBuf) / FRAME_LEN);
+    if (nmbrOfFilledBuffers >= g_mobile.bufSizeStart) {
+      if (nmbrOfFilledBuffers > g_mobile.bufSizeStart) {
+        MoveReadPtr(&g_mobile.farendBuf,
+                    static_cast<int>(available_read(&g_mobile.farendBuf)) -
+                        static_cast<int>(g_mobile.bufSizeStart) * FRAME_LEN);
+      }
+      g_mobile.ECstartup = 0;
+    }
+  } else {
+    for (size_t i = 0; i < nFrames; i++) {
+      int16_t farend[FRAME_LEN];
+      int16_t* farend_ptr = nullptr;
+
+      short nmbrOfFilledBuffers =
+          static_cast<short>(available_read(&g_mobile.farendBuf) / FRAME_LEN);
+
+      if (nmbrOfFilledBuffers > 0) {
+        ReadBuffer(&g_mobile.farendBuf, reinterpret_cast<void**>(&farend_ptr),
+                   farend, FRAME_LEN);
+        memcpy(g_mobile.farendOld, farend_ptr, FRAME_LEN * sizeof(short));
+      } else {
+        memcpy(farend, g_mobile.farendOld, FRAME_LEN * sizeof(short));
+        farend_ptr = farend;
+      }
+
+      if (i == nFrames - 1) {
+        EstimateBufDelay();
+      }
+
+      if (ProcessFrame(farend_ptr, &nearend[FRAME_LEN * i],
+                       &out[FRAME_LEN * i]) == -1) {
+        return -1;
+      }
+    }
+  }
+
+  return 0;
+}
+
+void SetBypassWiener(int enable) { SetBypassWienerInternal(enable); }
+
+void SetBypassNlp(int enable) { SetBypassNlpInternal(enable); }

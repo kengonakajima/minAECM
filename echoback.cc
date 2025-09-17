@@ -17,7 +17,7 @@
 #include <string>
 #include <vector>
 
-#include "echo_control_mobile.h"
+#include "aecm_core.h"
 #include "aecm_defines.h"
 
  
@@ -165,8 +165,6 @@ int main(int argc, char** argv){
       std::fprintf(stderr, "AECM init failed\n");
       Pa_StopStream(stream); Pa_CloseStream(stream); Pa_Terminate(); return 1;
     }
-    AecmConfig cfg{}; cfg.echoMode = 3;
-    SetConfig(cfg);
     SetBypassWiener(s.bypass_wiener ? 1 : 0);
     SetBypassNlp(s.bypass_nlp ? 1 : 0);
   }
