@@ -141,6 +141,8 @@ static const int16_t kBitReverseIndex7[112] = {
     79,  121, 83,  101, 87,  117, 91,  109, 95,  125, 103, 115, 111, 123,
 };
 
+// リングバッファの読み出し要求を最大2つの連続領域に分割する。
+// memcpy量を抑えながら外部バッファへ渡すための補助関数。
 size_t GetBufferReadRegions(RingBuffer* buf,
                             size_t element_count,
                             void** data_ptr_1,
@@ -166,6 +168,8 @@ size_t GetBufferReadRegions(RingBuffer* buf,
   return to_read;
 }
 
+// リングバッファの読み書き状態を初期化し、残留データをクリアする。
+// 再利用前に既知の状態へ戻すためのエントリポイント。
 void InitBuffer(RingBuffer* self) {
   if (!self) {
     return;
@@ -178,6 +182,8 @@ void InitBuffer(RingBuffer* self) {
   }
 }
 
+// 指定されたメモリ領域をリングバッファとして設定し初期化する。
+// 外部確保したバッファを循環バッファ運用に切り替えるためのAPI。
 void InitBufferWith(RingBuffer* self,
                     void* backing,
                     size_t element_count,
@@ -191,6 +197,8 @@ void InitBufferWith(RingBuffer* self,
   InitBuffer(self);
 }
 
+// 現在取り出せる要素数を計算する。
+// 読み出し前に不足を検知し安全な処理順を組むために使う。
 size_t available_read(const RingBuffer* self) {
   if (!self) {
     return 0;
@@ -201,6 +209,8 @@ size_t available_read(const RingBuffer* self) {
   return self->element_count - self->read_pos + self->write_pos;
 }
 
+// 現在書き込める空き要素数を返す。
+// バッファ溢れを避けるための事前チェックに利用する。
 size_t available_write(const RingBuffer* self) {
   if (!self) {
     return 0;
@@ -208,6 +218,8 @@ size_t available_write(const RingBuffer* self) {
   return self->element_count - available_read(self);
 }
 
+// 要求した要素数ぶんをリングバッファから読み出す。
+// ストリーム処理が連続データを安全に取得できるよう抽象化する。
 size_t ReadBuffer(RingBuffer* self,
                   void** data_ptr,
                   void* data,
@@ -239,6 +251,8 @@ size_t ReadBuffer(RingBuffer* self,
   return read_count;
 }
 
+// 外部データをリングバッファへ書き込み、書き込めた要素数を返す。
+// 入力ストリームを循環バッファへ蓄積する基本操作。
 size_t WriteBuffer(RingBuffer* self,
                    const void* data,
                    size_t element_count) {
@@ -267,6 +281,8 @@ size_t WriteBuffer(RingBuffer* self,
   return to_write;
 }
 
+// 読み出しポインタを相対移動させ、巻き戻り状態を更新する。
+// 消費済み領域の解放や巻き戻しを一元的に扱うためのヘルパ。
 int MoveReadPtr(RingBuffer* self, int element_count) {
   if (!self) {
     return 0;
@@ -297,6 +313,8 @@ int MoveReadPtr(RingBuffer* self, int element_count) {
   return element_count;
 }
 
+// 固定長のビット反転テーブルを用い、複素配列をビット反転順に並べ替える。
+// FFT の前処理として、バタフライ演算を正しいペア順に整列させる。
 void ComplexBitReverse(int16_t* __restrict complex_data, int stages) {
   (void)stages;
   int32_t* ptr = reinterpret_cast<int32_t*>(complex_data);
@@ -314,6 +332,8 @@ void ComplexBitReverse(int16_t* __restrict complex_data, int stages) {
 #define CIFFTSFT 14
 #define CIFFTRND 1
 
+// 32ビット整数の先頭に並ぶゼロビット数を数える。
+// 正規化やスケール調整のシフト量決定に利用する基礎ルーチン。
 int CountLeadingZeros32(uint32_t n) {
   if (n == 0) {
     return 32;
@@ -326,6 +346,8 @@ int CountLeadingZeros32(uint32_t n) {
   return count;
 }
 
+// 64ビット整数の先頭ゼロビット数を求める。
+// 大きめの積や累積値を規格化する際の共通計算として使う。
 int CountLeadingZeros64(uint64_t n) {
   if (n == 0) {
     return 64;
@@ -338,6 +360,8 @@ int CountLeadingZeros64(uint64_t n) {
   return count;
 }
 
+// 32ビットの値を16ビット領域へ飽和クリップして格納する。
+// 固定小数点演算で桁あふれを防ぐための基本変換。
 int16_t SatW32ToW16(int32_t value32) {
   if (value32 > 32767) {
     return 32767;
@@ -348,6 +372,8 @@ int16_t SatW32ToW16(int32_t value32) {
   return (int16_t)value32;
 }
 
+// 32ビット整数を飽和付きで加算する。
+// 累積計算でオーバーフローを避ける安全な加算ラッパー。
 int32_t AddSatW32(int32_t a, int32_t b) {
   const int32_t sum = (int32_t)((uint32_t)a + (uint32_t)b);
   if ((a < 0) == (b < 0) && (a < 0) != (sum < 0)) {
@@ -356,6 +382,8 @@ int32_t AddSatW32(int32_t a, int32_t b) {
   return sum;
 }
 
+// 32ビット整数の差分を飽和付きで求める。
+// 減算時の符号反転による範囲逸脱を防ぐ。
 int32_t SubSatW32(int32_t a, int32_t b) {
   const int32_t diff = (int32_t)((uint32_t)a - (uint32_t)b);
   if ((a < 0) != (b < 0) && (a < 0) != (diff < 0)) {
@@ -364,14 +392,20 @@ int32_t SubSatW32(int32_t a, int32_t b) {
   return diff;
 }
 
+// 16ビット整数同士を飽和付きで加算する。
+// PCMサンプルなど狭いダイナミックレンジの累積に使う。
 int16_t AddSatW16(int16_t a, int16_t b) {
   return SatW32ToW16((int32_t)a + (int32_t)b);
 }
 
+// 16ビット整数の差を飽和付きで計算する。
+// 固定小数点演算でのアンダーフロー対策として用いる。
 int16_t SubSatW16(int16_t a, int16_t b) {
   return SatW32ToW16((int32_t)a - (int32_t)b);
 }
 
+// 32ビット整数を正規化するためのシフト量を算出する。
+// 演算結果をオーバーフローさせずにスケーリングする準備に使う。
 int16_t NormW32(int32_t a) {
   if (a == 0) {
     return 0;
@@ -380,10 +414,14 @@ int16_t NormW32(int32_t a) {
   return (int16_t)(CountLeadingZeros32((uint32_t)tmp) - 1);
 }
 
+// 符号なし32ビット値を正規化するシフト量を返す。
+// エネルギーなど非負値の規格化に用いる補助。
 int16_t NormU32(uint32_t a) {
   return a == 0 ? 0 : (int16_t)CountLeadingZeros32(a);
 }
 
+// 16ビット整数の正規化に必要なビットシフト量を計算する。
+// 小さなサンプルを扱う際に桁落ちを避けるための前処理。
 int16_t NormW16(int16_t a) {
   if (a == 0) {
     return 0;
@@ -393,14 +431,20 @@ int16_t NormW16(int16_t a) {
   return (int16_t)(CountLeadingZeros32((uint32_t)tmp) - 17);
 }
 
+// 16ビットの内積を1項分計算して累積値へ加える。
+// FIRや相関計算など逐次積和演算の基本プリミティブ。
 int32_t MulAccumW16(int16_t a, int16_t b, int32_t c) {
   return a * b + c;
 }
 
+// 非ゼロ値を表現するのに必要なビット数を1始まりで返す。
+// テーブル選択や指数表現の枝分かれ条件に使う。
 int16_t GetSizeInBits(uint32_t n) {
   return (int16_t)(32 - CountLeadingZeros32(n));
 }
 
+// 16ビット配列内の最大絶対値を線形探索で求める。
+// スケーリング判断やレベル検出の前処理に利用する。
 int16_t MaxAbsValueW16C(const int16_t* vector, size_t length) {
   int maximum = 0;
   for (size_t i = 0; i < length; ++i) {
@@ -415,14 +459,20 @@ int16_t MaxAbsValueW16C(const int16_t* vector, size_t length) {
   return (int16_t)maximum;
 }
 
+// 32ビット符号なし値を16ビットで割り、安全に商を返す。
+// ゼロ除算をガードしつつ比率計算を行うためのラッパー。
 uint32_t DivU32U16(uint32_t num, uint16_t den) {
   return den == 0 ? UINT32_MAX : (uint32_t)(num / den);
 }
 
+// 32ビット符号付き値を16ビットで割り、ゼロ除算時は最大値を返す。
+// ゲインや係数を整数演算で求める際の安全な除算。
 int32_t DivW32W16(int32_t num, int16_t den) {
   return den == 0 ? INT32_MAX : (int32_t)(num / den);
 }
 
+// 32ビット整数の平方根を繰り返し法で近似し、床値を返す。
+// 浮動小数点を使わずに振幅やエネルギーのルートを評価するために利用。
 int32_t SqrtFloor(int32_t value) {
   if (value <= 0) {
     return 0;
@@ -439,6 +489,8 @@ int32_t SqrtFloor(int32_t value) {
   return root >> 1;
 }
 
+// 固定長128ポイントまでの複素FFTを実装したルーチン。
+// 周波数領域での解析や畳み込み前処理として利用する。
 int ComplexFFT(int16_t frfi[], int stages, int mode) {
   (void)mode;
   const int n = 1 << stages;
@@ -480,6 +532,8 @@ int ComplexFFT(int16_t frfi[], int stages, int mode) {
   return 0;
 }
 
+// 複素周波数データを時間領域に戻すIFFTを行い、必要なスケーリング量を返す。
+// 周波数領域処理後の再構成やオーバーラップアドに欠かせないコア処理。
 int ComplexIFFT(int16_t frfi[], int stages, int mode) {
   (void)mode;
   const size_t n = ((size_t)1) << stages;
@@ -537,6 +591,8 @@ int ComplexIFFT(int16_t frfi[], int stages, int mode) {
   return scale;
 }
 
+// 実数波形を複素スペクトルへ変換し、DC〜Nyquist成分を取得する。
+// 実信号ベースのAECM処理が周波数領域に移行する前段として利用。
 int RealForwardFFT(const int16_t* real_data_in,
                    int16_t* complex_data_out) {
   const int n = 1 << kRealFftOrder;
@@ -554,6 +610,8 @@ int RealForwardFFT(const int16_t* real_data_in,
   return result;
 }
 
+// 実数スペクトルを逆変換し、時間領域のサンプル列へ復元する。
+// 周波数領域処理後のブロックを時間波形に戻して合成する工程で使用。
 int RealInverseFFT(const int16_t* complex_data_in,
                    int16_t* real_data_out) {
   const int n = 1 << kRealFftOrder;
