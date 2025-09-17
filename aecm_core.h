@@ -97,117 +97,48 @@ typedef struct {
 extern AecmCore g_aecm;
 
 ////////////////////////////////////////////////////////////////////////////////
-// デフォルトインスタンス g_aecm を初期化（再初期化可）。
-// 戻り値: 0 なら成功、-1 なら失敗
+// AECMを初期化
 int InitCore();
 
-// Create/Free は不要（単一インスタンスかつ固定長バッファ運用）。
-
-
-////////////////////////////////////////////////////////////////////////////////
 // 既知のエコーパス形状でチャネルを初期化（g_aecm を対象）。
 void InitEchoPathCore(const int16_t* echo_path);
 
-////////////////////////////////////////////////////////////////////////////////
-// 1フレーム（=1ブロック）処理。g_aecm を用いる。
-int ProcessFrame(const int16_t* x_frame,
-                      const int16_t* y_frame,
-                      int16_t* e_frame);
+// 1フレーム（=1ブロック）処理
+int ProcessFrame(const int16_t* x_frame, const int16_t* y_frame, int16_t* e_frame);
 
-////////////////////////////////////////////////////////////////////////////////
-// 1ブロック処理。g_aecm を用いる。
-int ProcessBlock(const int16_t* x_block,
-                      const int16_t* y_block,
-                      int16_t* e_block);
+// 1ブロック処理
+int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_block);
 
 // デバッグ/調整用: 抑圧ステージをバイパスするフラグを設定。
 void AecmCoreSetBypassWiener(int enable);
 void AecmCoreSetBypassNlp(int enable);
 
-////////////////////////////////////////////////////////////////////////////////
+
 // 遠端参照信号フレーム（x[n], FRAME_LEN サンプル）を g_aecm 側のバッファへ投入。
 void BufferFarFrame(const int16_t* const x_frame);
 
-////////////////////////////////////////////////////////////////////////////////
 // 既知遅延を考慮して g_aecm 側バッファから整列済みの遠端フレームを取得。
 void FetchFarFrame(int16_t* const x_frame, int knownDelay);
 
-////////////////////////////////////////////////////////////////////////////////
-// ポインタを次エントリへ進め、`x_spectrum` をバッファへ格納する
-// （内部Qは固定で0）。
-//
-// 入力:
-//      - self          : 遅延推定インスタンスへのポインタ
-//      - x_spectrum    : 遠端スペクトルへのポインタ
-//
 // g_aecm の遠端スペクトル履歴を更新（Q=0 固定のため Q は保持しない）。
 void UpdateFarHistory(uint16_t* x_spectrum);
 
-////////////////////////////////////////////////////////////////////////////////
-// 近端に整列した遠端スペクトルのポインタを返す。
-// 事前に DelayEstimatorProcess(...) を実行していることが前提。
-// そうでない場合は前フレームのポインタが返る。
-// メモリは次に DelayEstimatorProcess(...) を呼ぶまで有効。
-// 
-//
-// 入力:
-//      - self              : AECM インスタンスへのポインタ
-//      - delay             : 現在の遅延推定値
-//
-// 戻り値:
-//      - x_spectrum        : 整列済み遠端スペクトルへのポインタ
-//                            NULL ならエラー
-//
-// 近端に整列済みの Far スペクトルを返す（g_aecm 内の履歴に基づく）。
-// 固定Q=0のため、Q出力は行わない。
+// 近端に整列済みの Far スペクトルを返す（g_aecm 内の履歴に基づく）。 固定Q=0のため、Q出力は行わない。
 const uint16_t* AlignedFarX(int delay);
 
-///////////////////////////////////////////////////////////////////////////////
-// Wiener フィルタで使用する抑圧ゲインを計算する。
-// 
-//
-// 入力:
-//      - aecm              : AECM インスタンスへのポインタ
-//
-// 戻り値:
-//      - supGain           : 雑音レベルに掛ける抑圧ゲイン
-//                            （Q14）
-//
-// 抑圧ゲイン（NLP）を算出（g_aecm を参照）。
+
+// Wiener フィルタで使用する抑圧ゲインを計算する。  抑圧ゲイン（NLP）を算出.
 int16_t CalcSuppressionGain();
 
-///////////////////////////////////////////////////////////////////////////////
-// 近端・遠端・推定エコーのエネルギーログを計算し、
-// 内部 VAD の閾値も更新する。
-// 
-//
-// 入力:
-//      - aecm              : AECM インスタンスへのポインタ
-//      - X_mag             : 遠端スペクトル振幅へのポインタ
-//      - Y_energy          : 現ブロックの近端エネルギー（Q=0）
-//
-// 出力:
-//     - S_mag              : 推定エコー（Q=RESOLUTION_CHANNEL16）
-//
 // 近端/遠端/推定エコーのエネルギーを計算し、VAD 閾値などを更新（g_aecm）。
-void CalcEnergies(const uint16_t* X_mag,
-                       uint32_t Y_energy,
-                       int32_t* S_mag);
+void CalcEnergies(const uint16_t* X_mag, uint32_t Y_energy, int32_t* S_mag);
 
-///////////////////////////////////////////////////////////////////////////////
+
 // チャネル推定で使用するステップサイズを計算する。
-// 入力:
-//      - aecm              : AECM インスタンスへのポインタ
-// 戻り値:
-//      - mu                : log2 表現のステップサイズ（シフト量）
-// NLMS ステップサイズ（log2）を計算（g_aecm）。
+// NLMS ステップサイズ（log2）を計算
 int16_t CalcStepSize();
 
-///////////////////////////////////////////////////////////////////////////////
-// チャネル推定を実行する。
-// NLMS 更新とチャネル保存の判定を兼ねる。
 // 入力:
-//      - aecm              : AECM インスタンスへのポインタ
 //      - X_mag             : 遠端信号の絶対値スペクトル（Q0）
 //      - x_q               : 遠端信号の Q ドメイン（常に 0）
 //      - Y_mag             : 近端信号の絶対値スペクトル（Q0）
@@ -215,15 +146,6 @@ int16_t CalcStepSize();
 // 入出力:
 //      - S_mag             : 推定エコー（Q=RESOLUTION_CHANNEL16）
 // チャネル推定（NLMS）を実行し、保存/復元の判定も行う（g_aecm）。
-void UpdateChannel(const uint16_t* X_mag,
-                        int16_t x_q,
-                        const uint16_t* const Y_mag,
-                        int16_t mu,
-                        int32_t* S_mag);
-
- 
-
-///////////////////////////////////////////////////////////////////////////////
- 
+void UpdateChannel(const uint16_t* X_mag, int16_t x_q, const uint16_t* const Y_mag, int16_t mu, int32_t* S_mag);
 
  
