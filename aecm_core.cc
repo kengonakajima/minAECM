@@ -6,8 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "delay_estimator_internal.h"
-#include "delay_estimator_wrapper.h"
+#include "delay_estimator.h"
 #include "util.h"
 
 #ifdef MSC_VER  // Visual C++

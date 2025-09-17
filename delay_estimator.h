@@ -39,6 +39,27 @@ typedef struct {
   BinaryDelayEstimatorFarend* farend;
 } BinaryDelayEstimator;
 
+typedef int32_t SpectrumType;
+
+typedef struct {
+  SpectrumType mean_far_spectrum[PART_LEN1];
+  int far_spectrum_initialized;
+
+  int spectrum_size;
+
+  BinaryDelayEstimatorFarend binary_farend;
+} DelayEstimatorFarend;
+
+typedef struct {
+  SpectrumType mean_near_spectrum[PART_LEN1];
+  int near_spectrum_initialized;
+
+  int spectrum_size;
+
+  BinaryDelayEstimator binary_handle;
+  DelayEstimatorFarend* farend_wrapper;
+} DelayEstimator;
+
 // 動的確保APIは削除（固定長・単一インスタンス前提）。
 
 // Initializes the delay estimation far-end instance created with
@@ -130,5 +151,10 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
 void MeanEstimator(int32_t new_value,
                    int factor,
                    int32_t* mean_value);
+
+int InitDelayEstimatorFarend(void* handle);
+int AddFarSpectrum(void* handle, const uint16_t* far_spectrum);
+int InitDelayEstimator(void* handle);
+int DelayEstimatorProcess(void* handle, const uint16_t* near_spectrum);
 
  

@@ -6,8 +6,20 @@
 
 #include <algorithm>
 
+namespace {
+
+constexpr int kBandFirst = 12;
+constexpr int kBandLast = 43;
+
+inline uint32_t SetBit(uint32_t in, int pos) {
+  const uint32_t mask = (1u << pos);
+  return (in | mask);
+}
+
+}
+
  
- 
+
 
 // スケーリングの右シフト回数は遠端2値スペクトルのビット数に線形依存する。
 // 
@@ -443,4 +455,89 @@ void MeanEstimator(int32_t new_value,
   *mean_value += diff;
 }
 
- 
+static uint32_t BinarySpectrum(const uint16_t* spectrum,
+                               SpectrumType* threshold_spectrum,
+                               int* threshold_initialized) {
+  uint32_t out = 0;
+
+  if (!(*threshold_initialized)) {
+    for (int i = kBandFirst; i <= kBandLast; i++) {
+      if (spectrum[i] > 0) {
+        const int32_t spectrum_q15 = static_cast<int32_t>(spectrum[i]) << 15;
+        threshold_spectrum[i] = (spectrum_q15 >> 1);
+        *threshold_initialized = 1;
+      }
+    }
+  }
+  for (int i = kBandFirst; i <= kBandLast; i++) {
+    const int32_t spectrum_q15 = static_cast<int32_t>(spectrum[i]) << 15;
+    MeanEstimator(spectrum_q15, 6, &(threshold_spectrum[i]));
+    if (spectrum_q15 > threshold_spectrum[i]) {
+      out = SetBit(out, i - kBandFirst);
+    }
+  }
+
+  return out;
+}
+
+int InitDelayEstimatorFarend(void* handle) {
+  auto* self = static_cast<DelayEstimatorFarend*>(handle);
+
+  if (self == NULL) {
+    return -1;
+  }
+
+  InitBinaryDelayEstimatorFarend(&self->binary_farend);
+
+  self->spectrum_size = PART_LEN1;
+  memset(self->mean_far_spectrum, 0, sizeof(self->mean_far_spectrum));
+  self->far_spectrum_initialized = 0;
+
+  return 0;
+}
+
+int AddFarSpectrum(void* handle, const uint16_t* far_spectrum) {
+  auto* self = static_cast<DelayEstimatorFarend*>(handle);
+
+  if (self == NULL || far_spectrum == NULL) {
+    return -1;
+  }
+
+  const uint32_t binary_spectrum = BinarySpectrum(
+      far_spectrum, self->mean_far_spectrum, &(self->far_spectrum_initialized));
+  AddBinaryFarSpectrum(&self->binary_farend, binary_spectrum);
+
+  return 0;
+}
+
+int InitDelayEstimator(void* handle) {
+  auto* self = static_cast<DelayEstimator*>(handle);
+
+  if (self == NULL) {
+    return -1;
+  }
+
+  if (self->farend_wrapper) {
+    self->binary_handle.farend = &self->farend_wrapper->binary_farend;
+  }
+  InitBinaryDelayEstimator(&self->binary_handle);
+
+  self->spectrum_size = PART_LEN1;
+  memset(self->mean_near_spectrum, 0, sizeof(self->mean_near_spectrum));
+  self->near_spectrum_initialized = 0;
+
+  return 0;
+}
+
+int DelayEstimatorProcess(void* handle, const uint16_t* near_spectrum) {
+  auto* self = static_cast<DelayEstimator*>(handle);
+
+  if (self == NULL || near_spectrum == NULL) {
+    return -1;
+  }
+
+  const uint32_t binary_spectrum = BinarySpectrum(
+      near_spectrum, self->mean_near_spectrum, &(self->near_spectrum_initialized));
+
+  return ProcessBinarySpectrum(&self->binary_handle, binary_spectrum);
+}
