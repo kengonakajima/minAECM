@@ -1212,12 +1212,9 @@ static int EstimateBufDelay() {
 
 int32_t Init() {
   memset(&g_mobile, 0, sizeof(g_mobile));
-  InitBufferWith(&g_mobile.farendBuf, g_mobile.farendBufData, kBufSizeSamples,
-                 sizeof(int16_t));
+  InitBufferWith(&g_mobile.farendBuf, g_mobile.farendBufData, kBufSizeSamples, sizeof(int16_t));
 
-  if (InitCore() == -1) {
-    return AECM_UNSPECIFIED_ERROR;
-  }
+  if (InitCore() == -1) return -1;
 
   InitBuffer(&g_mobile.farendBuf);
 
@@ -1235,27 +1232,17 @@ int32_t Init() {
 }
 
 int32_t BufferFarend(const int16_t* farend) {
-  if (farend == NULL) {
-    return AECM_NULL_POINTER_ERROR;
-  }
-  if (g_mobile.initFlag != kInitCheck) {
-    return AECM_UNINITIALIZED_ERROR;
-  }
+  if (farend == NULL) return -1;
+  if (g_mobile.initFlag != kInitCheck) return -2;
 
   WriteBuffer(&g_mobile.farendBuf, farend, FRAME_LEN);
   return 0;
 }
 
 int32_t Process(const int16_t* nearend, int16_t* out) {
-  if (nearend == NULL) {
-    return AECM_NULL_POINTER_ERROR;
-  }
-  if (out == NULL) {
-    return AECM_NULL_POINTER_ERROR;
-  }
-  if (g_mobile.initFlag != kInitCheck) {
-    return AECM_UNINITIALIZED_ERROR;
-  }
+  if (nearend == NULL) return -1;
+  if (out == NULL) return -2;
+  if (g_mobile.initFlag != kInitCheck) return -3;
 
   const size_t nrOfSamples = FRAME_LEN;
   const size_t nFrames = nrOfSamples / FRAME_LEN;  // 64/64=1（16kHz固定）
@@ -1296,8 +1283,7 @@ int32_t Process(const int16_t* nearend, int16_t* out) {
         EstimateBufDelay();
       }
 
-      if (ProcessFrame(farend_ptr, &nearend[FRAME_LEN * i],
-                       &out[FRAME_LEN * i]) == -1) {
+      if (ProcessFrame(farend_ptr, &nearend[FRAME_LEN * i], &out[FRAME_LEN * i]) == -1) {
         return -1;
       }
     }
