@@ -50,10 +50,10 @@ typedef struct {
   int16_t dfaNoisyQDomain;     // 常に 0
   int16_t dfaNoisyQDomainOld;  // 常に 0
 
-  int16_t nearLogEnergy[MAX_BUF_LEN]; // 近端ログエネルギー履歴
+  int16_t nearLogEnergy[MAX_LOG_LEN]; // 近端ログエネルギー履歴
   int16_t farLogEnergy; // 遠端ログエネルギーの最新値
-  int16_t echoAdaptLogEnergy[MAX_BUF_LEN]; // 適応エコーのログエネルギー履歴
-  int16_t echoStoredLogEnergy[MAX_BUF_LEN]; // 保存エコーのログエネルギー履歴
+  int16_t echoAdaptLogEnergy[MAX_LOG_LEN]; // 適応エコーのログエネルギー履歴
+  int16_t echoStoredLogEnergy[MAX_LOG_LEN]; // 保存エコーのログエネルギー履歴
 
   // バッファは素直な配列として保持（NEON用のアラインメントは不要）
   int16_t hStored[PART_LEN1]; // 保存済みエコーチャネル（Q0）

@@ -23,7 +23,7 @@
 #define CONV_LEN2 (CONV_LEN << 1) /* Used at startup. */
 
 /* Energy parameters */
-#define MAX_BUF_LEN 64            /* History length of energy signals. */
+#define MAX_LOG_LEN 64            /* History length of energy signals. */
 #define FAR_ENERGY_MIN 1025       /* Lowest Far energy level: At least 2 */
                                   /* in energy. */
 #define FAR_ENERGY_DIFF 929       /* Allowed difference between max */

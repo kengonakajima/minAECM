@@ -629,7 +629,7 @@ int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain) {
   return log_energy_q8;
 }
 
-// 近端・遠端・推定エコーのエネルギーログを算出し、
+// 近端・遠端・推定エコーのエネルギーを対数で算出し、
 // エネルギー閾値（内部 VAD）も更新する。
 // 
 //
@@ -644,20 +644,20 @@ void CalcEnergies(const uint16_t* X_mag,
                        const uint32_t Y_energy,
                        int32_t* S_mag) {
   // ローカル変数
-  uint32_t tmpAdapt = 0;
-  uint32_t tmpStored = 0;
-  uint32_t tmpFar = 0;
+  uint32_t tmpAdapt = 0; // 適応チャネル経由の線形エコーエネルギー
+  uint32_t tmpStored = 0; // 保存チャネル経由の線形エコーエネルギー
+  uint32_t tmpFar = 0; // 遠端信号の線形エネルギー
 
-  int16_t tmp16;
-  int16_t increase_max_shifts = 4;
-  int16_t decrease_max_shifts = 11;
-  int16_t increase_min_shifts = 11;
-  int16_t decrease_min_shifts = 3;
+  int16_t tmp16; // 閾値計算などで使う一時的な16ビット値
+  int16_t increase_max_shifts = 4; // 上限フィルタの増加時シフト量
+  int16_t decrease_max_shifts = 11; // 上限フィルタの減少時シフト量
+  int16_t increase_min_shifts = 11; // 下限フィルタの増加時シフト量
+  int16_t decrease_min_shifts = 3; // 下限フィルタの減少時シフト量
 
   // 近端エネルギーの対数を求め、バッファへ格納
 
   // バッファをシフト
-  memmove(g_aecm.nearLogEnergy + 1, g_aecm.nearLogEnergy, sizeof(int16_t) * (MAX_BUF_LEN - 1));
+  memmove(g_aecm.nearLogEnergy + 1, g_aecm.nearLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
 
   // 近端振幅積分の対数 (nearEner)
   g_aecm.nearLogEnergy[0] = LogOfEnergyInQ8(Y_energy, g_aecm.dfaNoisyQDomain);
@@ -665,8 +665,8 @@ void CalcEnergies(const uint16_t* X_mag,
   CalcLinearEnergiesC(X_mag, S_mag, &tmpFar, &tmpAdapt, &tmpStored);
 
   // ログ履歴バッファをシフト
-  memmove(g_aecm.echoAdaptLogEnergy + 1, g_aecm.echoAdaptLogEnergy, sizeof(int16_t) * (MAX_BUF_LEN - 1));
-  memmove(g_aecm.echoStoredLogEnergy + 1, g_aecm.echoStoredLogEnergy, sizeof(int16_t) * (MAX_BUF_LEN - 1));
+  memmove(g_aecm.echoAdaptLogEnergy + 1, g_aecm.echoAdaptLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
+  memmove(g_aecm.echoStoredLogEnergy + 1, g_aecm.echoStoredLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
 
   // 遅延後遠端エネルギーの対数
   g_aecm.farLogEnergy = LogOfEnergyInQ8(tmpFar, 0);
