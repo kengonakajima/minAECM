@@ -87,8 +87,7 @@ void InitBinaryDelayEstimatorFarend(BinaryDelayEstimatorFarend* self);
 // Output:
 //    - self                  : Updated far-end instance.
 //
-void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* self,
-                                 uint32_t binary_far_spectrum);
+void AddBinaryFarSpectrum(BinaryDelayEstimatorFarend* self, uint32_t binary_far_spectrum);
 
 
 // Initializes the delay estimation instance created with
@@ -121,20 +120,7 @@ void InitBinaryDelayEstimator(BinaryDelayEstimator* self);
 //    - delay                 :  >= 0 - Calculated delay value.
 //                              -2    - Insufficient data for estimation.
 //
-int ProcessBinarySpectrum(BinaryDelayEstimator* self,
-                                 uint32_t binary_near_spectrum);
-
-// Returns the last calculated delay updated by the function
-// ProcessBinarySpectrum(...).
-//
-// Input:
-//    - self                  : Pointer to the delay estimation instance.
-//
-// Return value:
-//    - delay                 :  >= 0 - Last calculated delay value
-//                              -2    - Insufficient data for estimation.
-//
-
+int ProcessBinarySpectrum(BinaryDelayEstimator* self, uint32_t binary_near_spectrum);
 
 
 // Updates the `mean_value` recursively with a step size of 2^-`factor`. This
@@ -148,9 +134,7 @@ int ProcessBinarySpectrum(BinaryDelayEstimator* self,
 // Input/Output:
 //    - mean_value            : Pointer to the mean value.
 //
-void MeanEstimator(int32_t new_value,
-                   int factor,
-                   int32_t* mean_value);
+void MeanEstimator(int32_t new_value, int factor, int32_t* mean_value);
 
 int InitDelayEstimatorFarend(void* handle);
 int AddFarSpectrum(void* handle, const uint16_t* far_spectrum);

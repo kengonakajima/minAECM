@@ -22,61 +22,63 @@ struct ComplexInt16 {
   int16_t imag;
 };
 
-// AECM 単一インスタンスの状態（g_ 接頭辞のグローバルで保持）
-int g_xBufWritePos;
-int g_xBufReadPos;
-int g_knownDelay;
-int g_lastKnownDelay;
-int g_firstVAD;
 
-int16_t g_xFrameBuf[FAR_BUF_LEN];
-
-DelayEstimatorFarend g_delay_estimator_farend;
-DelayEstimator g_delay_estimator;
-uint16_t g_xHistory[PART_LEN1 * MAX_DELAY];
-int g_xHistoryPos;
-
-uint32_t g_totCount;
-
-int16_t g_dfaCleanQDomain;
-int16_t g_dfaCleanQDomainOld;
-int16_t g_dfaNoisyQDomain;
-int16_t g_dfaNoisyQDomainOld;
-
-int16_t g_nearLogEnergy[MAX_LOG_LEN];
-int16_t g_farLogEnergy;
-int16_t g_echoAdaptLogEnergy[MAX_LOG_LEN];
-int16_t g_echoStoredLogEnergy[MAX_LOG_LEN];
-
-int16_t g_hStored[PART_LEN1];
-int16_t g_hAdapt16[PART_LEN1];
-int32_t g_hAdapt32[PART_LEN1];
-int16_t g_xBuf[PART_LEN2];
-int16_t g_yBuf[PART_LEN2];
-int16_t g_eOverlapBuf[PART_LEN];
-
-int32_t g_sMagSmooth[PART_LEN1];
-int16_t g_yMagSmooth[PART_LEN1];
-
-int32_t g_mseAdaptOld;
-int32_t g_mseStoredOld;
-int32_t g_mseThreshold;
-
-int16_t g_farEnergyMin;
-int16_t g_farEnergyMax;
-int16_t g_farEnergyMaxMin;
-int16_t g_farEnergyVAD;
-int16_t g_farEnergyMSE;
-int g_currentVADValue;
-int16_t g_vadUpdateCount;
-
-int16_t g_startupState;
-int16_t g_mseChannelCount;
-int16_t g_supGain;
-int16_t g_supGainOld;
+int g_xBufWritePos; // 遠端リングバッファの書き込み位置
+int g_xBufReadPos; // 遠端リングバッファの読み取り位置
+int g_knownDelay; // 推定済みの遅延サンプル数（フレーム単位）
+int g_lastKnownDelay; // 直前処理で用いた遅延サンプル数
+int g_firstVAD; // VAD 初回検出フラグ
 
 
-// アプリ側ラッパ状態（単一インスタンス）
+int16_t g_xFrameBuf[FAR_BUF_LEN]; // 遠端フレームのリングバッファ実体
+DelayEstimatorFarend g_delay_estimator_farend; // 遠端側の二値遅延推定エンジン状態
+DelayEstimator g_delay_estimator; // 近端スペクトルを処理する遅延推定器
+uint16_t g_xHistory[PART_LEN1 * MAX_DELAY]; // 遠端スペクトル履歴（遅延候補ごと）
+int g_xHistoryPos; // 遠端スペクトル履歴の書き込みインデックス
+
+
+uint32_t g_totCount; // 処理済みブロック数のカウンタ
+
+int16_t g_dfaCleanQDomain; // クリーン成分の Q-domain 推定値
+int16_t g_dfaCleanQDomainOld; // 上記の1ブロック前の値
+int16_t g_dfaNoisyQDomain; // 雑音成分の Q-domain 推定値
+int16_t g_dfaNoisyQDomainOld; // 雑音 Q-domain の1ブロック前の値
+
+
+int16_t g_nearLogEnergy[MAX_LOG_LEN]; // 近端信号のログエネルギー履歴
+int16_t g_farLogEnergy; // 遠端信号のログエネルギー最新値
+int16_t g_echoAdaptLogEnergy[MAX_LOG_LEN]; // 適応エコーパスによるログエネルギー履歴
+int16_t g_echoStoredLogEnergy[MAX_LOG_LEN]; // 保存エコーパスによるログエネルギー履歴
+
+
+int16_t g_hStored[PART_LEN1]; // 保存エコーパス係数（Q15）
+int16_t g_hAdapt16[PART_LEN1]; // 適応エコーパス係数（Q15）
+int32_t g_hAdapt32[PART_LEN1]; // 適応エコーパス係数（拡張Q31）
+int16_t g_xBuf[PART_LEN2]; // 遠端時間領域バッファ（FFT入力）
+int16_t g_yBuf[PART_LEN2]; // 近端時間領域バッファ（FFT入力）
+int16_t g_eOverlapBuf[PART_LEN]; // IFFT のオーバーラップ保存領域
+
+int32_t g_sMagSmooth[PART_LEN1]; // 推定エコー振幅の平滑値
+int16_t g_yMagSmooth[PART_LEN1]; // 近端スペクトル振幅の平滑値
+
+
+int32_t g_mseAdaptOld; // 適応チャネルの過去 MSE
+int32_t g_mseStoredOld; // 保存チャネルの過去 MSE
+int32_t g_mseThreshold; // MSE ベースのしきい値（可変）
+
+int16_t g_farEnergyMin; // 遠端エネルギーの最小値トラッカ
+int16_t g_farEnergyMax; // 遠端エネルギーの最大値トラッカ
+int16_t g_farEnergyMaxMin; // 遠端エネルギーのレンジ指標
+int16_t g_farEnergyVAD; // 遠端 VAD 用エネルギーしきい値
+int16_t g_farEnergyMSE; // MSE 判定用遠端エネルギー
+int g_currentVADValue; // 近端 VAD の現在フラグ
+int16_t g_vadUpdateCount; // VAD 関連の更新カウンタ
+
+int16_t g_startupState; // 起動フェーズの状態
+int16_t g_mseChannelCount; // MSE 判定でのチャネル更新回数
+int16_t g_supGain; // 現在の抑圧ゲイン（Q8）
+int16_t g_supGainOld; // 直前の抑圧ゲイン（Q8）
+
 
 constexpr int kBufSizeFrames = 50;  // 遠端バッファ長（フレーム数）
 constexpr size_t kBufSizeSamples = kBufSizeFrames * FRAME_LEN;
@@ -90,16 +92,17 @@ constexpr short kStartupFrames =
         : (kStartupFramesRaw > kBufSizeFrames ? kBufSizeFrames : kStartupFramesRaw);
 constexpr int kInitCheck = 42;
 
-short g_mobileBufSizeStart;
-int g_mobileKnownDelay;
-short g_mobileFarendOld[FRAME_LEN];
-short g_mobileInitFlag;
-short g_mobileFiltDelay;
-int g_mobileTimeForDelayChange;
-int g_mobileECstartup;
-short g_mobileLastDelayDiff;
-RingBuffer g_mobileFarendBuf;
-int16_t g_mobileFarendBufData[kBufSizeSamples];
+
+short g_mobileBufSizeStart;// モバイル側の起動バッファ長（フレーム）
+int g_mobileKnownDelay; // モバイル側が保持する既知遅延
+short g_mobileFarendOld[FRAME_LEN]; // 遠端バッファ枯渇時に使う直近フレーム
+short g_mobileInitFlag; // 初期化完了を示すチェック値
+short g_mobileFiltDelay; // フィルタ済み遅延推定値
+int g_mobileTimeForDelayChange; // 遅延変更の猶予カウンタ
+int g_mobileECstartup; // 起動中（ウォームアップ）フラグ
+short g_mobileLastDelayDiff; // 前回との差分遅延値
+RingBuffer g_mobileFarendBuf; // 遠端サンプルのリングバッファ
+int16_t g_mobileFarendBufData[kBufSizeSamples]; // 上記リングバッファの実体配列
 
 
 // 先行宣言（翻訳単位内のみで使用）。
