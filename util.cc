@@ -1,3 +1,4 @@
+// FFT・リングバッファ周りの軽量ユーティリティ実装
 #include "util.h"
 
 #include <limits.h>
@@ -536,29 +537,27 @@ int ComplexIFFT(int16_t frfi[], int stages, int mode) {
   return scale;
 }
 
-int RealForwardFFT(struct RealFFT* self,
-                   const int16_t* real_data_in,
+int RealForwardFFT(const int16_t* real_data_in,
                    int16_t* complex_data_out) {
-  const int n = 1 << self->order;
-  int16_t complex_buffer[2 << kMaxFFTOrder];
+  const int n = 1 << kRealFftOrder;
+  int16_t complex_buffer[2 << kRealFftOrder];
 
   for (int i = 0, j = 0; i < n; ++i, j += 2) {
     complex_buffer[j] = real_data_in[i];
     complex_buffer[j + 1] = 0;
   }
 
-  ComplexBitReverse(complex_buffer, self->order);
-  int result = ComplexFFT(complex_buffer, self->order, 1);
+  ComplexBitReverse(complex_buffer, kRealFftOrder);
+  int result = ComplexFFT(complex_buffer, kRealFftOrder, 1);
 
   memcpy(complex_data_out, complex_buffer, sizeof(int16_t) * (n + 2));
   return result;
 }
 
-int RealInverseFFT(struct RealFFT* self,
-                   const int16_t* complex_data_in,
+int RealInverseFFT(const int16_t* complex_data_in,
                    int16_t* real_data_out) {
-  const int n = 1 << self->order;
-  int16_t complex_buffer[2 << kMaxFFTOrder];
+  const int n = 1 << kRealFftOrder;
+  int16_t complex_buffer[2 << kRealFftOrder];
 
   memcpy(complex_buffer, complex_data_in, sizeof(int16_t) * (n + 2));
   for (int i = n + 2; i < 2 * n; i += 2) {
@@ -566,8 +565,8 @@ int RealInverseFFT(struct RealFFT* self,
     complex_buffer[i + 1] = -complex_data_in[2 * n - i + 1];
   }
 
-  ComplexBitReverse(complex_buffer, self->order);
-  int result = ComplexIFFT(complex_buffer, self->order, 1);
+  ComplexBitReverse(complex_buffer, kRealFftOrder);
+  int result = ComplexIFFT(complex_buffer, kRealFftOrder, 1);
 
   for (int i = 0, j = 0; i < n; ++i, j += 2) {
     real_data_out[i] = complex_buffer[j];

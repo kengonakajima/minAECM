@@ -89,8 +89,6 @@ typedef struct {
   int16_t supGainErrParamDiffAB;
   int16_t supGainErrParamDiffBD;
 
-  struct RealFFT real_fft;
-
 } AecmCore;
 
 // デフォルトの単一インスタンス（グローバル・シングルトン）。

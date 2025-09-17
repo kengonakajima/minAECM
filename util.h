@@ -67,19 +67,15 @@ int MoveReadPtr(RingBuffer* handle, int element_count);
 size_t available_read(const RingBuffer* handle);
 size_t available_write(const RingBuffer* handle);
 
-enum { kMaxFFTOrder = 10 };
+// 固定長 2^7 (=128) ポイント FFT を前提にした実数 FFT ルーチン
+enum { kRealFftOrder = 7 };
 
-struct RealFFT {
-  int order;
-};
-
-int RealForwardFFT(struct RealFFT* self,
-                   const int16_t* real_data_in,
+int RealForwardFFT(const int16_t* real_data_in,
                    int16_t* complex_data_out);
-int RealInverseFFT(struct RealFFT* self,
-                   const int16_t* complex_data_in,
+int RealInverseFFT(const int16_t* complex_data_in,
                    int16_t* real_data_out);
 
 int ComplexFFT(int16_t vector[], int stages, int mode);
 int ComplexIFFT(int16_t vector[], int stages, int mode);
 void ComplexBitReverse(int16_t* __restrict complex_data, int stages);
+

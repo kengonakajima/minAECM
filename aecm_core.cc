@@ -43,7 +43,7 @@ void WindowAndFFT(int16_t* fft,
 
   // FFT を計算し、最初の PART_LEN 個の複素サンプルだけを保持
   // さらに虚部の符号を反転させる。
-  RealForwardFFT(&g_aecm.real_fft, fft, (int16_t*)freq_signal);
+  RealForwardFFT(fft, (int16_t*)freq_signal);
   for (int i = 0; i < PART_LEN; i++) {
     freq_signal[i].imag = -freq_signal[i].imag;
   }
@@ -67,7 +67,7 @@ void InverseFFTAndWindow(int16_t* fft,
   fft[PART_LEN2 + 1] = -efw[PART_LEN].imag;
 
   // 逆 FFT を実行し、次ブロックでのスケール用に outCFFT を保持。
-  int outCFFT = RealInverseFFT(&g_aecm.real_fft, fft, ifft_out);
+  int outCFFT = RealInverseFFT(fft, ifft_out);
   for (int i = 0; i < PART_LEN; i++) {
     ifft_out[i] = (int16_t)MUL_16_16_RSFT_WITH_ROUND(ifft_out[i], kSqrtHanning[i], 14);
     // 固定Q=0のため、出力シフトは outCFFT のみを考慮
@@ -118,9 +118,7 @@ void TimeToFrequencyDomain(const int16_t* time_signal,
   }
 }
 
-int ProcessBlock(const int16_t* x_block,
-                 const int16_t* y_block,
-                 int16_t* e_block) {
+int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_block) {
   // 周波数領域バッファ（Y(k) の複素成分）
   ComplexInt16 Y_freq[PART_LEN2];
   // |X(k)|, |Y(k)| の絶対値スペクトル
@@ -555,8 +553,8 @@ int InitCore() {
   // アセンブリ実装が依存するため、修正時は該当ファイルを要確認。
   static_assert(PART_LEN % 16 == 0, "PART_LEN is not a multiple of 16");
 
-  // 実数 FFT の order を設定
-  g_aecm.real_fft.order = PART_LEN_SHIFT;
+  static_assert(kRealFftOrder == PART_LEN_SHIFT,
+                "FFT order と PART_LEN_SHIFT が不一致です");
 
   return 0;
 }
