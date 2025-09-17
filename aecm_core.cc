@@ -157,8 +157,8 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   UpdateFarHistory(X_mag);
   if (AddFarSpectrum(&g_aecm.delay_estimator_farend, X_mag) == -1) {
     return -1;
-  }
-  int delay = DelayEstimatorProcess(&g_aecm.delay_estimator, Y_mag);
+  }  
+  int delay = DelayEstimatorProcess(&g_aecm.delay_estimator, Y_mag); // このdelayが4だったら4ブロック遅れ
   if (delay == -1) {
     return -1;
   } else if (delay == -2) {
@@ -169,7 +169,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   const uint16_t* X_mag_aligned = AlignedFarX(delay);
   if (X_mag_aligned == NULL) return -1;
 
-  // エネルギーログ（log |X|, log |Ŷ|）を更新して VAD/閾値に反映
+  // エネルギーの履歴（log |X|, log |Ŷ|）を更新して VAD/閾値に反映
   CalcEnergies(X_mag_aligned, Y_mag_sum, S_mag);
 
   // 遠端エネルギーの変動に基づき NLMS のステップサイズ μ を算出
