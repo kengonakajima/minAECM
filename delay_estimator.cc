@@ -6,7 +6,6 @@
 
 #include <algorithm>
 
-namespace {
 
 constexpr int kBandFirst = 12;
 constexpr int kBandLast = 43;
@@ -16,7 +15,7 @@ inline uint32_t SetBit(uint32_t in, int pos) {
   return (in | mask);
 }
 
-}
+
 
  
 

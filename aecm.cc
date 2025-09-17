@@ -85,7 +85,6 @@ struct AecmCore {
 AecmCore g_aecm;
 
 // アプリ側ラッパ状態（単一インスタンス）
-namespace {
 
 constexpr int kBufSizeFrames = 50;  // 遠端バッファ長（フレーム数）
 constexpr size_t kBufSizeSamples = kBufSizeFrames * FRAME_LEN;
@@ -114,7 +113,6 @@ struct AecMobile {
 
 static AecMobile g_mobile;
 
-}  // namespace
 
 // 先行宣言（翻訳単位内のみで使用）。
 void UpdateFarHistory(uint16_t* x_spectrum);
