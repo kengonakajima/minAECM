@@ -75,10 +75,6 @@ int16_t g_mseChannelCount;
 int16_t g_supGain;
 int16_t g_supGainOld;
 
-int16_t g_supGainErrParamA;
-int16_t g_supGainErrParamD;
-int16_t g_supGainErrParamDiffAB;
-int16_t g_supGainErrParamDiffBD;
 
 // アプリ側ラッパ状態（単一インスタンス）
 
@@ -656,11 +652,6 @@ int InitCore() {
   g_supGain = SUPGAIN_DEFAULT;
   g_supGainOld = SUPGAIN_DEFAULT;
 
-  g_supGainErrParamA = SUPGAIN_ERROR_PARAM_A;
-  g_supGainErrParamD = SUPGAIN_ERROR_PARAM_D;
-  g_supGainErrParamDiffAB = SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
-  g_supGainErrParamDiffBD = SUPGAIN_ERROR_PARAM_B - SUPGAIN_ERROR_PARAM_D;
-
   // コンパイル時に前提条件を static_assert で確認
   // アセンブリ実装が依存するため、修正時は該当ファイルを要確認。
   static_assert(PART_LEN % 16 == 0, "PART_LEN is not a multiple of 16");
@@ -1082,19 +1073,21 @@ int16_t CalcSuppressionGain() {
       // ダブルトークでなければ推定品質に応じて抑圧量を増やす
       // カウンタも更新
       if (dE < SUPGAIN_EPC_DT) {
-        tmp32no1 = g_supGainErrParamDiffAB * dE;
+        const int diffAB = SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
+        tmp32no1 = diffAB * dE;
         tmp32no1 += (SUPGAIN_EPC_DT >> 1);
         tmp16no1 = (int16_t)DivW32W16(tmp32no1, SUPGAIN_EPC_DT);
-        supGain = g_supGainErrParamA - tmp16no1;
+        supGain = SUPGAIN_ERROR_PARAM_A - tmp16no1;
       } else {
-        tmp32no1 = g_supGainErrParamDiffBD * (ENERGY_DEV_TOL - dE);
+        const int diffBD = SUPGAIN_ERROR_PARAM_B - SUPGAIN_ERROR_PARAM_D;
+        tmp32no1 = diffBD * (ENERGY_DEV_TOL - dE);
         tmp32no1 += ((ENERGY_DEV_TOL - SUPGAIN_EPC_DT) >> 1);
         tmp16no1 = (int16_t)DivW32W16(tmp32no1, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
-        supGain = g_supGainErrParamD + tmp16no1;
+        supGain = SUPGAIN_ERROR_PARAM_D + tmp16no1;
       }
     } else {
       // ダブルトークの兆候があれば既定値を適用
-      supGain = g_supGainErrParamD;
+      supGain = SUPGAIN_ERROR_PARAM_D;
     }
   }
 
