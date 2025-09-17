@@ -44,8 +44,7 @@ void UpdateFarHistory(uint16_t* x_spectrum) {
   }
   // Q-domain は固定Q=0のため保持不要
   // 遠端スペクトル用バッファを更新
-  memcpy(&(g_aecm.xHistory[g_aecm.xHistoryPos * PART_LEN1]), x_spectrum,
-         sizeof(uint16_t) * PART_LEN1);
+  memcpy(&(g_aecm.xHistory[g_aecm.xHistoryPos * PART_LEN1]), x_spectrum, sizeof(uint16_t) * PART_LEN1);
 }
 
 // 現在の近端に整列した遠端スペクトルのポインタを返す
@@ -125,8 +124,7 @@ void StoreAdaptiveChannelC(const uint16_t* X_mag,
 void ResetAdaptiveChannelC() {
   // 連続 2 回、保存チャネルの MSE が適応チャネルより十分小さい場合、
   // 適応チャネルをリセットする。
-  memcpy(g_aecm.hAdapt16, g_aecm.hStored,
-         sizeof(int16_t) * PART_LEN1);
+  memcpy(g_aecm.hAdapt16, g_aecm.hStored, sizeof(int16_t) * PART_LEN1);
   // 32bit チャネル表現を復元
   for (int i = 0; i < PART_LEN; i += 4) {
     g_aecm.hAdapt32[i] = (int32_t)g_aecm.hStored[i] << 16;
@@ -326,8 +324,7 @@ void CalcEnergies(const uint16_t* X_mag,
   // 近端エネルギーの対数を求め、バッファへ格納
 
   // バッファをシフト
-  memmove(g_aecm.nearLogEnergy + 1, g_aecm.nearLogEnergy,
-          sizeof(int16_t) * (MAX_BUF_LEN - 1));
+  memmove(g_aecm.nearLogEnergy + 1, g_aecm.nearLogEnergy, sizeof(int16_t) * (MAX_BUF_LEN - 1));
 
   // 近端振幅積分の対数 (nearEner)
   g_aecm.nearLogEnergy[0] = LogOfEnergyInQ8(Y_energy, g_aecm.dfaNoisyQDomain);
@@ -335,10 +332,8 @@ void CalcEnergies(const uint16_t* X_mag,
   CalcLinearEnergiesC(X_mag, S_mag, &tmpFar, &tmpAdapt, &tmpStored);
 
   // ログ履歴バッファをシフト
-  memmove(g_aecm.echoAdaptLogEnergy + 1, g_aecm.echoAdaptLogEnergy,
-          sizeof(int16_t) * (MAX_BUF_LEN - 1));
-  memmove(g_aecm.echoStoredLogEnergy + 1, g_aecm.echoStoredLogEnergy,
-          sizeof(int16_t) * (MAX_BUF_LEN - 1));
+  memmove(g_aecm.echoAdaptLogEnergy + 1, g_aecm.echoAdaptLogEnergy, sizeof(int16_t) * (MAX_BUF_LEN - 1));
+  memmove(g_aecm.echoStoredLogEnergy + 1, g_aecm.echoStoredLogEnergy, sizeof(int16_t) * (MAX_BUF_LEN - 1));
 
   // 遅延後遠端エネルギーの対数
   g_aecm.farLogEnergy = LogOfEnergyInQ8(tmpFar, 0);
@@ -359,12 +354,8 @@ void CalcEnergies(const uint16_t* X_mag,
       increase_min_shifts = 8;
     }
 
-    g_aecm.farEnergyMin =
-        AsymFilt(g_aecm.farEnergyMin, g_aecm.farLogEnergy,
-                            increase_min_shifts, decrease_min_shifts);
-    g_aecm.farEnergyMax =
-        AsymFilt(g_aecm.farEnergyMax, g_aecm.farLogEnergy,
-                            increase_max_shifts, decrease_max_shifts);
+    g_aecm.farEnergyMin = AsymFilt(g_aecm.farEnergyMin, g_aecm.farLogEnergy, increase_min_shifts, decrease_min_shifts);
+    g_aecm.farEnergyMax = AsymFilt(g_aecm.farEnergyMax, g_aecm.farLogEnergy, increase_max_shifts, decrease_max_shifts);
     g_aecm.farEnergyMaxMin = (g_aecm.farEnergyMax - g_aecm.farEnergyMin);
 
     // 可変 VAD 領域サイズを算出
@@ -500,15 +491,13 @@ void UpdateChannel(const uint16_t* X_mag,
       } else {
         zerosDfa = 32;
       }
-      tmp16no1 = zerosDfa - 2 + g_aecm.dfaNoisyQDomain - RESOLUTION_CHANNEL32 -
-                 x_q + shiftChFar;
+      tmp16no1 = zerosDfa - 2 + g_aecm.dfaNoisyQDomain - RESOLUTION_CHANNEL32 - x_q + shiftChFar;
       if (zerosNum > tmp16no1 + 1) {
         xfaQ = tmp16no1;
         yMagQ = zerosDfa - 2;
       } else {
         xfaQ = zerosNum - 2;
-        yMagQ = RESOLUTION_CHANNEL32 + x_q - g_aecm.dfaNoisyQDomain -
-               shiftChFar + xfaQ;
+        yMagQ = RESOLUTION_CHANNEL32 + x_q - g_aecm.dfaNoisyQDomain - shiftChFar + xfaQ;
       }
       // 同じ Q ドメインに揃えて加算
       tmpU32no1 = SHIFT_W32(tmpU32no1, xfaQ);
@@ -530,11 +519,9 @@ void UpdateChannel(const uint16_t* X_mag,
         // 乗算でオーバーフローしないようにする。
         if (zerosNum + zerosFar > 31) {
           if (tmp32no1 > 0) {
-            tmp32no2 =
-                (int32_t)UMUL_32_16(tmp32no1, X_mag[i]);
+            tmp32no2 = (int32_t)UMUL_32_16(tmp32no1, X_mag[i]);
           } else {
-            tmp32no2 =
-                -(int32_t)UMUL_32_16(-tmp32no1, X_mag[i]);
+            tmp32no2 = -(int32_t)UMUL_32_16(-tmp32no1, X_mag[i]);
           }
           shiftNum = 0;
         } else {
@@ -586,13 +573,11 @@ void UpdateChannel(const uint16_t* X_mag,
       mseStored = 0;
       mseAdapt = 0;
       for (int i = 0; i < MIN_MSE_COUNT; i++) {
-        tmp32no1 = ((int32_t)g_aecm.echoStoredLogEnergy[i] -
-                    (int32_t)g_aecm.nearLogEnergy[i]);
+        tmp32no1 = ((int32_t)g_aecm.echoStoredLogEnergy[i] - (int32_t)g_aecm.nearLogEnergy[i]);
         tmp32no2 = ABS_W32(tmp32no1);
         mseStored += tmp32no2;
 
-        tmp32no1 = ((int32_t)g_aecm.echoAdaptLogEnergy[i] -
-                    (int32_t)g_aecm.nearLogEnergy[i]);
+        tmp32no1 = ((int32_t)g_aecm.echoAdaptLogEnergy[i] - (int32_t)g_aecm.nearLogEnergy[i]);
         tmp32no2 = ABS_W32(tmp32no1);
         mseAdapt += tmp32no2;
       }
@@ -654,8 +639,7 @@ int16_t CalcSuppressionGain() {
   } else {
     // ダブルトークの可能性に備えて調整する。誤差変動が大きければ
     // ダブルトーク（または悪いチャネル）とみなし、
-    tmp16no1 = (g_aecm.nearLogEnergy[0] - g_aecm.echoStoredLogEnergy[0] -
-                ENERGY_DEV_OFFSET);
+    tmp16no1 = (g_aecm.nearLogEnergy[0] - g_aecm.echoStoredLogEnergy[0] - ENERGY_DEV_OFFSET);
     dE = ABS_W16(tmp16no1);
 
     if (dE < ENERGY_DEV_TOL) {
@@ -669,8 +653,7 @@ int16_t CalcSuppressionGain() {
       } else {
         tmp32no1 = g_aecm.supGainErrParamDiffBD * (ENERGY_DEV_TOL - dE);
         tmp32no1 += ((ENERGY_DEV_TOL - SUPGAIN_EPC_DT) >> 1);
-        tmp16no1 = (int16_t)DivW32W16(
-            tmp32no1, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
+        tmp16no1 = (int16_t)DivW32W16(tmp32no1, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
         supGain = g_aecm.supGainErrParamD + tmp16no1;
       }
     } else {
@@ -704,15 +687,13 @@ void BufferFarFrame(const int16_t* const x_frame) {
   while (g_aecm.xBufWritePos + writeLen > FAR_BUF_LEN) {
     // 折り返す前に残り領域へ書き込む
     writeLen = FAR_BUF_LEN - g_aecm.xBufWritePos;
-    memcpy(g_aecm.xFrameBuf + g_aecm.xBufWritePos, x_frame + writePos,
-           sizeof(int16_t) * writeLen);
+    memcpy(g_aecm.xFrameBuf + g_aecm.xBufWritePos, x_frame + writePos, sizeof(int16_t) * writeLen);
     g_aecm.xBufWritePos = 0;
     writePos = writeLen;
     writeLen = xLen - writeLen;
   }
 
-  memcpy(g_aecm.xFrameBuf + g_aecm.xBufWritePos, x_frame + writePos,
-         sizeof(int16_t) * writeLen);
+  memcpy(g_aecm.xFrameBuf + g_aecm.xBufWritePos, x_frame + writePos, sizeof(int16_t) * writeLen);
   g_aecm.xBufWritePos += writeLen;
 }
 
@@ -738,14 +719,12 @@ void FetchFarFrame(int16_t* const x_frame, const int knownDelay) {
   while (g_aecm.xBufReadPos + readLen > FAR_BUF_LEN) {
     // 折り返す前に残り領域から読み出す
     readLen = FAR_BUF_LEN - g_aecm.xBufReadPos;
-    memcpy(x_frame + readPos, g_aecm.xFrameBuf + g_aecm.xBufReadPos,
-           sizeof(int16_t) * readLen);
+    memcpy(x_frame + readPos, g_aecm.xFrameBuf + g_aecm.xBufReadPos, sizeof(int16_t) * readLen);
     g_aecm.xBufReadPos = 0;
     readPos = readLen;
     readLen = xLen - readLen;
   }
-  memcpy(x_frame + readPos, g_aecm.xFrameBuf + g_aecm.xBufReadPos,
-         sizeof(int16_t) * readLen);
+  memcpy(x_frame + readPos, g_aecm.xFrameBuf + g_aecm.xBufReadPos, sizeof(int16_t) * readLen);
   g_aecm.xBufReadPos += readLen;
 }
 
