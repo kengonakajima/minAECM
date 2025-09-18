@@ -24,6 +24,7 @@ int g_xHistoryPos; // 遠端スペクトル履歴の書き込みインデック�
 
 uint32_t g_totCount; // 処理済みブロック数のカウンタ
 
+// dfa: Dynamic Fixed-point Alignment
 int16_t g_dfaCleanQDomain; // クリーン成分の Q-domain 推定値
 int16_t g_dfaCleanQDomainOld; // 上記の1ブロック前の値
 int16_t g_dfaNoisyQDomain; // 雑音成分の Q-domain 推定値
@@ -65,17 +66,6 @@ int16_t g_supGain; // 現在の抑圧ゲイン（Q8）
 int16_t g_supGainOld; // 直前の抑圧ゲイン（Q8）
 
 
-// 先行宣言（翻訳単位内のみで使用）。
-void UpdateChannel(const uint16_t* X_mag,
-                   const uint16_t* const Y_mag,
-                   int16_t mu,
-                   int32_t* S_mag);
-int16_t AsymFilt(const int16_t filtOld,
-                 const int16_t inVal,
-                 const int16_t stepSizePos,
-                 const int16_t stepSizeNeg);
-// 直接ブロック処理を行うため、旧BlockFramer相当のバッファは撤廃済み。
-
 // ハニング窓の平方根（Q14）。
 static const ALIGN8_BEG int16_t kSqrtHanning[] ALIGN8_END = {
     0,     399,   798,   1196,  1594,  1990,  2386,  2780,  3172,  3562,  3951,
@@ -97,6 +87,35 @@ void SetBypassNlp(int enable) {
   g_bypass_nlp = (enable != 0);
 }
 
+
+// 非対称フィルタ処理を行う。
+//
+// 入力:
+//      - filtOld       : Previous filtered value.
+//      - inVal         : New input value.
+//      - stepSizePos   : Step size when we have a positive contribution.
+//      - stepSizeNeg   : Step size when we have a negative contribution.
+//
+// 戻り値: フィルタ適用後の値。
+//
+int16_t AsymFilt(const int16_t filtOld,
+                            const int16_t inVal,
+                            const int16_t stepSizePos,
+                            const int16_t stepSizeNeg) {
+  int16_t retVal;
+
+  if ((filtOld == WORD16_MAX) | (filtOld == WORD16_MIN)) {
+    return inVal;
+  }
+  retVal = filtOld;
+  if (filtOld > inVal) {
+    retVal -= (filtOld - inVal) >> stepSizeNeg;
+  } else {
+    retVal += (inVal - filtOld) >> stepSizePos;
+  }
+
+  return retVal;
+}
 
 void TimeToFrequencyDomain(const int16_t* time_signal,
                            ComplexInt16* freq_signal,
@@ -128,6 +147,306 @@ void TimeToFrequencyDomain(const int16_t* time_signal,
       freq_signal_abs[i] = (uint16_t)mag;
     }
     (*freq_signal_sum_abs) += (uint32_t)freq_signal_abs[i];
+  }
+}
+
+
+// 16 kHz 用エコーチャネルの初期化テーブル
+static const int16_t kChannelStored16kHz[PART_LEN1] = {
+    2040, 1590, 1405, 1385, 1451, 1562, 1726, 1882, 1953, 2010, 2040,
+    2027, 2014, 1980, 1869, 1732, 1635, 1572, 1517, 1444, 1367, 1294,
+    1245, 1233, 1260, 1303, 1373, 1441, 1499, 1549, 1582, 1621, 1676,
+    1741, 1802, 1861, 1921, 1983, 2040, 2102, 2170, 2265, 2375, 2515,
+    2651, 2781, 2922, 3075, 3253, 3471, 3738, 3976, 4151, 4258, 4308,
+    4288, 4270, 4253, 4237, 4179, 4086, 3947, 3757, 3484, 3153};
+
+ 
+
+
+
+// 次のエントリへポインタを進め、バッファに `x_spectrum` を格納
+// （Qは固定0）。
+//
+// 入力:
+//      - self          : Pointer to the delay estimation instance
+//      - x_spectrum    : Pointer to the far end spectrum
+//
+void InitEchoPathCore(const int16_t* echo_path) {
+  // 保存チャネルをリセット
+  memcpy(g_HStored, echo_path, sizeof(int16_t) * PART_LEN1);
+  // 適応チャネルをリセット
+  memcpy(g_HAdapt16, echo_path, sizeof(int16_t) * PART_LEN1);
+  for (int i = 0; i < PART_LEN1; i++) {
+    g_HAdapt32[i] = (int32_t)g_HAdapt16[i] << 16;
+  }
+
+  // チャネル保存に関する変数を初期化
+  g_mseAdaptOld = 1000;
+  g_mseStoredOld = 1000;
+  g_mseThreshold = WORD32_MAX;
+  g_mseChannelCount = 0;
+}
+
+// H_adapt(Q15) → H_stored にコピーして、新しい S_mag を再計算
+void StoreAdaptiveChannel(const uint16_t* X_mag, int32_t* S_mag) {
+  // 起動中は毎ブロック保存チャネルを更新
+  memcpy(g_HStored, g_HAdapt16, sizeof(int16_t) * PART_LEN1);
+  // 推定エコーを再計算
+  for (int i = 0; i < PART_LEN; i += 4) {
+    S_mag[i] = MUL_16_U16(g_HStored[i], X_mag[i]);
+    S_mag[i + 1] = MUL_16_U16(g_HStored[i + 1], X_mag[i + 1]);
+    S_mag[i + 2] = MUL_16_U16(g_HStored[i + 2], X_mag[i + 2]);
+    S_mag[i + 3] = MUL_16_U16(g_HStored[i + 3], X_mag[i + 3]);
+  }
+  // PART_LEN1 は PART_LEN + 1
+  S_mag[PART_LEN] = MUL_16_U16(g_HStored[PART_LEN], X_mag[PART_LEN]);
+}
+
+void ResetAdaptiveChannel() {
+  // 連続 2 回、保存チャネルの MSE が適応チャネルより十分小さい場合、
+  // 適応チャネルをリセットする。
+  memcpy(g_HAdapt16, g_HStored, sizeof(int16_t) * PART_LEN1);
+  // 32bit チャネル表現を復元
+  for (int i = 0; i < PART_LEN; i += 4) {
+    g_HAdapt32[i] = (int32_t)g_HStored[i] << 16;
+    g_HAdapt32[i + 1] = (int32_t)g_HStored[i + 1] << 16;
+    g_HAdapt32[i + 2] = (int32_t)g_HStored[i + 2] << 16;
+    g_HAdapt32[i + 3] = (int32_t)g_HStored[i + 3] << 16;
+  }
+  g_HAdapt32[PART_LEN] = (int32_t)g_HStored[PART_LEN] << 16;
+}
+
+
+int Init() {
+  // 16kHz 固定
+  memset(g_xBuf, 0, sizeof(g_xBuf));
+  memset(g_yBuf, 0, sizeof(g_yBuf));
+  memset(g_eOverlapBuf, 0, sizeof(g_eOverlapBuf));
+
+  g_totCount = 0;
+
+  if (InitDelayEstimatorFarend() != 0) {
+    return -1;
+  }
+  if (InitDelayEstimator() != 0) {
+    return -1;
+  }
+  // 遠端履歴をゼロ初期化
+  memset(g_xHistory, 0, sizeof(uint16_t) * PART_LEN1 * MAX_DELAY);
+  g_xHistoryPos = MAX_DELAY;
+
+  g_dfaCleanQDomain = 0;
+  g_dfaCleanQDomainOld = 0;
+  g_dfaNoisyQDomain = 0;
+  g_dfaNoisyQDomainOld = 0;
+
+  memset(g_nearLogEnergy, 0, sizeof(g_nearLogEnergy));
+  g_farLogEnergy = 0;
+  memset(g_echoAdaptLogEnergy, 0, sizeof(g_echoAdaptLogEnergy));
+  memset(g_echoStoredLogEnergy, 0, sizeof(g_echoStoredLogEnergy));
+
+  // エコーチャネルを既定形状（16 kHz 固定）で初期化
+  InitEchoPathCore(kChannelStored16kHz);
+
+  memset(g_sMagSmooth, 0, sizeof(g_sMagSmooth));
+  memset(g_yMagSmooth, 0, sizeof(g_yMagSmooth));
+
+  g_farEnergyMin = WORD16_MAX;
+  g_farEnergyMax = WORD16_MIN;
+  g_farEnergyMaxMin = 0;
+  g_farEnergyVAD = FAR_ENERGY_MIN;  // 開始直後の誤検出（音声とみなさない）を防ぐ
+                                        // 
+  g_farEnergyMSE = 0;
+  g_currentVADValue = 0;
+  g_vadUpdateCount = 0;
+  g_firstVAD = 1;
+
+  g_startupState = 0;
+  g_supGain = SUPGAIN_DEFAULT;
+  g_supGainOld = SUPGAIN_DEFAULT;
+
+  // コンパイル時に前提条件を static_assert で確認
+  // アセンブリ実装が依存するため、修正時は該当ファイルを要確認。
+  static_assert(PART_LEN % 16 == 0, "PART_LEN is not a multiple of 16");
+
+  static_assert(kRealFftOrder == PART_LEN_SHIFT,
+                "FFT order と PART_LEN_SHIFT が不一致です");
+
+  return 0;
+}
+
+
+
+// `a` の仮数部を、先頭ゼロ数 `zeros` を加味した Q8 の int16_t として返す。
+// ゼロ数との整合性チェックは行わない。
+// 
+// NLMS によるチャネル推定と保存判定。
+// X_mag: 遠端振幅スペクトル(Q0)、Y_mag: 近端振幅スペクトル(Q0)、
+// mu: 上記で算出したシフト量、S_mag: 推定エコー（Q=RESOLUTION_CHANNEL16）。
+void UpdateChannel(const uint16_t* X_mag,
+                              const uint16_t* const Y_mag,
+                              const int16_t mu,
+                              int32_t* S_mag) {
+  uint32_t tmpU32no1, tmpU32no2;
+  int32_t tmp32no1, tmp32no2;
+  int32_t mseStored;
+  int32_t mseAdapt;
+
+  int16_t zerosFar, zerosNum, zerosCh, zerosDfa;
+  int16_t shiftChFar, shiftNum, shift2ResChan;
+  int16_t tmp16no1;
+  int16_t xfaQ, yMagQ;
+
+  // NLMS ベースのチャネル推定で、
+  // 上で計算した可変ステップ長を使用する。
+  if (mu) {
+    for (int i = 0; i < PART_LEN1; i++) {
+      // オーバーフロー防止のためチャネルと遠端の正規化量を算出
+      zerosCh = NormU32(g_HAdapt32[i]);
+      zerosFar = NormU32((uint32_t)X_mag[i]);
+      if (zerosCh + zerosFar > 31) {
+        // 乗算しても安全な状態
+        tmpU32no1 = UMUL_32_16(g_HAdapt32[i], X_mag[i]);
+        shiftChFar = 0;
+      } else {
+        // 乗算前にシフトダウンが必要
+        shiftChFar = 32 - zerosCh - zerosFar;
+        // zerosCh==zerosFar==0 なら shiftChFar=32 となり、
+        // 右シフト 32 は未定義なのでチェックする。
+        {
+          uint32_t shifted = (shiftChFar >= 32)
+                                  ? 0u
+                                  : (uint32_t)(g_HAdapt32[i] >> shiftChFar);
+          tmpU32no1 = shifted * X_mag[i];
+        }
+      }
+      // 分子の Q ドメインを決定
+      zerosNum = NormU32(tmpU32no1);
+      if (Y_mag[i]) {
+        zerosDfa = NormU32((uint32_t)Y_mag[i]);
+      } else {
+        zerosDfa = 32;
+      }
+      tmp16no1 = zerosDfa - 2 + g_dfaNoisyQDomain - RESOLUTION_CHANNEL32 + shiftChFar;
+      if (zerosNum > tmp16no1 + 1) {
+        xfaQ = tmp16no1;
+        yMagQ = zerosDfa - 2;
+      } else {
+        xfaQ = zerosNum - 2;
+        yMagQ = RESOLUTION_CHANNEL32 - g_dfaNoisyQDomain - shiftChFar + xfaQ;
+      }
+      // 同じ Q ドメインに揃えて加算
+      tmpU32no1 = SHIFT_W32(tmpU32no1, xfaQ);
+      tmpU32no2 = SHIFT_W32((uint32_t)Y_mag[i], yMagQ);
+      tmp32no1 = (int32_t)tmpU32no2 - (int32_t)tmpU32no1;
+      zerosNum = NormW32(tmp32no1);
+      if (tmp32no1 && (X_mag[i] > CHANNEL_VAD)) {
+        //
+        // 更新が必要なケース
+        //
+        // 以下の計算を行いたい：
+        //
+        // tmp32no1 = Y_mag[i] - (aecm->channelAdapt[i] * X_mag[i])
+        // tmp32norm = (i + 1)
+        // aecm->channelAdapt[i] += (2^mu) * tmp32no1
+        //                        / (tmp32norm * X_mag[i])
+        //
+
+        // 乗算でオーバーフローしないようにする。
+        if (zerosNum + zerosFar > 31) {
+          if (tmp32no1 > 0) {
+            tmp32no2 = (int32_t)UMUL_32_16(tmp32no1, X_mag[i]);
+          } else {
+            tmp32no2 = -(int32_t)UMUL_32_16(-tmp32no1, X_mag[i]);
+          }
+          shiftNum = 0;
+        } else {
+          shiftNum = 32 - (zerosNum + zerosFar);
+          if (tmp32no1 > 0) {
+            tmp32no2 = (tmp32no1 >> shiftNum) * X_mag[i];
+          } else {
+            tmp32no2 = -((-tmp32no1 >> shiftNum) * X_mag[i]);
+          }
+        }
+        // 周波数ビンに応じて正規化
+        tmp32no2 = DivW32W16(tmp32no2, i + 1);
+        // 適切な Q ドメインに揃える
+        shift2ResChan =
+            shiftNum + shiftChFar - xfaQ - mu - ((30 - zerosFar) << 1);
+        if (NormW32(tmp32no2) < shift2ResChan) {
+          tmp32no2 = WORD32_MAX;
+        } else {
+          tmp32no2 = SHIFT_W32(tmp32no2, shift2ResChan);
+        }
+        g_HAdapt32[i] = AddSatW32(g_HAdapt32[i], tmp32no2);
+        if (g_HAdapt32[i] < 0) {
+          // チャネル利得が負にならないよう強制
+          g_HAdapt32[i] = 0;
+        }
+        g_HAdapt16[i] = (int16_t)(g_HAdapt32[i] >> 16);
+      }
+    }
+  }
+  // 適応チャネル更新ここまで
+
+
+  // チャネルを保存するか復元するかを判定
+  if ((g_startupState == 0) & (g_currentVADValue)) {
+    // 起動中は毎ブロックチャネルを保存し、
+    // 推定エコーも再計算する
+    StoreAdaptiveChannel(X_mag, S_mag);
+  } else {
+    if (g_farLogEnergy < g_farEnergyMSE) {
+      g_mseChannelCount = 0;
+    } else {
+      g_mseChannelCount++;
+    }
+    // 検証に十分なデータがあれば、保存を検討
+    if (g_mseChannelCount >= (MIN_MSE_COUNT + 10)) {
+      // 十分なデータが揃った
+      // 適応版と保存版の MSE を計算
+      // 実際には平均絶対誤差に近い指標
+      mseStored = 0;
+      mseAdapt = 0;
+      for (int i = 0; i < MIN_MSE_COUNT; i++) {
+        tmp32no1 = ((int32_t)g_echoStoredLogEnergy[i] - (int32_t)g_nearLogEnergy[i]);
+        tmp32no2 = ABS_W32(tmp32no1);
+        mseStored += tmp32no2;
+
+        tmp32no1 = ((int32_t)g_echoAdaptLogEnergy[i] - (int32_t)g_nearLogEnergy[i]);
+        tmp32no2 = ABS_W32(tmp32no1);
+        mseAdapt += tmp32no2;
+      }
+      if (((mseStored << MSE_RESOLUTION) < (MIN_MSE_DIFF * mseAdapt)) &
+          ((g_mseStoredOld << MSE_RESOLUTION) <
+           (MIN_MSE_DIFF * g_mseAdaptOld))) {
+        // 保存チャネルの方が連続して適応チャネルより低い誤差なら、
+        // 適応チャネルをリセットする。
+        ResetAdaptiveChannel();
+      } else if (((MIN_MSE_DIFF * mseStored) > (mseAdapt << MSE_RESOLUTION)) &
+                 (mseAdapt < g_mseThreshold) &
+                 (g_mseAdaptOld < g_mseThreshold)) {
+        // 適応チャネルの方が連続して保存チャネルより低い誤差なら、
+        // 
+        // 適応チャネルを保存版として採用する。
+        StoreAdaptiveChannel(X_mag, S_mag);
+
+        // 閾値を更新
+        if (g_mseThreshold == WORD32_MAX) {
+          g_mseThreshold = (mseAdapt + g_mseAdaptOld);
+        } else {
+          int scaled_threshold = g_mseThreshold * 5 / 8;
+          g_mseThreshold += ((mseAdapt - scaled_threshold) * 205) >> 8;
+        }
+      }
+
+      // カウンタをリセット
+      g_mseChannelCount = 0;
+
+      // MSE を記録する。
+      g_mseStoredOld = mseStored;
+      g_mseAdaptOld = mseAdapt;
+    }
   }
 }
 
@@ -527,330 +846,4 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   }
 
   return 0;
-}
-
-// 16 kHz 用エコーチャネルの初期化テーブル
-static const int16_t kChannelStored16kHz[PART_LEN1] = {
-    2040, 1590, 1405, 1385, 1451, 1562, 1726, 1882, 1953, 2010, 2040,
-    2027, 2014, 1980, 1869, 1732, 1635, 1572, 1517, 1444, 1367, 1294,
-    1245, 1233, 1260, 1303, 1373, 1441, 1499, 1549, 1582, 1621, 1676,
-    1741, 1802, 1861, 1921, 1983, 2040, 2102, 2170, 2265, 2375, 2515,
-    2651, 2781, 2922, 3075, 3253, 3471, 3738, 3976, 4151, 4258, 4308,
-    4288, 4270, 4253, 4237, 4179, 4086, 3947, 3757, 3484, 3153};
-
- 
-
-
-
-// 次のエントリへポインタを進め、バッファに `x_spectrum` を格納
-// （Qは固定0）。
-//
-// 入力:
-//      - self          : Pointer to the delay estimation instance
-//      - x_spectrum    : Pointer to the far end spectrum
-//
-void InitEchoPathCore(const int16_t* echo_path) {
-  // 保存チャネルをリセット
-  memcpy(g_HStored, echo_path, sizeof(int16_t) * PART_LEN1);
-  // 適応チャネルをリセット
-  memcpy(g_HAdapt16, echo_path, sizeof(int16_t) * PART_LEN1);
-  for (int i = 0; i < PART_LEN1; i++) {
-    g_HAdapt32[i] = (int32_t)g_HAdapt16[i] << 16;
-  }
-
-  // チャネル保存に関する変数を初期化
-  g_mseAdaptOld = 1000;
-  g_mseStoredOld = 1000;
-  g_mseThreshold = WORD32_MAX;
-  g_mseChannelCount = 0;
-}
-
-// H_adapt(Q15) → H_stored にコピーして、新しい S_mag を再計算
-void StoreAdaptiveChannel(const uint16_t* X_mag, int32_t* S_mag) {
-  // 起動中は毎ブロック保存チャネルを更新
-  memcpy(g_HStored, g_HAdapt16, sizeof(int16_t) * PART_LEN1);
-  // 推定エコーを再計算
-  for (int i = 0; i < PART_LEN; i += 4) {
-    S_mag[i] = MUL_16_U16(g_HStored[i], X_mag[i]);
-    S_mag[i + 1] = MUL_16_U16(g_HStored[i + 1], X_mag[i + 1]);
-    S_mag[i + 2] = MUL_16_U16(g_HStored[i + 2], X_mag[i + 2]);
-    S_mag[i + 3] = MUL_16_U16(g_HStored[i + 3], X_mag[i + 3]);
-  }
-  // PART_LEN1 は PART_LEN + 1
-  S_mag[PART_LEN] = MUL_16_U16(g_HStored[PART_LEN], X_mag[PART_LEN]);
-}
-
-void ResetAdaptiveChannel() {
-  // 連続 2 回、保存チャネルの MSE が適応チャネルより十分小さい場合、
-  // 適応チャネルをリセットする。
-  memcpy(g_HAdapt16, g_HStored, sizeof(int16_t) * PART_LEN1);
-  // 32bit チャネル表現を復元
-  for (int i = 0; i < PART_LEN; i += 4) {
-    g_HAdapt32[i] = (int32_t)g_HStored[i] << 16;
-    g_HAdapt32[i + 1] = (int32_t)g_HStored[i + 1] << 16;
-    g_HAdapt32[i + 2] = (int32_t)g_HStored[i + 2] << 16;
-    g_HAdapt32[i + 3] = (int32_t)g_HStored[i + 3] << 16;
-  }
-  g_HAdapt32[PART_LEN] = (int32_t)g_HStored[PART_LEN] << 16;
-}
-
-
-int Init() {
-  // 16kHz 固定
-  memset(g_xBuf, 0, sizeof(g_xBuf));
-  memset(g_yBuf, 0, sizeof(g_yBuf));
-  memset(g_eOverlapBuf, 0, sizeof(g_eOverlapBuf));
-
-  g_totCount = 0;
-
-  if (InitDelayEstimatorFarend() != 0) {
-    return -1;
-  }
-  if (InitDelayEstimator() != 0) {
-    return -1;
-  }
-  // 遠端履歴をゼロ初期化
-  memset(g_xHistory, 0, sizeof(uint16_t) * PART_LEN1 * MAX_DELAY);
-  g_xHistoryPos = MAX_DELAY;
-
-  g_dfaCleanQDomain = 0;
-  g_dfaCleanQDomainOld = 0;
-  g_dfaNoisyQDomain = 0;
-  g_dfaNoisyQDomainOld = 0;
-
-  memset(g_nearLogEnergy, 0, sizeof(g_nearLogEnergy));
-  g_farLogEnergy = 0;
-  memset(g_echoAdaptLogEnergy, 0, sizeof(g_echoAdaptLogEnergy));
-  memset(g_echoStoredLogEnergy, 0, sizeof(g_echoStoredLogEnergy));
-
-  // エコーチャネルを既定形状（16 kHz 固定）で初期化
-  InitEchoPathCore(kChannelStored16kHz);
-
-  memset(g_sMagSmooth, 0, sizeof(g_sMagSmooth));
-  memset(g_yMagSmooth, 0, sizeof(g_yMagSmooth));
-
-  g_farEnergyMin = WORD16_MAX;
-  g_farEnergyMax = WORD16_MIN;
-  g_farEnergyMaxMin = 0;
-  g_farEnergyVAD = FAR_ENERGY_MIN;  // 開始直後の誤検出（音声とみなさない）を防ぐ
-                                        // 
-  g_farEnergyMSE = 0;
-  g_currentVADValue = 0;
-  g_vadUpdateCount = 0;
-  g_firstVAD = 1;
-
-  g_startupState = 0;
-  g_supGain = SUPGAIN_DEFAULT;
-  g_supGainOld = SUPGAIN_DEFAULT;
-
-  // コンパイル時に前提条件を static_assert で確認
-  // アセンブリ実装が依存するため、修正時は該当ファイルを要確認。
-  static_assert(PART_LEN % 16 == 0, "PART_LEN is not a multiple of 16");
-
-  static_assert(kRealFftOrder == PART_LEN_SHIFT,
-                "FFT order と PART_LEN_SHIFT が不一致です");
-
-  return 0;
-}
-
-// 非対称フィルタ処理を行う。
-//
-// 入力:
-//      - filtOld       : Previous filtered value.
-//      - inVal         : New input value.
-//      - stepSizePos   : Step size when we have a positive contribution.
-//      - stepSizeNeg   : Step size when we have a negative contribution.
-//
-// 戻り値: フィルタ適用後の値。
-//
-int16_t AsymFilt(const int16_t filtOld,
-                            const int16_t inVal,
-                            const int16_t stepSizePos,
-                            const int16_t stepSizeNeg) {
-  int16_t retVal;
-
-  if ((filtOld == WORD16_MAX) | (filtOld == WORD16_MIN)) {
-    return inVal;
-  }
-  retVal = filtOld;
-  if (filtOld > inVal) {
-    retVal -= (filtOld - inVal) >> stepSizeNeg;
-  } else {
-    retVal += (inVal - filtOld) >> stepSizePos;
-  }
-
-  return retVal;
-}
-
-// `a` の仮数部を、先頭ゼロ数 `zeros` を加味した Q8 の int16_t として返す。
-// ゼロ数との整合性チェックは行わない。
-// 
-// NLMS によるチャネル推定と保存判定。
-// X_mag: 遠端振幅スペクトル(Q0)、Y_mag: 近端振幅スペクトル(Q0)、
-// mu: 上記で算出したシフト量、S_mag: 推定エコー（Q=RESOLUTION_CHANNEL16）。
-void UpdateChannel(const uint16_t* X_mag,
-                              const uint16_t* const Y_mag,
-                              const int16_t mu,
-                              int32_t* S_mag) {
-  uint32_t tmpU32no1, tmpU32no2;
-  int32_t tmp32no1, tmp32no2;
-  int32_t mseStored;
-  int32_t mseAdapt;
-
-  int16_t zerosFar, zerosNum, zerosCh, zerosDfa;
-  int16_t shiftChFar, shiftNum, shift2ResChan;
-  int16_t tmp16no1;
-  int16_t xfaQ, yMagQ;
-
-  // NLMS ベースのチャネル推定で、
-  // 上で計算した可変ステップ長を使用する。
-  if (mu) {
-    for (int i = 0; i < PART_LEN1; i++) {
-      // オーバーフロー防止のためチャネルと遠端の正規化量を算出
-      zerosCh = NormU32(g_HAdapt32[i]);
-      zerosFar = NormU32((uint32_t)X_mag[i]);
-      if (zerosCh + zerosFar > 31) {
-        // 乗算しても安全な状態
-        tmpU32no1 = UMUL_32_16(g_HAdapt32[i], X_mag[i]);
-        shiftChFar = 0;
-      } else {
-        // 乗算前にシフトダウンが必要
-        shiftChFar = 32 - zerosCh - zerosFar;
-        // zerosCh==zerosFar==0 なら shiftChFar=32 となり、
-        // 右シフト 32 は未定義なのでチェックする。
-        {
-          uint32_t shifted = (shiftChFar >= 32)
-                                  ? 0u
-                                  : (uint32_t)(g_HAdapt32[i] >> shiftChFar);
-          tmpU32no1 = shifted * X_mag[i];
-        }
-      }
-      // 分子の Q ドメインを決定
-      zerosNum = NormU32(tmpU32no1);
-      if (Y_mag[i]) {
-        zerosDfa = NormU32((uint32_t)Y_mag[i]);
-      } else {
-        zerosDfa = 32;
-      }
-      tmp16no1 = zerosDfa - 2 + g_dfaNoisyQDomain - RESOLUTION_CHANNEL32 + shiftChFar;
-      if (zerosNum > tmp16no1 + 1) {
-        xfaQ = tmp16no1;
-        yMagQ = zerosDfa - 2;
-      } else {
-        xfaQ = zerosNum - 2;
-        yMagQ = RESOLUTION_CHANNEL32 - g_dfaNoisyQDomain - shiftChFar + xfaQ;
-      }
-      // 同じ Q ドメインに揃えて加算
-      tmpU32no1 = SHIFT_W32(tmpU32no1, xfaQ);
-      tmpU32no2 = SHIFT_W32((uint32_t)Y_mag[i], yMagQ);
-      tmp32no1 = (int32_t)tmpU32no2 - (int32_t)tmpU32no1;
-      zerosNum = NormW32(tmp32no1);
-      if (tmp32no1 && (X_mag[i] > CHANNEL_VAD)) {
-        //
-        // 更新が必要なケース
-        //
-        // 以下の計算を行いたい：
-        //
-        // tmp32no1 = Y_mag[i] - (aecm->channelAdapt[i] * X_mag[i])
-        // tmp32norm = (i + 1)
-        // aecm->channelAdapt[i] += (2^mu) * tmp32no1
-        //                        / (tmp32norm * X_mag[i])
-        //
-
-        // 乗算でオーバーフローしないようにする。
-        if (zerosNum + zerosFar > 31) {
-          if (tmp32no1 > 0) {
-            tmp32no2 = (int32_t)UMUL_32_16(tmp32no1, X_mag[i]);
-          } else {
-            tmp32no2 = -(int32_t)UMUL_32_16(-tmp32no1, X_mag[i]);
-          }
-          shiftNum = 0;
-        } else {
-          shiftNum = 32 - (zerosNum + zerosFar);
-          if (tmp32no1 > 0) {
-            tmp32no2 = (tmp32no1 >> shiftNum) * X_mag[i];
-          } else {
-            tmp32no2 = -((-tmp32no1 >> shiftNum) * X_mag[i]);
-          }
-        }
-        // 周波数ビンに応じて正規化
-        tmp32no2 = DivW32W16(tmp32no2, i + 1);
-        // 適切な Q ドメインに揃える
-        shift2ResChan =
-            shiftNum + shiftChFar - xfaQ - mu - ((30 - zerosFar) << 1);
-        if (NormW32(tmp32no2) < shift2ResChan) {
-          tmp32no2 = WORD32_MAX;
-        } else {
-          tmp32no2 = SHIFT_W32(tmp32no2, shift2ResChan);
-        }
-        g_HAdapt32[i] = AddSatW32(g_HAdapt32[i], tmp32no2);
-        if (g_HAdapt32[i] < 0) {
-          // チャネル利得が負にならないよう強制
-          g_HAdapt32[i] = 0;
-        }
-        g_HAdapt16[i] = (int16_t)(g_HAdapt32[i] >> 16);
-      }
-    }
-  }
-  // 適応チャネル更新ここまで
-
-
-  // チャネルを保存するか復元するかを判定
-  if ((g_startupState == 0) & (g_currentVADValue)) {
-    // 起動中は毎ブロックチャネルを保存し、
-    // 推定エコーも再計算する
-    StoreAdaptiveChannel(X_mag, S_mag);
-  } else {
-    if (g_farLogEnergy < g_farEnergyMSE) {
-      g_mseChannelCount = 0;
-    } else {
-      g_mseChannelCount++;
-    }
-    // 検証に十分なデータがあれば、保存を検討
-    if (g_mseChannelCount >= (MIN_MSE_COUNT + 10)) {
-      // 十分なデータが揃った
-      // 適応版と保存版の MSE を計算
-      // 実際には平均絶対誤差に近い指標
-      mseStored = 0;
-      mseAdapt = 0;
-      for (int i = 0; i < MIN_MSE_COUNT; i++) {
-        tmp32no1 = ((int32_t)g_echoStoredLogEnergy[i] - (int32_t)g_nearLogEnergy[i]);
-        tmp32no2 = ABS_W32(tmp32no1);
-        mseStored += tmp32no2;
-
-        tmp32no1 = ((int32_t)g_echoAdaptLogEnergy[i] - (int32_t)g_nearLogEnergy[i]);
-        tmp32no2 = ABS_W32(tmp32no1);
-        mseAdapt += tmp32no2;
-      }
-      if (((mseStored << MSE_RESOLUTION) < (MIN_MSE_DIFF * mseAdapt)) &
-          ((g_mseStoredOld << MSE_RESOLUTION) <
-           (MIN_MSE_DIFF * g_mseAdaptOld))) {
-        // 保存チャネルの方が連続して適応チャネルより低い誤差なら、
-        // 適応チャネルをリセットする。
-        ResetAdaptiveChannel();
-      } else if (((MIN_MSE_DIFF * mseStored) > (mseAdapt << MSE_RESOLUTION)) &
-                 (mseAdapt < g_mseThreshold) &
-                 (g_mseAdaptOld < g_mseThreshold)) {
-        // 適応チャネルの方が連続して保存チャネルより低い誤差なら、
-        // 
-        // 適応チャネルを保存版として採用する。
-        StoreAdaptiveChannel(X_mag, S_mag);
-
-        // 閾値を更新
-        if (g_mseThreshold == WORD32_MAX) {
-          g_mseThreshold = (mseAdapt + g_mseAdaptOld);
-        } else {
-          int scaled_threshold = g_mseThreshold * 5 / 8;
-          g_mseThreshold += ((mseAdapt - scaled_threshold) * 205) >> 8;
-        }
-      }
-
-      // カウンタをリセット
-      g_mseChannelCount = 0;
-
-      // MSE を記録する。
-      g_mseStoredOld = mseStored;
-      g_mseAdaptOld = mseAdapt;
-    }
-  }
 }
