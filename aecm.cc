@@ -523,8 +523,8 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     static int dbg_ss_counter = 0;
     dbg_ss_counter++;
     if (dbg_ss_counter % 100 == 0) {
-      fprintf(stderr, "[AECM] block=%d startupState=%d\n",
-              dbg_ss_counter, (int)g_startupState);
+      fprintf(stderr, "[AECM] block=%d startupState=%d est_delay=%d\n",
+              dbg_ss_counter, (int)g_startupState, delay);
     }
   }
 

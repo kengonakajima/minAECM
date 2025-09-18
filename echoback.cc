@@ -35,6 +35,10 @@ struct State {
   // Jitter buffer (device domain). Local echo path accumulator, mixes into speaker
   std::deque<int16_t> jitter;      // accumulate processed to emulate loopback latency
 
+  // Optional startup delay for capture stream (educational jitter buffer)
+  std::deque<int16_t> delay_line;  // raw capture samples waiting for release
+  size_t delay_target_samples = 0; // requested delay in samples
+
   // --passthrough: AEC を行わず素通し再生
   bool passthrough = false;
   bool bypass_wiener = false;
@@ -51,6 +55,16 @@ size_t pop_samples(std::deque<int16_t>& q, int16_t* dst, size_t n){
 
 void push_block(std::deque<int16_t>& q, const int16_t* src, size_t n){
   for (size_t i=0;i<n;i++) q.push_back(src[i]);
+}
+
+inline void enqueue_capture_sample(State& s, int16_t sample) {
+  s.delay_line.push_back(sample);
+  if (s.delay_line.size() <= s.delay_target_samples) {
+    s.rec_dev.push_back(0);
+  } else {
+    s.rec_dev.push_back(s.delay_line.front());
+    s.delay_line.pop_front();
+  }
 }
 
 void process_available_blocks(State& s){
@@ -96,7 +110,10 @@ int pa_callback(const void* inputBuffer,
   // Single-threaded実行のため終了フラグは不要
 
   // 1) enqueue capture
-  if (in) { for (unsigned long i=0;i<n;i++) st->rec_dev.push_back(in[i]); }
+  for (unsigned long i = 0; i < n; ++i) {
+    int16_t sample = in ? in[i] : 0;
+    enqueue_capture_sample(*st, sample);
+  }
 
   // 2) run AEC3 on as many blocks as ready
   process_available_blocks(*st);
@@ -122,9 +139,25 @@ int main(int argc, char** argv){
       s.bypass_wiener = true;
     } else if (arg == "--no-nlp") {
       s.bypass_nlp = true;
+    } else if (arg.rfind("--input-delay-ms=", 0) == 0) {
+      std::string value = arg.substr(strlen("--input-delay-ms="));
+      long long delay_ms = std::stoll(value);
+      size_t raw_samples = static_cast<size_t>(
+          (delay_ms * static_cast<long long>(AECM_SAMPLE_RATE_HZ) + 999) / 1000);
+      const size_t block = static_cast<size_t>(AECM_BLOCK_SIZE);
+      size_t delay_blocks = (raw_samples + block / 2) / block;
+      s.delay_target_samples = delay_blocks * block;
+    } else if (arg == "--input-delay-ms" && i + 1 < argc) {
+      std::string value(argv[++i] ? argv[i] : "0");
+      long long delay_ms = std::stoll(value);
+      size_t raw_samples = static_cast<size_t>(
+          (delay_ms * static_cast<long long>(AECM_SAMPLE_RATE_HZ) + 999) / 1000);
+      const size_t block = static_cast<size_t>(AECM_BLOCK_SIZE);
+      size_t delay_blocks = (raw_samples + block / 2) / block;
+      s.delay_target_samples = delay_blocks * block;
     } else if (arg == "--help" || arg == "-h") {
       std::fprintf(stderr,
-                   "Usage: %s [--passthrough] [--no-wiener|--no-suppress] [--no-nlp]\n",
+                   "Usage: %s [--passthrough] [--no-wiener|--no-suppress] [--no-nlp] [--input-delay-ms <ms>]\n",
                    argv[0]);
       return 0;
     }
@@ -140,6 +173,17 @@ int main(int argc, char** argv){
                  s.bypass_nlp ? "off" : "on");
   }
   // 固定設定のため追加初期化不要
+
+  if (s.delay_target_samples > 0) {
+    double delay_ms = static_cast<double>(s.delay_target_samples) * 1000.0 /
+                      static_cast<double>(AECM_SAMPLE_RATE_HZ);
+    double blocks = static_cast<double>(s.delay_target_samples) /
+                    static_cast<double>(AECM_BLOCK_SIZE);
+    std::fprintf(stderr, "capture delay: %.1f ms (%.0f samples, %.1f blocks)\n",
+                 delay_ms,
+                 static_cast<double>(s.delay_target_samples),
+                 blocks);
+  }
 
   PaError err = Pa_Initialize();
   if (err!=paNoError){ std::fprintf(stderr, "Pa_Initialize error %s\n", Pa_GetErrorText(err)); return 1; }
