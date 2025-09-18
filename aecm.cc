@@ -171,7 +171,7 @@ static const int16_t kChannelStored16kHz[PART_LEN1] = {
 //      - self          : Pointer to the delay estimation instance
 //      - x_spectrum    : Pointer to the far end spectrum
 //
-void InitEchoPathCore(const int16_t* echo_path) {
+void InitEchoPath(const int16_t* echo_path) {
   // 保存チャネルをリセット
   memcpy(g_HStored, echo_path, sizeof(int16_t) * PART_LEN1);
   // 適応チャネルをリセット
@@ -246,7 +246,7 @@ int Init() {
   memset(g_echoStoredLogEnergy, 0, sizeof(g_echoStoredLogEnergy));
 
   // エコーチャネルを既定形状（16 kHz 固定）で初期化
-  InitEchoPathCore(kChannelStored16kHz);
+  InitEchoPath(kChannelStored16kHz);
 
   memset(g_sMagSmooth, 0, sizeof(g_sMagSmooth));
   memset(g_yMagSmooth, 0, sizeof(g_yMagSmooth));
