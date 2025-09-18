@@ -459,6 +459,21 @@ int16_t MaxAbsValueW16C(const int16_t* vector, size_t length) {
   return (int16_t)maximum;
 }
 
+int16_t ExtractFractionPart(uint32_t a, int zeros) {
+  return static_cast<int16_t>(((a << zeros) & 0x7FFFFFFF) >> 23);
+}
+
+int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain) {
+  const int16_t kLogLowValue = (1 << kRealFftOrder) << 7;
+  int16_t log_energy_q8 = kLogLowValue;
+  if (energy > 0) {
+    int zeros = NormU32(energy);
+    int16_t frac = ExtractFractionPart(energy, zeros);
+    log_energy_q8 += ((31 - zeros) << 8) + frac - (q_domain << 8);
+  }
+  return log_energy_q8;
+}
+
 // 32ビット符号なし値を16ビットで割り、安全に商を返す。
 // ゼロ除算をガードしつつ比率計算を行うためのラッパー。
 uint32_t DivU32U16(uint32_t num, uint16_t den) {

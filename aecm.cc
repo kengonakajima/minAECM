@@ -70,7 +70,6 @@ void UpdateChannel(const uint16_t* X_mag,
                    const uint16_t* const Y_mag,
                    int16_t mu,
                    int32_t* S_mag);
-int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain);
 int16_t AsymFilt(const int16_t filtOld,
                  const int16_t inVal,
                  const int16_t stepSizePos,
@@ -688,24 +687,6 @@ int16_t AsymFilt(const int16_t filtOld,
 // `a` の仮数部を、先頭ゼロ数 `zeros` を加味した Q8 の int16_t として返す。
 // ゼロ数との整合性チェックは行わない。
 // 
-int16_t ExtractFractionPart(uint32_t a, int zeros) {
-  return (int16_t)(((a << zeros) & 0x7FFFFFFF) >> 23);
-}
-
-// `energy` の対数 (Q8) を計算して返す。入力は Q(`q_domain`) と想定。
-// 入力の `energy` は Q(`q_domain`)（本縮約では q_domain=0）で与えられる想定。
-int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain) {
-  static const int16_t kLogLowValue = PART_LEN_SHIFT << 7;
-  int16_t log_energy_q8 = kLogLowValue;
-  if (energy > 0) {
-    int zeros = NormU32(energy);
-    int16_t frac = ExtractFractionPart(energy, zeros);
-    // `energy` の log2 を Q8 で取得。
-    log_energy_q8 += ((31 - zeros) << 8) + frac - (q_domain << 8);
-  }
-  return log_energy_q8;
-}
-
 // NLMS によるチャネル推定と保存判定。
 // X_mag: 遠端振幅スペクトル(Q0)、Y_mag: 近端振幅スペクトル(Q0)、
 // mu: 上記で算出したシフト量、S_mag: 推定エコー（Q=RESOLUTION_CHANNEL16）。

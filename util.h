@@ -61,6 +61,8 @@ int16_t MaxAbsValueW16C(const int16_t* vector, size_t length); // 16ビット最
 uint32_t DivU32U16(uint32_t num, uint16_t den); // 符号なし32÷16除算
 int32_t DivW32W16(int32_t num, int16_t den); // 符号付き32÷16除算
 int32_t SqrtFloor(int32_t value); // 平方根の床値
+int16_t ExtractFractionPart(uint32_t a, int zeros);
+int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain);
 
 void InitBuffer(RingBuffer* handle); // リングバッファ初期化
 void InitBufferWith(RingBuffer* handle, void* backing, size_t element_count, size_t element_size); // 外部メモリ付き初期化
