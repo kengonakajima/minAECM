@@ -131,11 +131,11 @@ static const ALIGN8_BEG int16_t kSqrtHanning[] ALIGN8_END = {
 static bool g_bypass_wiener = false;
 static bool g_bypass_nlp = false;
 
-static void SetBypassWienerInternal(int enable) {
+void SetBypassWiener(int enable) {
   g_bypass_wiener = (enable != 0);
 }
 
-static void SetBypassNlpInternal(int enable) {
+void SetBypassNlp(int enable) {
   g_bypass_nlp = (enable != 0);
 }
 
@@ -1285,7 +1285,3 @@ int32_t Process(const int16_t* nearend, int16_t* out) {
 
   return 0;
 }
-
-void SetBypassWiener(int enable) { SetBypassWienerInternal(enable); }
-
-void SetBypassNlp(int enable) { SetBypassNlpInternal(enable); }
