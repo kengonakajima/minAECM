@@ -110,7 +110,6 @@ const uint16_t* AlignedFarX(int delay);
 void CalcEnergies(const uint16_t* X_mag, uint32_t Y_energy, int32_t* S_mag);
 int16_t CalcStepSize();
 void UpdateChannel(const uint16_t* X_mag,
-                   int16_t x_q,
                    const uint16_t* const Y_mag,
                    int16_t mu,
                    int32_t* S_mag);
@@ -290,7 +289,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
 
   // ここからチャネル推定アルゴリズム。NLMS 派生で、上で計算した
   // 可変ステップ長を用いてhAdaptを更新する。
-  UpdateChannel(X_mag_aligned, 0 /*x_q*/, Y_mag, mu, S_mag);
+  UpdateChannel(X_mag_aligned, Y_mag, mu, S_mag);
   int16_t gGain = CalcSuppressionGain();
 
   // Wiener フィルタ H(k) を算出
@@ -722,10 +721,7 @@ int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain) {
 
 // 近端・遠端・推定エコーのエネルギーを対数で算出し、
 // エネルギー閾値（内部 VAD）も更新する。
-// 
 //
-//
-// @param  aecm         [i/o]   Handle of the AECM instance.
 // @param  X_mag        [in]    Pointer to farend spectrum magnitude.
 // @param  Y_energy     [in]    Near end energy for current block in
 //                              Q(aecm->dfaNoisyQDomain).
@@ -862,11 +858,9 @@ int16_t CalcStepSize() {
 }
 
 // NLMS によるチャネル推定と保存判定。
-// X_mag: 遠端振幅スペクトル(Q0)、x_q: 遠端信号のQ(常に0)、
-// Y_mag: 近端振幅スペクトル(Q0)、mu: CalcStepSize のシフト量、
-// S_mag: 推定エコー（Q=RESOLUTION_CHANNEL16）。
+// X_mag: 遠端振幅スペクトル(Q0)、Y_mag: 近端振幅スペクトル(Q0)、
+// mu: CalcStepSize のシフト量、S_mag: 推定エコー（Q=RESOLUTION_CHANNEL16）。
 void UpdateChannel(const uint16_t* X_mag,
-                              const int16_t x_q,
                               const uint16_t* const Y_mag,
                               const int16_t mu,
                               int32_t* S_mag) {
@@ -912,20 +906,20 @@ void UpdateChannel(const uint16_t* X_mag,
       } else {
         zerosDfa = 32;
       }
-      tmp16no1 = zerosDfa - 2 + g_dfaNoisyQDomain - RESOLUTION_CHANNEL32 - x_q + shiftChFar;
+      tmp16no1 = zerosDfa - 2 + g_dfaNoisyQDomain - RESOLUTION_CHANNEL32 + shiftChFar;
       if (zerosNum > tmp16no1 + 1) {
         xfaQ = tmp16no1;
         yMagQ = zerosDfa - 2;
       } else {
         xfaQ = zerosNum - 2;
-        yMagQ = RESOLUTION_CHANNEL32 + x_q - g_dfaNoisyQDomain - shiftChFar + xfaQ;
+        yMagQ = RESOLUTION_CHANNEL32 - g_dfaNoisyQDomain - shiftChFar + xfaQ;
       }
       // 同じ Q ドメインに揃えて加算
       tmpU32no1 = SHIFT_W32(tmpU32no1, xfaQ);
       tmpU32no2 = SHIFT_W32((uint32_t)Y_mag[i], yMagQ);
       tmp32no1 = (int32_t)tmpU32no2 - (int32_t)tmpU32no1;
       zerosNum = NormW32(tmp32no1);
-      if ((tmp32no1) && (X_mag[i] > (CHANNEL_VAD << x_q))) {
+      if (tmp32no1 && (X_mag[i] > CHANNEL_VAD)) {
         //
         // 更新が必要なケース
         //
