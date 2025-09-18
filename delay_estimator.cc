@@ -184,8 +184,8 @@ int HistogramBasedValidation(const BinaryDelayEstimator* estimator_state,
 
   // 候補との差に応じた比較値 histogram_threshold を計算。
 
-  if (delay_difference > estimator.allowed_offset) {
-    fraction = 1.f - kFractionSlope * (delay_difference - estimator.allowed_offset);
+  if (delay_difference > 0) {
+    fraction = 1.f - kFractionSlope * delay_difference;
     fraction = (fraction > kMinFractionWhenPossiblyCausal
                     ? fraction
                     : kMinFractionWhenPossiblyCausal);
@@ -283,7 +283,6 @@ void InitBinaryDelayEstimator() {
   estimator.candidate_hits = 0;
   estimator.last_delay_histogram = 0.f;
 
-  estimator.allowed_offset = 0;
 }
 
 
@@ -483,7 +482,6 @@ static uint32_t BinarySpectrum(const uint16_t* spectrum,
 void InitDelayEstimatorFarend() {
   InitBinaryDelayEstimatorFarend();
 
-  g_delay_farend.spectrum_size = PART_LEN1;
   memset(g_delay_farend.mean_far_spectrum, 0, sizeof(g_delay_farend.mean_far_spectrum));
   g_delay_farend.far_spectrum_initialized = 0;
 }
@@ -498,7 +496,6 @@ void AddFarSpectrum(const uint16_t* far_spectrum) {
 void InitDelayEstimator() {
   InitBinaryDelayEstimator();
 
-  g_delay_instance.spectrum_size = PART_LEN1;
   memset(g_delay_instance.mean_near_spectrum, 0, sizeof(g_delay_instance.mean_near_spectrum));
   g_delay_instance.near_spectrum_initialized = 0;
 }

@@ -25,7 +25,6 @@ typedef struct {
   int last_delay;
 
   // 堅牢性（ヒストグラム）は常時有効（フラグ廃止）
-  int allowed_offset;
   int last_candidate_delay;
   int compare_delay;
   int candidate_hits;
@@ -42,16 +41,12 @@ typedef struct {
   SpectrumType mean_far_spectrum[PART_LEN1];
   int far_spectrum_initialized;
 
-  int spectrum_size;
-
   BinaryDelayEstimatorFarend binary_farend;
 } DelayEstimatorFarend;
 
 typedef struct {
   SpectrumType mean_near_spectrum[PART_LEN1];
   int near_spectrum_initialized;
-
-  int spectrum_size;
 
   BinaryDelayEstimator binary_handle;
 } DelayEstimator;
