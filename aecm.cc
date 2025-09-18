@@ -30,10 +30,10 @@ int16_t g_dfaNoisyQDomain; // 雑音成分の Q-domain 推定値
 int16_t g_dfaNoisyQDomainOld; // 雑音 Q-domain の1ブロック前の値
 
 
-int16_t g_nearLogEnergy[MAX_LOG_LEN]; // 近端信号のログエネルギー履歴
-int16_t g_farLogEnergy; // 遠端信号のログエネルギー最新値
-int16_t g_echoAdaptLogEnergy[MAX_LOG_LEN]; // 適応エコーパスによるログエネルギー履歴
-int16_t g_echoStoredLogEnergy[MAX_LOG_LEN]; // 保存エコーパスによるログエネルギー履歴
+int16_t g_nearLogEnergy[MAX_LOG_LEN]; // 近端信号の対数エネルギー履歴
+int16_t g_farLogEnergy; // 遠端信号の対数エネルギー最新値
+int16_t g_echoAdaptLogEnergy[MAX_LOG_LEN]; // 適応エコーパスによる対数エネルギー履歴
+int16_t g_echoStoredLogEnergy[MAX_LOG_LEN]; // 保存エコーパスによる対数エネルギー履歴
 
 
 int16_t g_HStored[PART_LEN1]; // 保存エコーパス係数（Q15）
@@ -170,9 +170,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   if (g_xHistoryPos >= MAX_DELAY) {
     g_xHistoryPos = 0;
   }
-  memcpy(&(g_xHistory[g_xHistoryPos * PART_LEN1]),
-         X_mag,
-         sizeof(uint16_t) * PART_LEN1);
+  memcpy(&(g_xHistory[g_xHistoryPos * PART_LEN1]), X_mag, sizeof(uint16_t) * PART_LEN1);
   if (AddFarSpectrum(X_mag) == -1) {
     return -1;
   }  
@@ -188,30 +186,31 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   if (buffer_position < 0) {
     buffer_position += MAX_DELAY;
   }
-  const uint16_t* X_mag_aligned =
-      &(g_xHistory[buffer_position * PART_LEN1]);
+  const uint16_t* X_mag_aligned = &(g_xHistory[buffer_position * PART_LEN1]);
 
   // エネルギーの履歴（log |X|, log |Ŷ|）を更新して VAD/閾値に反映
   {
-    uint32_t tmpFar = 0;
-    uint32_t tmpAdapt = 0;
-    uint32_t tmpStored = 0;
+    uint32_t tmpFar = 0;  // 遠端スペクトル|X(k)|の総和
+    uint32_t tmpAdapt = 0;  // 適応チャネル出力|S_hat_adapt(k)|の総和
+    uint32_t tmpStored = 0;  // 保存チャネル出力|S_hat_stored(k)|の総和
     int16_t tmp16;
     int16_t increase_max_shifts = 4;
     int16_t decrease_max_shifts = 11;
     int16_t increase_min_shifts = 11;
     int16_t decrease_min_shifts = 3;
 
+    // 近端の対数エネルギー履歴を後ろに1つずらす
     memmove(g_nearLogEnergy + 1, g_nearLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
     g_nearLogEnergy[0] = LogOfEnergyInQ8(Y_mag_sum, g_dfaNoisyQDomain);
 
     for (int i = 0; i < PART_LEN1; i++) {
-      S_mag[i] = MUL_16_U16(g_HStored[i], X_mag_aligned[i]);
-      tmpFar += (uint32_t)X_mag_aligned[i];
-      tmpAdapt += g_HAdapt16[i] * X_mag_aligned[i];
-      tmpStored += (uint32_t)S_mag[i];
+      S_mag[i] = MUL_16_U16(g_HStored[i], X_mag_aligned[i]); // 推定エコー信号Sを計算
+      tmpFar += (uint32_t)X_mag_aligned[i]; // 遠端エネルギー総和
+      tmpAdapt += g_HAdapt16[i] * X_mag_aligned[i];  // 学習中チャネルによるエコーエネルギー
+      tmpStored += (uint32_t)S_mag[i]; // S_magのエネルギー
     }
 
+    // 対数エネルギー履歴バッファを後ろに1つずらす
     memmove(g_echoAdaptLogEnergy + 1, g_echoAdaptLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
     memmove(g_echoStoredLogEnergy + 1, g_echoStoredLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
 
