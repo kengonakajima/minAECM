@@ -73,7 +73,6 @@ int16_t g_supGainOld; // 直前の抑圧ゲイン（Q8）
 
 // 先行宣言（翻訳単位内のみで使用）。
 void UpdateFarHistory(uint16_t* x_spectrum);
-const uint16_t* AlignedFarX(int delay);
 void CalcLinearEnergies(const uint16_t* X_mag,
                         int32_t* S_mag,
                         uint32_t* X_energy,
@@ -88,7 +87,6 @@ int16_t AsymFilt(const int16_t filtOld,
                  const int16_t inVal,
                  const int16_t stepSizePos,
                  const int16_t stepSizeNeg);
-int16_t CalcSuppressionGain();
 // 直接ブロック処理を行うため、旧BlockFramer相当のバッファは撤廃済み。
 
 // ハニング窓の平方根（Q14）。
@@ -249,8 +247,12 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   }
 
   // 推定した遅延に合わせて遠端スペクトルを整列
-  const uint16_t* X_mag_aligned = AlignedFarX(delay);
-  if (X_mag_aligned == NULL) return -1;
+  int buffer_position = g_xHistoryPos - delay;
+  if (buffer_position < 0) {
+    buffer_position += MAX_DELAY;
+  }
+  const uint16_t* X_mag_aligned =
+      &(g_xHistory[buffer_position * PART_LEN1]);
 
   // エネルギーの履歴（log |X|, log |Ŷ|）を更新して VAD/閾値に反映
   {
@@ -350,7 +352,53 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   // ここからチャネル推定アルゴリズム。NLMS 派生で、上で計算した
   // 可変ステップ長を用いてhAdaptを更新する。
   UpdateChannel(X_mag_aligned, Y_mag, mu, S_mag);
-  int16_t gGain = CalcSuppressionGain();
+  int16_t gGain;
+  {
+    int32_t tmp32no1;
+    int16_t supGain = SUPGAIN_DEFAULT;
+    int16_t tmp16no1;
+    int16_t dE = 0;
+
+    if (!g_currentVADValue) {
+      supGain = 0;
+    } else {
+      tmp16no1 = (g_nearLogEnergy[0] - g_echoStoredLogEnergy[0] - ENERGY_DEV_OFFSET);
+      dE = ABS_W16(tmp16no1);
+
+      if (dE < ENERGY_DEV_TOL) {
+        if (dE < SUPGAIN_EPC_DT) {
+          const int diffAB = SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
+          tmp32no1 = diffAB * dE;
+          tmp32no1 += (SUPGAIN_EPC_DT >> 1);
+          tmp16no1 = (int16_t)DivW32W16(tmp32no1, SUPGAIN_EPC_DT);
+          supGain = SUPGAIN_ERROR_PARAM_A - tmp16no1;
+        } else {
+          const int diffBD = SUPGAIN_ERROR_PARAM_B - SUPGAIN_ERROR_PARAM_D;
+          tmp32no1 = diffBD * (ENERGY_DEV_TOL - dE);
+          tmp32no1 += ((ENERGY_DEV_TOL - SUPGAIN_EPC_DT) >> 1);
+          tmp16no1 = (int16_t)DivW32W16(tmp32no1, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
+          supGain = SUPGAIN_ERROR_PARAM_D + tmp16no1;
+        }
+      } else {
+        supGain = SUPGAIN_ERROR_PARAM_D;
+      }
+    }
+
+    if (supGain > g_supGainOld) {
+      tmp16no1 = supGain;
+    } else {
+      tmp16no1 = g_supGainOld;
+    }
+    g_supGainOld = supGain;
+    if (tmp16no1 < g_supGain) {
+      g_supGain += (int16_t)((tmp16no1 - g_supGain) >> 4);
+    } else {
+      g_supGain += (int16_t)((tmp16no1 - g_supGain) >> 4);
+    }
+
+    gGain = g_supGain;
+    // 抑圧ゲイン更新ここまで
+  }
 
   // Wiener フィルタ H(k) を算出
   uint16_t* Y_mag_clean = Y_mag;  // |Y_clean(k)| proxy
@@ -552,32 +600,6 @@ void UpdateFarHistory(uint16_t* x_spectrum) {
   // Q-domain は固定Q=0のため保持不要
   // 遠端スペクトル用バッファを更新
   memcpy(&(g_xHistory[g_xHistoryPos * PART_LEN1]), x_spectrum, sizeof(uint16_t) * PART_LEN1);
-}
-
-// 現在の近端に整列した遠端スペクトルのポインタを返す
-// DelayEstimatorProcess(...) を事前に呼び出していることが前提。
-// そうでない場合は前回フレームのポインタが返る。
-// メモリは次に DelayEstimatorProcess(...) を呼ぶまで有効。
-// 
-//
-// 入力:
-//      - self              : Pointer to the AECM instance.
-//      - delay             : Current delay estimate.
-// 戻り値:
-//      - x_spectrum        : Pointer to the aligned far end spectrum
-//                            NULL - Error
-//
-const uint16_t* AlignedFarX(int delay) {
-  int buffer_position = 0;
-  // 元実装では DCHECK で検査していたが、最小構成では省略。
-  buffer_position = g_xHistoryPos - delay;
-
-  // バッファ位置を正規化
-  if (buffer_position < 0) {
-    buffer_position += MAX_DELAY;
-  }
-  // 整列済みの遠端スペクトルを返す
-  return &(g_xHistory[buffer_position * PART_LEN1]);
 }
 
 // Create/Freeは廃止。InitCore()で内部状態を初期化する。
@@ -928,65 +950,6 @@ void UpdateChannel(const uint16_t* X_mag,
   // チャネル保存/復元の判定ここまで
 }
 
-
-// Wiener フィルタで用いる抑圧ゲインを計算する。
-int16_t CalcSuppressionGain() {
-  int32_t tmp32no1;
-
-  int16_t supGain = SUPGAIN_DEFAULT;
-  int16_t tmp16no1;
-  int16_t dE = 0;
-
-  // Wiener フィルタで使用する抑圧ゲインを決定。遠端エネルギーと
-  // 推定エコー誤差の組み合わせに基づき、遠端信号レベルに応じて調整する。
-  // 遠端レベルが低ければ信号無しとみなし、抑圧ゲインを 0 に近づける。
-  // 
-  if (!g_currentVADValue) {
-    supGain = 0;
-  } else {
-    // ダブルトークの可能性に備えて調整する。誤差変動が大きければ
-    // ダブルトーク（または悪いチャネル）とみなし、
-    tmp16no1 = (g_nearLogEnergy[0] - g_echoStoredLogEnergy[0] - ENERGY_DEV_OFFSET);
-    dE = ABS_W16(tmp16no1);
-
-    if (dE < ENERGY_DEV_TOL) {
-      // ダブルトークでなければ推定品質に応じて抑圧量を増やす
-      // カウンタも更新
-      if (dE < SUPGAIN_EPC_DT) {
-        const int diffAB = SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
-        tmp32no1 = diffAB * dE;
-        tmp32no1 += (SUPGAIN_EPC_DT >> 1);
-        tmp16no1 = (int16_t)DivW32W16(tmp32no1, SUPGAIN_EPC_DT);
-        supGain = SUPGAIN_ERROR_PARAM_A - tmp16no1;
-      } else {
-        const int diffBD = SUPGAIN_ERROR_PARAM_B - SUPGAIN_ERROR_PARAM_D;
-        tmp32no1 = diffBD * (ENERGY_DEV_TOL - dE);
-        tmp32no1 += ((ENERGY_DEV_TOL - SUPGAIN_EPC_DT) >> 1);
-        tmp16no1 = (int16_t)DivW32W16(tmp32no1, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
-        supGain = SUPGAIN_ERROR_PARAM_D + tmp16no1;
-      }
-    } else {
-      // ダブルトークの兆候があれば既定値を適用
-      supGain = SUPGAIN_ERROR_PARAM_D;
-    }
-  }
-
-  if (supGain > g_supGainOld) {
-    tmp16no1 = supGain;
-  } else {
-    tmp16no1 = g_supGainOld;
-  }
-  g_supGainOld = supGain;
-  if (tmp16no1 < g_supGain) {
-    g_supGain += (int16_t)((tmp16no1 - g_supGain) >> 4);
-  } else {
-    g_supGain += (int16_t)((tmp16no1 - g_supGain) >> 4);
-  }
-
-  // 抑圧ゲイン更新ここまで
-
-  return g_supGain;
-}
 
 int32_t Init() {
   return InitCore();
