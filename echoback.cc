@@ -205,10 +205,7 @@ int main(int argc, char** argv){
   std::fprintf(stderr, "Running... Ctrl-C to stop.\n");
   // AECM 初期化
   if (!s.passthrough) {
-    if (Init() != 0) {
-      std::fprintf(stderr, "AECM init failed\n");
-      Pa_StopStream(stream); Pa_CloseStream(stream); Pa_Terminate(); return 1;
-    }
+    InitAecm();
     SetBypassWiener(s.bypass_wiener ? 1 : 0);
     SetBypassNlp(s.bypass_nlp ? 1 : 0);
   }

@@ -50,7 +50,7 @@ int main(int argc, char** argv){
     return 1;
   }
   size_t N = std::min(x.samples.size(), y.samples.size()) / (size_t)AECM_BLOCK_SIZE;
-  if (Init() != 0){ std::fprintf(stderr, "AECM init failed\n"); return 1; }
+  InitAecm();
   std::vector<int16_t> processed;
   processed.resize(N * AECM_BLOCK_SIZE);
   for (size_t n=0;n<N;n++){

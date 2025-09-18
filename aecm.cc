@@ -217,7 +217,7 @@ void ResetAdaptiveChannel() {
 }
 
 
-int Init() {
+void InitAecm() {
   // 16kHz 固定
   memset(g_xBuf, 0, sizeof(g_xBuf));
   memset(g_yBuf, 0, sizeof(g_yBuf));
@@ -265,10 +265,8 @@ int Init() {
   // アセンブリ実装が依存するため、修正時は該当ファイルを要確認。
   static_assert(PART_LEN % 16 == 0, "PART_LEN is not a multiple of 16");
 
-  static_assert(kRealFftOrder == PART_LEN_SHIFT,
-                "FFT order と PART_LEN_SHIFT が不一致です");
+  static_assert(kRealFftOrder == PART_LEN_SHIFT, "FFT order と PART_LEN_SHIFT が不一致です");
 
-  return 0;
 }
 
 

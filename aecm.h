@@ -7,7 +7,7 @@
 #include "aecm_defines.h"
 
 
-int32_t Init();
+void InitAecm();
 int ProcessBlock(const int16_t* farend,
                  const int16_t* nearend,
                  int16_t* out);
