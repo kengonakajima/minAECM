@@ -343,7 +343,6 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   }
 
   // Wiener/NLP 用の抑圧マスク G(k) を算出
-  uint16_t* Y_mag_clean = Y_mag;  // |Y_clean(k)| proxy
   int16_t G_mask[PART_LEN1];
   int16_t numPosCoef = 0;
   double sum_gain = 0.0;
@@ -376,13 +375,13 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     if (zeros16 < y_mag_q_domain_diff && g_yMagSmooth[i]) {
       tmp16no1 = g_yMagSmooth[i] * (1 << zeros16);
       qDomainDiff = zeros16 - y_mag_q_domain_diff;
-      tmp16no2 = Y_mag_clean[i] >> -qDomainDiff;
+      tmp16no2 = Y_mag[i] >> -qDomainDiff;
     } else {
       tmp16no1 = y_mag_q_domain_diff < 0
                      ? g_yMagSmooth[i] >> -y_mag_q_domain_diff
                      : g_yMagSmooth[i] * (1 << y_mag_q_domain_diff);
       qDomainDiff = 0;
-      tmp16no2 = Y_mag_clean[i];
+      tmp16no2 = Y_mag[i];
     }
     tmp32no1 = (int32_t)(tmp16no2 - tmp16no1);
     tmp16no2 = (int16_t)(tmp32no1 >> 4);
