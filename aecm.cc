@@ -66,7 +66,6 @@ int16_t g_supGainOld; // 直前の抑圧ゲイン（Q8）
 
 
 // 先行宣言（翻訳単位内のみで使用）。
-void UpdateFarHistory(uint16_t* x_spectrum);
 void UpdateChannel(const uint16_t* X_mag,
                    const uint16_t* const Y_mag,
                    int16_t mu,
@@ -168,8 +167,13 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   g_dfaCleanQDomainOld = g_dfaNoisyQDomainOld;
   g_dfaCleanQDomain = g_dfaNoisyQDomain;
 
-  // 遠端スペクトル履歴を更新し、2値スペクトル照合で遅延を推定
-  UpdateFarHistory(X_mag);
+  g_xHistoryPos++;
+  if (g_xHistoryPos >= MAX_DELAY) {
+    g_xHistoryPos = 0;
+  }
+  memcpy(&(g_xHistory[g_xHistoryPos * PART_LEN1]),
+         X_mag,
+         sizeof(uint16_t) * PART_LEN1);
   if (AddFarSpectrum(X_mag) == -1) {
     return -1;
   }  
@@ -548,18 +552,6 @@ static const int16_t kChannelStored16kHz[PART_LEN1] = {
 //      - self          : Pointer to the delay estimation instance
 //      - x_spectrum    : Pointer to the far end spectrum
 //
-void UpdateFarHistory(uint16_t* x_spectrum) {
-  // 新しいバッファ位置を算出
-  g_xHistoryPos++;
-  if (g_xHistoryPos >= MAX_DELAY) {
-    g_xHistoryPos = 0;
-  }
-  // Q-domain は固定Q=0のため保持不要
-  // 遠端スペクトル用バッファを更新
-  memcpy(&(g_xHistory[g_xHistoryPos * PART_LEN1]), x_spectrum, sizeof(uint16_t) * PART_LEN1);
-}
-
-
 void InitEchoPathCore(const int16_t* echo_path) {
   // 保存チャネルをリセット
   memcpy(g_HStored, echo_path, sizeof(int16_t) * PART_LEN1);
