@@ -23,15 +23,8 @@ struct ComplexInt16 {
 };
 
 
-int g_xBufWritePos; // 遠端リングバッファの書き込み位置
-int g_xBufReadPos; // 遠端リングバッファの読み取り位置
-int g_knownDelay; // 推定済みの遅延サンプル数（フレーム単位）
-int g_lastKnownDelay; // 直前処理で用いた遅延サンプル数
 int g_firstVAD; // VAD 初回検出フラグ
-
-
-// 遠端フレームのリングバッファ実体
-int16_t g_xFrameBuf[FAR_BUF_LEN];
+int g_initFlag; // 初期化完了を示すチェック値
 uint16_t g_xHistory[PART_LEN1 * MAX_DELAY]; // 遠端スペクトル履歴（遅延候補ごと）
 int g_xHistoryPos; // 遠端スペクトル履歴の書き込みインデックス
 
@@ -79,29 +72,7 @@ int16_t g_supGain; // 現在の抑圧ゲイン（Q8）
 int16_t g_supGainOld; // 直前の抑圧ゲイン（Q8）
 
 
-constexpr int kBufSizeFrames = 50;  // 遠端バッファ長（フレーム数）
-constexpr size_t kBufSizeSamples = kBufSizeFrames * FRAME_LEN;
-constexpr int kSamplesPerMs16k = 16;  // 16 kHz 固定
-constexpr short kFixedMsInSndCardBuf = 60;  // 50ms 遅延 + 10ms マージン
-constexpr short kStartupFramesRaw =
-    static_cast<short>((kFixedMsInSndCardBuf * kSamplesPerMs16k) / FRAME_LEN);
-constexpr short kStartupFrames =
-    kStartupFramesRaw <= 0
-        ? 1
-        : (kStartupFramesRaw > kBufSizeFrames ? kBufSizeFrames : kStartupFramesRaw);
 constexpr int kInitCheck = 42;
-
-
-short g_mobileBufSizeStart;// モバイル側の起動バッファ長（フレーム）
-int g_mobileKnownDelay; // モバイル側が保持する既知遅延
-short g_mobileFarendOld[FRAME_LEN]; // 遠端バッファ枯渇時に使う直近フレーム
-short g_mobileInitFlag; // 初期化完了を示すチェック値
-short g_mobileFiltDelay; // フィルタ済み遅延推定値
-int g_mobileTimeForDelayChange; // 遅延変更の猶予カウンタ
-int g_mobileECstartup; // 起動中（ウォームアップ）フラグ
-short g_mobileLastDelayDiff; // 前回との差分遅延値
-RingBuffer g_mobileFarendBuf; // 遠端サンプルのリングバッファ
-int16_t g_mobileFarendBufData[kBufSizeSamples]; // 上記リングバッファの実体配列
 
 
 // 先行宣言（翻訳単位内のみで使用）。
@@ -122,8 +93,7 @@ int16_t AsymFilt(const int16_t filtOld,
                  const int16_t stepSizePos,
                  const int16_t stepSizeNeg);
 int16_t CalcSuppressionGain();
-void BufferFarFrame(const int16_t* const x_frame);
-void FetchFarFrame(int16_t* const x_frame, int knownDelay);
+// 直接ブロック処理を行うため、旧BlockFramer相当のバッファは撤廃済み。
 
 // ハニング窓の平方根（Q14）。
 static const ALIGN8_BEG int16_t kSqrtHanning[] ALIGN8_END = {
@@ -679,14 +649,6 @@ void ResetAdaptiveChannel() {
 
 int InitCore() {
   // 16kHz 固定
-
-  g_xBufWritePos = 0;
-  g_xBufReadPos = 0;
-  g_knownDelay = 0;
-  g_lastKnownDelay = 0;
-
-  // FRAME_LEN=PART_LEN のため中間フレーム用リングバッファは不要
-
   memset(g_xBuf, 0, sizeof(g_xBuf));
   memset(g_yBuf, 0, sizeof(g_yBuf));
   memset(g_eOverlapBuf, 0, sizeof(g_eOverlapBuf));
@@ -740,22 +702,6 @@ int InitCore() {
   static_assert(kRealFftOrder == PART_LEN_SHIFT,
                 "FFT order と PART_LEN_SHIFT が不一致です");
 
-  return 0;
-}
-
-int ProcessFrame(const int16_t* x_frame,
-                      const int16_t* y_frame,
-                      int16_t* e_frame) {
-  int16_t x_block[FRAME_LEN];
-
-  // デフォルトインスタンスに対して Far をバッファし、既知遅延位置を取得
-  BufferFarFrame(x_frame);
-  FetchFarFrame(x_block, g_knownDelay);
-
-  // FRAME_LEN と PART_LEN を一致させたため、1ブロックで直接処理
-  if (ProcessBlock(x_block, y_frame, e_frame) == -1) {
-    return -1;
-  }
   return 0;
 }
 
@@ -1046,180 +992,30 @@ int16_t CalcSuppressionGain() {
   return g_supGain;
 }
 
-void BufferFarFrame(const int16_t* const x_frame) {
-  const int xLen = FRAME_LEN;
-  int writeLen = xLen, writePos = 0;
-
-  // 書き込み位置をリングバッファ境界で折り返すか確認
-  while (g_xBufWritePos + writeLen > FAR_BUF_LEN) {
-    // 折り返す前に残り領域へ書き込む
-    writeLen = FAR_BUF_LEN - g_xBufWritePos;
-    memcpy(g_xFrameBuf + g_xBufWritePos, x_frame + writePos, sizeof(int16_t) * writeLen);
-    g_xBufWritePos = 0;
-    writePos = writeLen;
-    writeLen = xLen - writeLen;
-  }
-
-  memcpy(g_xFrameBuf + g_xBufWritePos, x_frame + writePos, sizeof(int16_t) * writeLen);
-  g_xBufWritePos += writeLen;
-}
-
-void FetchFarFrame(int16_t* const x_frame, const int knownDelay) {
-  const int xLen = FRAME_LEN;
-  int readLen = xLen;
-  int readPos = 0;
-  int delayChange = knownDelay - g_lastKnownDelay;
-
-  g_xBufReadPos -= delayChange;
-
-  // 遅延調整で読取位置が範囲外なら補正
-  while (g_xBufReadPos < 0) {
-    g_xBufReadPos += FAR_BUF_LEN;
-  }
-  while (g_xBufReadPos > FAR_BUF_LEN - 1) {
-    g_xBufReadPos -= FAR_BUF_LEN;
-  }
-
-  g_lastKnownDelay = knownDelay;
-
-  // 読取位置も境界で折り返すか確認
-  while (g_xBufReadPos + readLen > FAR_BUF_LEN) {
-    // 折り返す前に残り領域から読み出す
-    readLen = FAR_BUF_LEN - g_xBufReadPos;
-    memcpy(x_frame + readPos, g_xFrameBuf + g_xBufReadPos, sizeof(int16_t) * readLen);
-    g_xBufReadPos = 0;
-    readPos = readLen;
-    readLen = xLen - readLen;
-  }
-  memcpy(x_frame + readPos, g_xFrameBuf + g_xBufReadPos, sizeof(int16_t) * readLen);
-  g_xBufReadPos += readLen;
-}
-
-
-static int EstimateBufDelay() {
-  short nSampFar = static_cast<short>(available_read(&g_mobileFarendBuf));
-  short nSampSndCard = kFixedMsInSndCardBuf * kSamplesPerMs16k;
-  short delayNew = nSampSndCard - nSampFar;
-
-  if (delayNew < FRAME_LEN) {
-    MoveReadPtr(&g_mobileFarendBuf, FRAME_LEN);
-    delayNew += FRAME_LEN;
-  }
-
-  g_mobileFiltDelay =
-      static_cast<short>(MAX(0, (8 * g_mobileFiltDelay + 2 * delayNew) / 10));
-
-  short diff = g_mobileFiltDelay - g_mobileKnownDelay;
-  if (diff > 224) {
-    if (g_mobileLastDelayDiff < 96) {
-      g_mobileTimeForDelayChange = 0;
-    } else {
-      g_mobileTimeForDelayChange++;
-    }
-  } else if (diff < 96 && g_mobileKnownDelay > 0) {
-    if (g_mobileLastDelayDiff > 224) {
-      g_mobileTimeForDelayChange = 0;
-    } else {
-      g_mobileTimeForDelayChange++;
-    }
-  } else {
-    g_mobileTimeForDelayChange = 0;
-  }
-  g_mobileLastDelayDiff = diff;
-
-  if (g_mobileTimeForDelayChange > 25) {
-    g_mobileKnownDelay = MAX(static_cast<int>(g_mobileFiltDelay) - (2 * FRAME_LEN), 0);
-  }
-  g_knownDelay = g_mobileKnownDelay;
-  return 0;
-}
-
 int32_t Init() {
-  g_mobileBufSizeStart = 0;
-  g_mobileKnownDelay = 0;
-  memset(g_mobileFarendOld, 0, sizeof(g_mobileFarendOld));
-  g_mobileInitFlag = 0;
-  g_mobileFiltDelay = 0;
-  g_mobileTimeForDelayChange = 0;
-  g_mobileECstartup = 0;
-  g_mobileLastDelayDiff = 0;
-  memset(&g_mobileFarendBuf, 0, sizeof(g_mobileFarendBuf));
-  InitBufferWith(&g_mobileFarendBuf, g_mobileFarendBufData, kBufSizeSamples, sizeof(int16_t));
-
-  if (InitCore() == -1) return -1;
-
-  InitBuffer(&g_mobileFarendBuf);
-
-  g_mobileInitFlag = kInitCheck;
-  g_mobileBufSizeStart = kStartupFrames;
-  g_mobileECstartup = 1;
-  g_mobileFiltDelay = 0;
-  g_mobileTimeForDelayChange = 0;
-  g_mobileKnownDelay = 0;
-  g_mobileLastDelayDiff = 0;
-
-  memset(g_mobileFarendOld, 0, sizeof(g_mobileFarendOld));
-
+  g_initFlag = 0;
+  if (InitCore() == -1) {
+    return -1;
+  }
+  g_initFlag = kInitCheck;
   return 0;
 }
 
-int32_t BufferFarend(const int16_t* farend) {
-  if (farend == NULL) return -1;
-  if (g_mobileInitFlag != kInitCheck) return -2;
-
-  WriteBuffer(&g_mobileFarendBuf, farend, FRAME_LEN);
-  return 0;
-}
-
-int32_t Process(const int16_t* nearend, int16_t* out) {
-  if (nearend == NULL) return -1;
-  if (out == NULL) return -2;
-  if (g_mobileInitFlag != kInitCheck) return -3;
-
-  const size_t nrOfSamples = FRAME_LEN;
-  const size_t nFrames = nrOfSamples / FRAME_LEN;  // 64/64=1（16kHz固定）
-
-  if (g_mobileECstartup) {
-    if (out != nearend) {
-      memcpy(out, nearend, sizeof(short) * nrOfSamples);
-    }
-
-    short nmbrOfFilledBuffers =
-        static_cast<short>(available_read(&g_mobileFarendBuf) / FRAME_LEN);
-    if (nmbrOfFilledBuffers >= g_mobileBufSizeStart) {
-      if (nmbrOfFilledBuffers > g_mobileBufSizeStart) {
-        MoveReadPtr(&g_mobileFarendBuf,
-                    static_cast<int>(available_read(&g_mobileFarendBuf)) -
-                        static_cast<int>(g_mobileBufSizeStart) * FRAME_LEN);
-      }
-      g_mobileECstartup = 0;
-    }
-  } else {
-    for (size_t i = 0; i < nFrames; i++) {
-      int16_t farend[FRAME_LEN];
-      int16_t* farend_ptr = nullptr;
-
-      short nmbrOfFilledBuffers =
-          static_cast<short>(available_read(&g_mobileFarendBuf) / FRAME_LEN);
-
-      if (nmbrOfFilledBuffers > 0) {
-        ReadBuffer(&g_mobileFarendBuf, reinterpret_cast<void**>(&farend_ptr),
-                   farend, FRAME_LEN);
-        memcpy(g_mobileFarendOld, farend_ptr, FRAME_LEN * sizeof(short));
-      } else {
-        memcpy(farend, g_mobileFarendOld, FRAME_LEN * sizeof(short));
-        farend_ptr = farend;
-      }
-
-      if (i == nFrames - 1) {
-        EstimateBufDelay();
-      }
-
-      if (ProcessFrame(farend_ptr, &nearend[FRAME_LEN * i], &out[FRAME_LEN * i]) == -1) {
-        return -1;
-      }
-    }
+int32_t Process(const int16_t* farend,
+                const int16_t* nearend,
+                int16_t* out) {
+  if (farend == NULL || nearend == NULL) {
+    return -1;
+  }
+  if (out == NULL) {
+    return -2;
+  }
+  if (g_initFlag != kInitCheck) {
+    return -3;
   }
 
+  if (ProcessBlock(farend, nearend, out) == -1) {
+    return -1;
+  }
   return 0;
 }

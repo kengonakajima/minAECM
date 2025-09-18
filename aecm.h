@@ -8,8 +8,9 @@
 
 
 int32_t Init();
-int32_t BufferFarend(const int16_t* farend);
-int32_t Process(const int16_t* nearend, int16_t* out);
+int32_t Process(const int16_t* farend,
+                const int16_t* nearend,
+                int16_t* out);
 
 // デバッグ向け制御（0:有効, 非0:バイパス）。
 void SetBypassWiener(int enable);
