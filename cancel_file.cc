@@ -55,9 +55,9 @@ int main(int argc, char** argv){
   processed.resize(N * AECM_BLOCK_SIZE);
   for (size_t n=0;n<N;n++){
     // Farend/render と Nearend/capture を同一ブロックで処理
-    Process(&x.samples[n * AECM_BLOCK_SIZE],
-            &y.samples[n * AECM_BLOCK_SIZE],
-            &processed[n * AECM_BLOCK_SIZE]);
+    ProcessBlock(&x.samples[n * AECM_BLOCK_SIZE],
+                 &y.samples[n * AECM_BLOCK_SIZE],
+                 &processed[n * AECM_BLOCK_SIZE]);
   }
   // Save processed signal as processed.wav (PCM16 mono 16kHz)
   const uint32_t sr = AECM_SAMPLE_RATE_HZ;

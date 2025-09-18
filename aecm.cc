@@ -24,7 +24,6 @@ struct ComplexInt16 {
 
 
 int g_firstVAD; // VAD 初回検出フラグ
-int g_initFlag; // 初期化完了を示すチェック値
 uint16_t g_xHistory[PART_LEN1 * MAX_DELAY]; // 遠端スペクトル履歴（遅延候補ごと）
 int g_xHistoryPos; // 遠端スペクトル履歴の書き込みインデックス
 
@@ -70,9 +69,6 @@ int16_t g_startupState; // 起動フェーズの状態
 int16_t g_mseChannelCount; // MSE 判定でのチャネル更新回数
 int16_t g_supGain; // 現在の抑圧ゲイン（Q8）
 int16_t g_supGainOld; // 直前の抑圧ゲイン（Q8）
-
-
-constexpr int kInitCheck = 42;
 
 
 // 先行宣言（翻訳単位内のみで使用）。
@@ -993,29 +989,5 @@ int16_t CalcSuppressionGain() {
 }
 
 int32_t Init() {
-  g_initFlag = 0;
-  if (InitCore() == -1) {
-    return -1;
-  }
-  g_initFlag = kInitCheck;
-  return 0;
-}
-
-int32_t Process(const int16_t* farend,
-                const int16_t* nearend,
-                int16_t* out) {
-  if (farend == NULL || nearend == NULL) {
-    return -1;
-  }
-  if (out == NULL) {
-    return -2;
-  }
-  if (g_initFlag != kInitCheck) {
-    return -3;
-  }
-
-  if (ProcessBlock(farend, nearend, out) == -1) {
-    return -1;
-  }
-  return 0;
+  return InitCore();
 }

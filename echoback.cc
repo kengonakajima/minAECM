@@ -70,9 +70,9 @@ void process_available_blocks(State& s){
       std::memcpy(out_blk.data(), near_blk.data(), AECM_BLOCK_SIZE * sizeof(int16_t));
     } else {
       // AECM: Far/Near ブロックを同時に処理
-      Process(far_blk.data(),
-              near_blk.data(),
-              out_blk.data());
+      ProcessBlock(far_blk.data(),
+                   near_blk.data(),
+                   out_blk.data());
     }
 
     // ローカル・ループバック: 処理後の出力を蓄積して、次々回以降の far にする
