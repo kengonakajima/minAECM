@@ -225,12 +225,8 @@ int Init() {
 
   g_totCount = 0;
 
-  if (InitDelayEstimatorFarend() != 0) {
-    return -1;
-  }
-  if (InitDelayEstimator() != 0) {
-    return -1;
-  }
+  InitDelayEstimatorFarend();
+  InitDelayEstimator();
   // 遠端履歴をゼロ初期化
   memset(g_xHistory, 0, sizeof(uint16_t) * PART_LEN1 * MAX_DELAY);
   g_xHistoryPos = MAX_DELAY;

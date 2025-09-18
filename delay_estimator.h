@@ -93,11 +93,11 @@ int ProcessBinarySpectrum(uint32_t binary_near_spectrum);
 void MeanEstimator(int32_t new_value, int factor, int32_t* mean_value);
 
 // Initializes the singleton far-end delay estimator state.
-int InitDelayEstimatorFarend();
+void InitDelayEstimatorFarend();
 // Feeds a new far-end spectrum into the global delay estimator history.
 int AddFarSpectrum(const uint16_t* far_spectrum);
 // Initializes the singleton near-end delay estimator state.
-int InitDelayEstimator();
+void InitDelayEstimator();
 // Processes the latest near-end spectrum and returns the estimated delay.
 int DelayEstimatorProcess(const uint16_t* near_spectrum);
 

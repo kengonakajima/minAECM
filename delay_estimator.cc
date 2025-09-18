@@ -480,21 +480,15 @@ static uint32_t BinarySpectrum(const uint16_t* spectrum,
   return out;
 }
 
-int InitDelayEstimatorFarend() {
+void InitDelayEstimatorFarend() {
   InitBinaryDelayEstimatorFarend();
 
   g_delay_farend.spectrum_size = PART_LEN1;
   memset(g_delay_farend.mean_far_spectrum, 0, sizeof(g_delay_farend.mean_far_spectrum));
   g_delay_farend.far_spectrum_initialized = 0;
-
-  return 0;
 }
 
 int AddFarSpectrum(const uint16_t* far_spectrum) {
-  if (far_spectrum == NULL) {
-    return -1;
-  }
-
   const uint32_t binary_spectrum = BinarySpectrum(
       far_spectrum, g_delay_farend.mean_far_spectrum,
       &(g_delay_farend.far_spectrum_initialized));
@@ -503,21 +497,15 @@ int AddFarSpectrum(const uint16_t* far_spectrum) {
   return 0;
 }
 
-int InitDelayEstimator() {
+void InitDelayEstimator() {
   InitBinaryDelayEstimator();
 
   g_delay_instance.spectrum_size = PART_LEN1;
   memset(g_delay_instance.mean_near_spectrum, 0, sizeof(g_delay_instance.mean_near_spectrum));
   g_delay_instance.near_spectrum_initialized = 0;
-
-  return 0;
 }
 
 int DelayEstimatorProcess(const uint16_t* near_spectrum) {
-  if (near_spectrum == NULL) {
-    return -1;
-  }
-
   const uint32_t binary_spectrum = BinarySpectrum( near_spectrum, g_delay_instance.mean_near_spectrum, &(g_delay_instance.near_spectrum_initialized));
 
   return ProcessBinarySpectrum(binary_spectrum);
