@@ -99,38 +99,6 @@ void SetBypassNlp(int enable) {
   g_bypass_nlp = (enable != 0);
 }
 
-void InverseFFTAndWindow(int16_t* fft,
-                         ComplexInt16* efw,
-                         int16_t* current_block,
-                         int16_t* overlap_block) {
-  // `efw` の内容を `fft` に移した後の逆 FFT 出力バッファとして再利用
-  // Overlap バッファへの反映は呼び出し側で行う。
-  int16_t* ifft_out = (int16_t*)efw;
-
-  // 合成処理
-  for (int i = 1, j = 2; i < PART_LEN; i += 1, j += 2) {
-    fft[j] = efw[i].real;
-    fft[j + 1] = -efw[i].imag;
-  }
-  fft[0] = efw[0].real;
-  fft[1] = -efw[0].imag;
-
-  fft[PART_LEN2] = efw[PART_LEN].real;
-  fft[PART_LEN2 + 1] = -efw[PART_LEN].imag;
-
-  // 逆 FFT を実行し、次ブロックでのスケール用に outCFFT を保持。
-  int outCFFT = RealInverseFFT(fft, ifft_out);
-  for (int i = 0; i < PART_LEN; i++) {
-    ifft_out[i] = (int16_t)MUL_16_16_RSFT_WITH_ROUND(ifft_out[i], kSqrtHanning[i], 14);
-    // 固定Q=0のため、出力シフトは outCFFT のみを考慮
-    int32_t tmp32no1 = SHIFT_W32((int32_t)ifft_out[i], outCFFT);
-    current_block[i] = (int16_t)SAT(WORD16_MAX, tmp32no1, WORD16_MIN);
-
-    tmp32no1 = (ifft_out[PART_LEN + i] * kSqrtHanning[PART_LEN - i]) >> 14;
-    tmp32no1 = SHIFT_W32(tmp32no1, outCFFT);
-    overlap_block[i] = (int16_t)SAT(WORD16_MAX, tmp32no1, WORD16_MIN);
-  }
-}
 
 void TimeToFrequencyDomain(const int16_t* time_signal,
                            ComplexInt16* freq_signal,
