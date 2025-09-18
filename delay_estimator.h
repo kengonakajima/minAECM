@@ -3,7 +3,7 @@
 
  
 
-static const int32_t kMaxBitCountsQ9 = (32 << 9);  // 32 matching bits in Q9.
+static const int32_t kMaxBitCountsQ9 = (32 << 9);  // Q9表現での一致ビット数（最大32）。
 
 typedef struct {
   // 固定長履歴（MAX_DELAY固定）。
@@ -31,7 +31,7 @@ typedef struct {
   float histogram[MAX_DELAY + 1];
   float last_delay_histogram;
 
-  // Far-end history（外部のFarendに紐付け）。
+  // 遠端履歴（外部 Farend 構造体へのポインタ）。
   BinaryDelayEstimatorFarend* farend;
 } BinaryDelayEstimator;
 
@@ -53,47 +53,47 @@ typedef struct {
 
 // 動的確保APIは削除（固定長・単一インスタンス前提）。
 
-// Initializes the delay estimation far-end state.
+// 遅延推定器の遠端状態を初期化する。
 void InitBinaryDelayEstimatorFarend();
 
 
 
-// Adds the far-end binary spectrum to the internal history buffer.
+// 遠端の2値スペクトルを内部履歴バッファへ追加する。
 void AddBinaryFarSpectrum(uint32_t binary_far_spectrum);
 
 
-// Initializes the near-end binary delay estimator state.
+// 近端側の2値遅延推定器状態を初期化する。
 void InitBinaryDelayEstimator();
 
 
 
-// Processes a near-end binary spectrum and returns the current delay estimate.
-// Return value:
-//    - delay                 :  >= 0 - Calculated delay value.
-//                              -2    - Insufficient data for estimation.
+// 近端の2値スペクトルを処理し、現在の遅延推定値を返す。
+// 戻り値:
+//    - delay                 :  0以上  - 計算された遅延値。
+//                              -2    - 推定に十分なデータがない。
 int ProcessBinarySpectrum(uint32_t binary_near_spectrum);
 
 
-// Updates the `mean_value` recursively with a step size of 2^-`factor`. This
-// function is used internally in the Binary Delay Estimator as well as the
-// Fixed point wrapper.
+// `factor` で指定した 2^-factor のステップで `mean_value` を再帰的に更新する。
+// バイナリ遅延推定器および固定小数点ラッパで内部的に使用される関数。
+
 //
-// Inputs:
-//    - new_value             : The new value the mean should be updated with.
-//    - factor                : The step size, in number of right shifts.
+// 入力:
+//    - new_value             : 平均値を更新するための新しい値。
+//    - factor                : 右シフト回数で表すステップ幅。
 //
-// Input/Output:
-//    - mean_value            : Pointer to the mean value.
+// 入出力:
+//    - mean_value            : 平均値へのポインタ。
 //
 void MeanEstimator(int32_t new_value, int factor, int32_t* mean_value);
 
-// Initializes the singleton far-end delay estimator state.
+// 遠端側の単一インスタンス遅延推定器状態を初期化する。
 void InitDelayEstimatorFarend();
-// Feeds a new far-end spectrum into the global delay estimator history.
+// 新しい遠端スペクトルを遅延推定器のグローバル履歴へ投入する。
 void AddFarSpectrum(const uint16_t* far_spectrum);
-// Initializes the singleton near-end delay estimator state.
+// 近端側の単一インスタンス遅延推定器状態を初期化する。
 void InitDelayEstimator();
-// Processes the latest near-end spectrum and returns the estimated delay.
+// 最新の近端スペクトルを処理し、推定された遅延を返す。
 int DelayEstimatorProcess(const uint16_t* near_spectrum);
 
  
