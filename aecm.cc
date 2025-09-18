@@ -554,8 +554,8 @@ void CalcLinearEnergies(const uint16_t* X_mag,
   }
 }
 
-void StoreAdaptiveChannel(const uint16_t* X_mag,
-                           int32_t* S_mag) {
+// hAdapt16 → hStored にコピーして、新しい S_mag を計算
+void StoreAdaptiveChannel(const uint16_t* X_mag, int32_t* S_mag) {
   // 起動中は毎ブロック保存チャネルを更新
   memcpy(g_hStored, g_hAdapt16, sizeof(int16_t) * PART_LEN1);
   // 推定エコーを再計算
@@ -584,18 +584,6 @@ void ResetAdaptiveChannel() {
 }
 
 
-
-// AECM インスタンスを初期化する関数
-// 入力:
-//      - aecm            : Pointer to the Echo Suppression instance
-//      - samplingFreq   : Sampling Frequency
-//
-// 出力:
-//      - aecm            : Initialized instance
-//
-// 戻り値               :  0 - 成功
-//                        -1 - Error
-//
 int InitCore() {
   // 16kHz 固定
 
