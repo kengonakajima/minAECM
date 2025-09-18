@@ -95,7 +95,7 @@ void MeanEstimator(int32_t new_value, int factor, int32_t* mean_value);
 // Initializes the singleton far-end delay estimator state.
 void InitDelayEstimatorFarend();
 // Feeds a new far-end spectrum into the global delay estimator history.
-int AddFarSpectrum(const uint16_t* far_spectrum);
+void AddFarSpectrum(const uint16_t* far_spectrum);
 // Initializes the singleton near-end delay estimator state.
 void InitDelayEstimator();
 // Processes the latest near-end spectrum and returns the estimated delay.

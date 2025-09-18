@@ -488,13 +488,11 @@ void InitDelayEstimatorFarend() {
   g_delay_farend.far_spectrum_initialized = 0;
 }
 
-int AddFarSpectrum(const uint16_t* far_spectrum) {
+void AddFarSpectrum(const uint16_t* far_spectrum) {
   const uint32_t binary_spectrum = BinarySpectrum(
       far_spectrum, g_delay_farend.mean_far_spectrum,
       &(g_delay_farend.far_spectrum_initialized));
   AddBinaryFarSpectrum(binary_spectrum);
-
-  return 0;
 }
 
 void InitDelayEstimator() {

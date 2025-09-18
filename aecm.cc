@@ -484,9 +484,8 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     g_xHistoryPos = 0;
   }
   memcpy(&(g_xHistory[g_xHistoryPos * PART_LEN1]), X_mag, sizeof(uint16_t) * PART_LEN1);
-  if (AddFarSpectrum(X_mag) == -1) {
-    return -1;
-  }  
+  AddFarSpectrum(X_mag);
+
   int delay = DelayEstimatorProcess(Y_mag); // このdelayが4だったら4ブロック遅れ
   if (delay == -1) {
     return -1;
