@@ -17,12 +17,6 @@
 #define ALIGN8_END __attribute__((aligned(8)))
 #endif
 
-struct ComplexInt16 {
-  int16_t real;
-  int16_t imag;
-};
-
-
 int g_firstVAD; // VAD 初回検出フラグ
 uint16_t g_xHistory[PART_LEN1 * MAX_DELAY]; // 遠端スペクトル履歴（遅延候補ごと）
 int g_xHistoryPos; // 遠端スペクトル履歴の書き込みインデックス
@@ -105,26 +99,6 @@ void SetBypassNlp(int enable) {
   g_bypass_nlp = (enable != 0);
 }
 
-void WindowAndFFT(int16_t* fft,
-                  const int16_t* time_signal,
-                  ComplexInt16* freq_signal) {
-  // 信号に対して FFT を実行
-  for (int i = 0; i < PART_LEN; i++) {
-    // 時間領域信号に窓を掛け、変換配列 `fft` の実部へ格納
-    int16_t scaled_time_signal = time_signal[i];
-    fft[i] = (int16_t)((scaled_time_signal * kSqrtHanning[i]) >> 14);
-    scaled_time_signal = time_signal[i + PART_LEN];
-    fft[PART_LEN + i] = (int16_t)((scaled_time_signal * kSqrtHanning[PART_LEN - i]) >> 14);
-  }
-
-  // FFT を計算し、最初の PART_LEN 個の複素サンプルだけを保持
-  // さらに虚部の符号を反転させる。
-  RealForwardFFT(fft, (int16_t*)freq_signal);
-  for (int i = 0; i < PART_LEN; i++) {
-    freq_signal[i].imag = -freq_signal[i].imag;
-  }
-}
-
 void InverseFFTAndWindow(int16_t* fft,
                          ComplexInt16* efw,
                          int16_t* current_block,
@@ -164,7 +138,7 @@ void TimeToFrequencyDomain(const int16_t* time_signal,
                            uint32_t* freq_signal_sum_abs) {
   int16_t fft[PART_LEN4];
 
-  WindowAndFFT(fft, time_signal, freq_signal);
+  WindowAndFFT(fft, time_signal, freq_signal, PART_LEN, kSqrtHanning);
 
   // 実部と虚部を取り出し、各ビンの振幅を計算
   freq_signal[0].imag = 0;
@@ -556,7 +530,13 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   int16_t fft[PART_LEN4 + 2];
   int16_t time_current[PART_LEN];
   int16_t time_overlap[PART_LEN];
-  InverseFFTAndWindow(fft, E_freq, time_current, time_overlap);
+  InverseFFTAndWindow(fft,
+                      E_freq,
+                      PART_LEN,
+                      PART_LEN2,
+                      kSqrtHanning,
+                      time_current,
+                      time_overlap);
 
   for (int i = 0; i < PART_LEN; ++i) {
     int32_t tmp32 = (int32_t)time_current[i] + g_eOverlapBuf[i];

@@ -1,5 +1,17 @@
+#ifndef UTIL_H_
+#define UTIL_H_
+
 #include <stddef.h>
 #include <stdint.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef struct ComplexInt16 {
+  int16_t real;
+  int16_t imag;
+} ComplexInt16;
 
 #define WORD16_MAX 32767 // 16ビット整数の最大値
 #define WORD16_MIN -32768 // 16ビット整数の最小値
@@ -67,3 +79,23 @@ int RealInverseFFT(const int16_t* complex_data_in, int16_t* real_data_out); // �
 int ComplexFFT(int16_t vector[], int stages, int mode); // 複素数前方FFT
 int ComplexIFFT(int16_t vector[], int stages, int mode); // 複素数逆FFT
 void ComplexBitReverse(int16_t* __restrict complex_data, int stages); // ビット反転並べ替え
+
+void InverseFFTAndWindow(int16_t* fft,
+                         ComplexInt16* efw,
+                         int part_len,
+                         int part_len2,
+                         const int16_t* sqrt_hanning,
+                         int16_t* current_block,
+                         int16_t* overlap_block);
+
+void WindowAndFFT(int16_t* fft,
+                  const int16_t* time_signal,
+                  ComplexInt16* freq_signal,
+                  int part_len,
+                  const int16_t* sqrt_hanning);
+
+#ifdef __cplusplus
+}
+#endif
+
+#endif  // UTIL_H_

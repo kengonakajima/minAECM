@@ -632,3 +632,53 @@ int RealInverseFFT(const int16_t* complex_data_in,
 
   return result;
 }
+
+void InverseFFTAndWindow(int16_t* fft,
+                         ComplexInt16* efw,
+                         int part_len,
+                         int part_len2,
+                         const int16_t* sqrt_hanning,
+                         int16_t* current_block,
+                         int16_t* overlap_block) {
+  int16_t* ifft_out = reinterpret_cast<int16_t*>(efw);
+
+  for (int i = 1, j = 2; i < part_len; ++i, j += 2) {
+    fft[j] = efw[i].real;
+    fft[j + 1] = -efw[i].imag;
+  }
+  fft[0] = efw[0].real;
+  fft[1] = -efw[0].imag;
+
+  fft[part_len2] = efw[part_len].real;
+  fft[part_len2 + 1] = -efw[part_len].imag;
+
+  int outCFFT = RealInverseFFT(fft, ifft_out);
+  for (int i = 0; i < part_len; ++i) {
+    ifft_out[i] = static_cast<int16_t>(
+        MUL_16_16_RSFT_WITH_ROUND(ifft_out[i], sqrt_hanning[i], 14));
+    int32_t tmp32 = SHIFT_W32(static_cast<int32_t>(ifft_out[i]), outCFFT);
+    current_block[i] = static_cast<int16_t>(SAT(WORD16_MAX, tmp32, WORD16_MIN));
+
+    tmp32 = (ifft_out[part_len + i] * sqrt_hanning[part_len - i]) >> 14;
+    tmp32 = SHIFT_W32(tmp32, outCFFT);
+    overlap_block[i] = static_cast<int16_t>(SAT(WORD16_MAX, tmp32, WORD16_MIN));
+  }
+}
+
+void WindowAndFFT(int16_t* fft,
+                  const int16_t* time_signal,
+                  ComplexInt16* freq_signal,
+                  int part_len,
+                  const int16_t* sqrt_hanning) {
+  for (int i = 0; i < part_len; ++i) {
+    int16_t scaled = time_signal[i];
+    fft[i] = static_cast<int16_t>((scaled * sqrt_hanning[i]) >> 14);
+    scaled = time_signal[i + part_len];
+    fft[part_len + i] = static_cast<int16_t>((scaled * sqrt_hanning[part_len - i]) >> 14);
+  }
+
+  RealForwardFFT(fft, reinterpret_cast<int16_t*>(freq_signal));
+  for (int i = 0; i < part_len; ++i) {
+    freq_signal[i].imag = -freq_signal[i].imag;
+  }
+}
