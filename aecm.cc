@@ -127,8 +127,10 @@ void WindowAndFFT(int16_t* fft,
 
 void InverseFFTAndWindow(int16_t* fft,
                          ComplexInt16* efw,
-                         int16_t* output) {
+                         int16_t* current_block,
+                         int16_t* overlap_block) {
   // `efw` の内容を `fft` に移した後の逆 FFT 出力バッファとして再利用
+  // Overlap バッファへの反映は呼び出し側で行う。
   int16_t* ifft_out = (int16_t*)efw;
 
   // 合成処理
@@ -148,17 +150,12 @@ void InverseFFTAndWindow(int16_t* fft,
     ifft_out[i] = (int16_t)MUL_16_16_RSFT_WITH_ROUND(ifft_out[i], kSqrtHanning[i], 14);
     // 固定Q=0のため、出力シフトは outCFFT のみを考慮
     int32_t tmp32no1 = SHIFT_W32((int32_t)ifft_out[i], outCFFT);
-    output[i] = (int16_t)SAT(WORD16_MAX, tmp32no1 + g_eOverlapBuf[i], WORD16_MIN);
+    current_block[i] = (int16_t)SAT(WORD16_MAX, tmp32no1, WORD16_MIN);
 
     tmp32no1 = (ifft_out[PART_LEN + i] * kSqrtHanning[PART_LEN - i]) >> 14;
     tmp32no1 = SHIFT_W32(tmp32no1, outCFFT);
-    g_eOverlapBuf[i] = (int16_t)SAT(WORD16_MAX, tmp32no1, WORD16_MIN);
+    overlap_block[i] = (int16_t)SAT(WORD16_MAX, tmp32no1, WORD16_MIN);
   }
-
-  // 現ブロックの値を過去位置へコピーし、
-  // （`g_eOverlapBuf` のシフトは別処理で行う）
-  memcpy(g_xBuf, g_xBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
-  memcpy(g_yBuf, g_yBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
 }
 
 void TimeToFrequencyDomain(const int16_t* time_signal,
@@ -557,7 +554,19 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   }
 
   int16_t fft[PART_LEN4 + 2];
-  InverseFFTAndWindow(fft, E_freq, e_block);
+  int16_t time_current[PART_LEN];
+  int16_t time_overlap[PART_LEN];
+  InverseFFTAndWindow(fft, E_freq, time_current, time_overlap);
+
+  for (int i = 0; i < PART_LEN; ++i) {
+    int32_t tmp32 = (int32_t)time_current[i] + g_eOverlapBuf[i];
+    e_block[i] = (int16_t)SAT(WORD16_MAX, tmp32, WORD16_MIN);
+    g_eOverlapBuf[i] = time_overlap[i];
+  }
+
+  // 次ブロックで使用するため、最新フレームの後半を先頭へシフト
+  memcpy(g_xBuf, g_xBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
+  memcpy(g_yBuf, g_yBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
 
   {
     static int dbg_ss_counter = 0;
