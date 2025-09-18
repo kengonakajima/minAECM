@@ -107,11 +107,20 @@ int16_t g_mobileFarendBufData[kBufSizeSamples]; // 上記リングバッファ�
 // 先行宣言（翻訳単位内のみで使用）。
 void UpdateFarHistory(uint16_t* x_spectrum);
 const uint16_t* AlignedFarX(int delay);
-void CalcEnergies(const uint16_t* X_mag, uint32_t Y_energy, int32_t* S_mag);
+void CalcLinearEnergies(const uint16_t* X_mag,
+                        int32_t* S_mag,
+                        uint32_t* X_energy,
+                        uint32_t* S_energy_adapt,
+                        uint32_t* S_energy_stored);
 void UpdateChannel(const uint16_t* X_mag,
                    const uint16_t* const Y_mag,
                    int16_t mu,
                    int32_t* S_mag);
+int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain);
+int16_t AsymFilt(const int16_t filtOld,
+                 const int16_t inVal,
+                 const int16_t stepSizePos,
+                 const int16_t stepSizeNeg);
 int16_t CalcSuppressionGain();
 void BufferFarFrame(const int16_t* const x_frame);
 void FetchFarFrame(int16_t* const x_frame, int knownDelay);
@@ -278,7 +287,78 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   if (X_mag_aligned == NULL) return -1;
 
   // エネルギーの履歴（log |X|, log |Ŷ|）を更新して VAD/閾値に反映
-  CalcEnergies(X_mag_aligned, Y_mag_sum, S_mag);
+  {
+    uint32_t tmpFar = 0;
+    uint32_t tmpAdapt = 0;
+    uint32_t tmpStored = 0;
+    int16_t tmp16;
+    int16_t increase_max_shifts = 4;
+    int16_t decrease_max_shifts = 11;
+    int16_t increase_min_shifts = 11;
+    int16_t decrease_min_shifts = 3;
+
+    memmove(g_nearLogEnergy + 1, g_nearLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
+    g_nearLogEnergy[0] = LogOfEnergyInQ8(Y_mag_sum, g_dfaNoisyQDomain);
+
+    CalcLinearEnergies(X_mag_aligned, S_mag, &tmpFar, &tmpAdapt, &tmpStored);
+
+    memmove(g_echoAdaptLogEnergy + 1, g_echoAdaptLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
+    memmove(g_echoStoredLogEnergy + 1, g_echoStoredLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
+
+    g_farLogEnergy = LogOfEnergyInQ8(tmpFar, 0);
+    g_echoAdaptLogEnergy[0] = LogOfEnergyInQ8(tmpAdapt, RESOLUTION_CHANNEL16);
+    g_echoStoredLogEnergy[0] = LogOfEnergyInQ8(tmpStored, RESOLUTION_CHANNEL16);
+
+    if (g_farLogEnergy > FAR_ENERGY_MIN) {
+      if (g_startupState == 0) {
+        increase_max_shifts = 2;
+        decrease_min_shifts = 2;
+        increase_min_shifts = 8;
+      }
+
+      g_farEnergyMin = AsymFilt(g_farEnergyMin, g_farLogEnergy, increase_min_shifts, decrease_min_shifts);
+      g_farEnergyMax = AsymFilt(g_farEnergyMax, g_farLogEnergy, increase_max_shifts, decrease_max_shifts);
+      g_farEnergyMaxMin = g_farEnergyMax - g_farEnergyMin;
+
+      tmp16 = 2560 - g_farEnergyMin;
+      if (tmp16 > 0) {
+        tmp16 = static_cast<int16_t>((tmp16 * FAR_ENERGY_VAD_REGION) >> 9);
+      } else {
+        tmp16 = 0;
+      }
+      tmp16 += FAR_ENERGY_VAD_REGION;
+
+      if ((g_startupState == 0) | (g_vadUpdateCount > 1024)) {
+        g_farEnergyVAD = g_farEnergyMin + tmp16;
+      } else {
+        if (g_farEnergyVAD > g_farLogEnergy) {
+          g_farEnergyVAD += (g_farLogEnergy + tmp16 - g_farEnergyVAD) >> 6;
+          g_vadUpdateCount = 0;
+        } else {
+          g_vadUpdateCount++;
+        }
+      }
+      g_farEnergyMSE = g_farEnergyVAD + (1 << 8);
+    }
+
+    if (g_farLogEnergy > g_farEnergyVAD) {
+      if ((g_startupState == 0) | (g_farEnergyMaxMin > FAR_ENERGY_DIFF)) {
+        g_currentVADValue = 1;
+      }
+    } else {
+      g_currentVADValue = 0;
+    }
+    if (g_currentVADValue && g_firstVAD) {
+      g_firstVAD = 0;
+      if (g_echoAdaptLogEnergy[0] > g_nearLogEnergy[0]) {
+        for (int i = 0; i < PART_LEN1; i++) {
+          g_hAdapt16[i] >>= 3;
+        }
+        g_echoAdaptLogEnergy[0] -= (3 << 8);
+        g_firstVAD = 1;
+      }
+    }
+  }
 
   // 遠端エネルギーの変動に基づき NLMS のステップサイズ μ を算出
   int16_t mu = MU_MAX;
@@ -731,112 +811,6 @@ int16_t LogOfEnergyInQ8(uint32_t energy, int q_domain) {
     log_energy_q8 += ((31 - zeros) << 8) + frac - (q_domain << 8);
   }
   return log_energy_q8;
-}
-
-// 近端・遠端・推定エコーのエネルギーを対数で算出し、
-// エネルギー閾値（内部 VAD）も更新する。
-//
-// @param  X_mag        [in]    Pointer to farend spectrum magnitude.
-// @param  Y_energy     [in]    Near end energy for current block in
-//                              Q(aecm->dfaNoisyQDomain).
-// @param  S_mag        [out]   Estimated echo in Q(xfa_q+RESOLUTION_CHANNEL16).
-//
-void CalcEnergies(const uint16_t* X_mag,
-                       const uint32_t Y_energy,
-                       int32_t* S_mag) {
-  // ローカル変数
-  uint32_t tmpAdapt = 0; // 適応チャネル経由の線形エコーエネルギー
-  uint32_t tmpStored = 0; // 保存チャネル経由の線形エコーエネルギー
-  uint32_t tmpFar = 0; // 遠端信号の線形エネルギー
-
-  int16_t tmp16; // 閾値計算などで使う一時的な16ビット値
-  int16_t increase_max_shifts = 4; // 上限フィルタの増加時シフト量
-  int16_t decrease_max_shifts = 11; // 上限フィルタの減少時シフト量
-  int16_t increase_min_shifts = 11; // 下限フィルタの増加時シフト量
-  int16_t decrease_min_shifts = 3; // 下限フィルタの減少時シフト量
-
-  // 近端エネルギーの対数を求め、バッファへ格納
-
-  // バッファをシフト
-  memmove(g_nearLogEnergy + 1, g_nearLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
-
-  // 近端振幅積分の対数 (nearEner)
-  g_nearLogEnergy[0] = LogOfEnergyInQ8(Y_energy, g_dfaNoisyQDomain);
-
-  CalcLinearEnergies(X_mag, S_mag, &tmpFar, &tmpAdapt, &tmpStored);
-
-  // ログ履歴バッファをシフト
-  memmove(g_echoAdaptLogEnergy + 1, g_echoAdaptLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
-  memmove(g_echoStoredLogEnergy + 1, g_echoStoredLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
-
-  // 遅延後遠端エネルギーの対数
-  g_farLogEnergy = LogOfEnergyInQ8(tmpFar, 0);
-
-  // 適応チャネル経由推定エコーの対数エネルギー
-  g_echoAdaptLogEnergy[0] = LogOfEnergyInQ8(tmpAdapt, RESOLUTION_CHANNEL16);
-
-  // 保存チャネル経由推定エコーの対数エネルギー
-  g_echoStoredLogEnergy[0] = LogOfEnergyInQ8(tmpStored, RESOLUTION_CHANNEL16);
-
-  // 遠端エネルギー関連の閾値（最小・最大・VAD・MSE）を更新
-  if (g_farLogEnergy > FAR_ENERGY_MIN) {
-    if (g_startupState == 0) {
-      increase_max_shifts = 2;
-      decrease_min_shifts = 2;
-      increase_min_shifts = 8;
-    }
-
-    g_farEnergyMin = AsymFilt(g_farEnergyMin, g_farLogEnergy, increase_min_shifts, decrease_min_shifts);
-    g_farEnergyMax = AsymFilt(g_farEnergyMax, g_farLogEnergy, increase_max_shifts, decrease_max_shifts);
-    g_farEnergyMaxMin = (g_farEnergyMax - g_farEnergyMin);
-
-    // 可変 VAD 領域サイズを算出
-    tmp16 = 2560 - g_farEnergyMin;
-    if (tmp16 > 0) {
-      tmp16 = (int16_t)((tmp16 * FAR_ENERGY_VAD_REGION) >> 9);
-    } else {
-      tmp16 = 0;
-    }
-    tmp16 += FAR_ENERGY_VAD_REGION;
-
-    if ((g_startupState == 0) | (g_vadUpdateCount > 1024)) {
-      // 起動中または VAD 更新停止中
-      g_farEnergyVAD = g_farEnergyMin + tmp16;
-    } else {
-      if (g_farEnergyVAD > g_farLogEnergy) {
-        g_farEnergyVAD += (g_farLogEnergy + tmp16 - g_farEnergyVAD) >> 6;
-        g_vadUpdateCount = 0;
-      } else {
-        g_vadUpdateCount++;
-      }
-    }
-    // MSE 閾値を VAD より少し高く設定
-    g_farEnergyMSE = g_farEnergyVAD + (1 << 8);
-  }
-
-  // VAD 状態を更新
-  if (g_farLogEnergy > g_farEnergyVAD) {
-    if ((g_startupState == 0) | (g_farEnergyMaxMin > FAR_ENERGY_DIFF)) {
-      // 起動中、または入力音声レベルのダイナミクスが大きい
-      g_currentVADValue = 1;
-    }
-  } else {
-    g_currentVADValue = 0;
-  }
-  if ((g_currentVADValue) && (g_firstVAD)) {
-    g_firstVAD = 0;
-    if (g_echoAdaptLogEnergy[0] > g_nearLogEnergy[0]) {
-      // 推定エコーが近端信号より強い場合、
-      // 初期値が大きすぎたと判断し、
-      // チャネルを 1/8 にスケールダウンする。
-      for (int i = 0; i < PART_LEN1; i++) {
-        g_hAdapt16[i] >>= 3;
-      }
-      // 合わせて推定エコーのログ値も調整。
-      g_echoAdaptLogEnergy[0] -= (3 << 8);
-      g_firstVAD = 1;
-    }
-  }
 }
 
 // NLMS によるチャネル推定と保存判定。

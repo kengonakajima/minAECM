@@ -109,7 +109,7 @@ https://blog.csdn.net/qq_44085437/article/details/124494041
   - μ: NLMS のステップサイズ。`ProcessBlock()` 内で遠端エネルギーから算出。
   - τ: 推定遅延。`DelayEstimatorProcess` から得た値で `AlignedFarX()` を呼び、`X_mag` を整列します
     （aecm_core_c.cc:196-214）。
-  - |X|, |Y| などのパワー・ログ: `X_mag_sum`、`Y_mag_sum` や `CalcEnergies` 内のログ蓄積を参照
+  - |X|, |Y| などのパワー・ログ: `X_mag_sum`、`Y_mag_sum` から `ProcessBlock()` 内でログ蓄積を更新
     （aecm_core_c.cc:182-219, aecm_core.cc:328-435）。
 
   理論説明を補強したいなら、マイク信号の分解 y[n] = v[n] + s[n] に出てくる近端固有音 v[n] / V[k] を記号として追加
