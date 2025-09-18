@@ -73,11 +73,6 @@ int16_t g_supGainOld; // 直前の抑圧ゲイン（Q8）
 
 // 先行宣言（翻訳単位内のみで使用）。
 void UpdateFarHistory(uint16_t* x_spectrum);
-void CalcLinearEnergies(const uint16_t* X_mag,
-                        int32_t* S_mag,
-                        uint32_t* X_energy,
-                        uint32_t* S_energy_adapt,
-                        uint32_t* S_energy_stored);
 void UpdateChannel(const uint16_t* X_mag,
                    const uint16_t* const Y_mag,
                    int16_t mu,
@@ -268,7 +263,12 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     memmove(g_nearLogEnergy + 1, g_nearLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
     g_nearLogEnergy[0] = LogOfEnergyInQ8(Y_mag_sum, g_dfaNoisyQDomain);
 
-    CalcLinearEnergies(X_mag_aligned, S_mag, &tmpFar, &tmpAdapt, &tmpStored);
+    for (int i = 0; i < PART_LEN1; i++) {
+      S_mag[i] = MUL_16_U16(g_HStored[i], X_mag_aligned[i]);
+      tmpFar += (uint32_t)X_mag_aligned[i];
+      tmpAdapt += g_HAdapt16[i] * X_mag_aligned[i];
+      tmpStored += (uint32_t)S_mag[i];
+    }
 
     memmove(g_echoAdaptLogEnergy + 1, g_echoAdaptLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
     memmove(g_echoStoredLogEnergy + 1, g_echoStoredLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
@@ -617,21 +617,6 @@ void InitEchoPathCore(const int16_t* echo_path) {
   g_mseStoredOld = 1000;
   g_mseThreshold = WORD32_MAX;
   g_mseChannelCount = 0;
-}
-
-void CalcLinearEnergies(const uint16_t* X_mag,
-                         int32_t* S_mag,
-                         uint32_t* X_energy,
-                         uint32_t* S_energy_adapt,
-                         uint32_t* S_energy_stored) {
-  // 遅延後の遠端信号と推定エコーのエネルギーを取得（保存/適応チャネル双方）
-  // 
-  for (int i = 0; i < PART_LEN1; i++) {
-    S_mag[i] = MUL_16_U16(g_HStored[i], X_mag[i]);
-    (*X_energy) += (uint32_t)(X_mag[i]);
-    *S_energy_adapt += g_HAdapt16[i] * X_mag[i];
-    (*S_energy_stored) += (uint32_t)S_mag[i];
-  }
 }
 
 // H_adapt(Q15) → H_stored にコピーして、新しい S_mag を再計算
