@@ -602,9 +602,8 @@ void UpdateFarHistory(uint16_t* x_spectrum) {
   memcpy(&(g_xHistory[g_xHistoryPos * PART_LEN1]), x_spectrum, sizeof(uint16_t) * PART_LEN1);
 }
 
-// Create/Freeは廃止。InitCore()で内部状態を初期化する。
 
-void InitEchoPathCore(const int16_t* echo_path) {
+void InitEchoPath(const int16_t* echo_path) {
   // 保存チャネルをリセット
   memcpy(g_hStored, echo_path, sizeof(int16_t) * PART_LEN1);
   // 適応チャネルをリセット
@@ -665,7 +664,7 @@ void ResetAdaptiveChannel() {
 }
 
 
-int InitCore() {
+int Init() {
   // 16kHz 固定
   memset(g_xBuf, 0, sizeof(g_xBuf));
   memset(g_yBuf, 0, sizeof(g_yBuf));
@@ -694,7 +693,7 @@ int InitCore() {
   memset(g_echoStoredLogEnergy, 0, sizeof(g_echoStoredLogEnergy));
 
   // エコーチャネルを既定形状（16 kHz 固定）で初期化
-  InitEchoPathCore(kChannelStored16kHz);
+  InitEchoPath(kChannelStored16kHz);
 
   memset(g_sMagSmooth, 0, sizeof(g_sMagSmooth));
   memset(g_yMagSmooth, 0, sizeof(g_yMagSmooth));
@@ -731,8 +730,6 @@ int InitCore() {
 //      - stepSizePos   : Step size when we have a positive contribution.
 //      - stepSizeNeg   : Step size when we have a negative contribution.
 //
-// 出力:
-//
 // 戻り値: フィルタ適用後の値。
 //
 int16_t AsymFilt(const int16_t filtOld,
@@ -754,8 +751,6 @@ int16_t AsymFilt(const int16_t filtOld,
   return retVal;
 }
 
-// ExtractFractionPart(a, zeros)
-//
 // `a` の仮数部を、先頭ゼロ数 `zeros` を加味した Q8 の int16_t として返す。
 // ゼロ数との整合性チェックは行わない。
 // 
@@ -799,7 +794,6 @@ void UpdateChannel(const uint16_t* X_mag,
   if (mu) {
     for (int i = 0; i < PART_LEN1; i++) {
       // オーバーフロー防止のためチャネルと遠端の正規化量を算出
-      // 
       zerosCh = NormU32(g_hAdapt32[i]);
       zerosFar = NormU32((uint32_t)X_mag[i]);
       if (zerosCh + zerosFar > 31) {
@@ -811,7 +805,6 @@ void UpdateChannel(const uint16_t* X_mag,
         shiftChFar = 32 - zerosCh - zerosFar;
         // zerosCh==zerosFar==0 なら shiftChFar=32 となり、
         // 右シフト 32 は未定義なのでチェックする。
-        // 
         {
           uint32_t shifted = (shiftChFar >= 32)
                                   ? 0u
@@ -947,10 +940,6 @@ void UpdateChannel(const uint16_t* X_mag,
       g_mseAdaptOld = mseAdapt;
     }
   }
-  // チャネル保存/復元の判定ここまで
 }
 
 
-int32_t Init() {
-  return InitCore();
-}
