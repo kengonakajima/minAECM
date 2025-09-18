@@ -108,7 +108,6 @@ int16_t g_mobileFarendBufData[kBufSizeSamples]; // 上記リングバッファ�
 void UpdateFarHistory(uint16_t* x_spectrum);
 const uint16_t* AlignedFarX(int delay);
 void CalcEnergies(const uint16_t* X_mag, uint32_t Y_energy, int32_t* S_mag);
-int16_t CalcStepSize();
 void UpdateChannel(const uint16_t* X_mag,
                    const uint16_t* const Y_mag,
                    int16_t mu,
@@ -282,7 +281,22 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   CalcEnergies(X_mag_aligned, Y_mag_sum, S_mag);
 
   // 遠端エネルギーの変動に基づき NLMS のステップサイズ μ を算出
-  int16_t mu = CalcStepSize();
+  int16_t mu = MU_MAX;
+  if (!g_currentVADValue) {
+    mu = 0;
+  } else if (g_startupState > 0) {
+    if (g_farEnergyMin >= g_farEnergyMax) {
+      mu = MU_MIN;
+    } else {
+      int16_t mu_tmp16 = g_farLogEnergy - g_farEnergyMin;
+      int32_t mu_tmp32 = mu_tmp16 * MU_DIFF;
+      mu_tmp32 = DivW32W16(mu_tmp32, g_farEnergyMaxMin);
+      mu = static_cast<int16_t>(MU_MIN - 1 - mu_tmp32);
+    }
+    if (mu < MU_MAX) {
+      mu = MU_MAX;
+    }
+  }
 
   // 処理済みブロック数をインクリメント
   g_totCount++;
@@ -825,41 +839,9 @@ void CalcEnergies(const uint16_t* X_mag,
   }
 }
 
-// g_ 系の状態を基に NLMS のステップサイズ μ を決定する。
-// 戻り値は log2 系（2^-μ）のシフト量として扱い、遠端エネルギーや
-// スタートアップ状態に応じて自動調整される。
-int16_t CalcStepSize() {
-  int32_t tmp32;
-  int16_t tmp16;
-  int16_t mu = MU_MAX;
-
-  // ここでは NLMS 型チャネル推定で用いるステップサイズ μ を計算
-  // 
-  if (!g_currentVADValue) {
-    // 遠端エネルギーが低すぎる場合は更新しない
-    mu = 0;
-  } else if (g_startupState > 0) {
-    if (g_farEnergyMin >= g_farEnergyMax) {
-      mu = MU_MIN;
-    } else {
-      tmp16 = (g_farLogEnergy - g_farEnergyMin);
-      tmp32 = tmp16 * MU_DIFF;
-      tmp32 = DivW32W16(tmp32, g_farEnergyMaxMin);
-      mu = MU_MIN - 1 - (int16_t)(tmp32);
-      // -1 することで端数処理の代わりとし、若干大きめのステップにする
-      // （NLMS での丸め誤差を補う目的）
-    }
-    if (mu < MU_MAX) {
-      mu = MU_MAX;  // ステップサイズ 2^-MU_MAX に相当する上限
-    }
-  }
-
-  return mu;
-}
-
 // NLMS によるチャネル推定と保存判定。
 // X_mag: 遠端振幅スペクトル(Q0)、Y_mag: 近端振幅スペクトル(Q0)、
-// mu: CalcStepSize のシフト量、S_mag: 推定エコー（Q=RESOLUTION_CHANNEL16）。
+// mu: 上記で算出したシフト量、S_mag: 推定エコー（Q=RESOLUTION_CHANNEL16）。
 void UpdateChannel(const uint16_t* X_mag,
                               const uint16_t* const Y_mag,
                               const int16_t mu,

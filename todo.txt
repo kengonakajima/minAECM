@@ -106,7 +106,7 @@ https://blog.csdn.net/qq_44085437/article/details/124494041
     逆FFTの `e_block` と `g_aecm.eOverlapBuf` で時間領域の e[n] を生成します（aecm_core_c.cc:371-373）。
   - g[k]: サプレッション／NLP ゲイン。フレームスカラは `CalcSuppressionGain()` の戻り値 `gGain`
     （aecm_core_c.cc:221-232）、周波数ビンのマスクは `H_gain`（aecm_core_c.cc:233-373）。
-  - μ: NLMS のステップサイズ。`CalcStepSize()` で算出（aecm_core.cc:445-471）。
+  - μ: NLMS のステップサイズ。`ProcessBlock()` 内で遠端エネルギーから算出。
   - τ: 推定遅延。`DelayEstimatorProcess` から得た値で `AlignedFarX()` を呼び、`X_mag` を整列します
     （aecm_core_c.cc:196-214）。
   - |X|, |Y| などのパワー・ログ: `X_mag_sum`、`Y_mag_sum` や `CalcEnergies` 内のログ蓄積を参照
@@ -115,4 +115,3 @@ https://blog.csdn.net/qq_44085437/article/details/124494041
   理論説明を補強したいなら、マイク信号の分解 y[n] = v[n] + s[n] に出てくる近端固有音 v[n] / V[k] を記号として追加
   し、コードでは推定していない旨だけ注記すると分かりやすくなります。また振幅のみ扱っている Ŝ を本当に S と同一視す
   るか（必要なら複素推定を導入するか）も併せて説明で触れると、記号と実装の対応が明確に伝えられます。
-
