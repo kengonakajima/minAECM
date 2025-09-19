@@ -60,6 +60,7 @@
       g_farEnergyVAD <- g_farEnergyMin + offset,
     ただし起動完了後は `g_farEnergyVAD` を (g_farLogEnergy + offset) に 1/64 ステップで追随させ、1024 ブロック毎に固定更新する。
   - MSE 判定用しきい値: `g_farEnergyMSE = g_farEnergyVAD + 256`。
+    この値を上回るブロックのみが後段 (3.8 節) のチャネル比較対象となり、連続カウント `g_mseChannelCount` を進める。
   - VAD 判定
       g_currentVAD = true if (g_farLogEnergy > g_farEnergyVAD) and (g_startupState == 0 or g_farEnergyMax - g_farEnergyMin > FAR_ENERGY_DIFF),
       otherwise false.
@@ -68,7 +69,7 @@
 3.6 NLMS ステップサイズ μ
   - VAD=0 の場合: μ = 0 (学習停止)。
   - それ以外: μ_shift = MU_MIN - 1 - MU_DIFF * (L_far - g_farEnergyMin) / max(g_farEnergyMax - g_farEnergyMin, 1).
-    μ_shift が MU_MAX 未満なら MU_MAX にクリップ。
+    μ_shift が 1 未満なら 1 にクリップ。
     実際の NLMS ゲインは 2^{-μ_shift}。
 
 3.7 チャネル更新 (UpdateChannel)
@@ -155,7 +156,7 @@
 - FAR_ENERGY_MIN = 1025 (対数表現エネルギー下限)
 - FAR_ENERGY_DIFF = 929 (VAD 判定のレンジ条件)
 - FAR_ENERGY_VAD_REGION = 230 (VAD オフセット計算用)
-- MU_MAX = 1, MU_MIN = 10, MU_DIFF = 9 (NLMS シフト量)
+- MU_MIN = 10, MU_DIFF = 9 (NLMS シフト量。最大ステップは 2^-1 に固定)
 - CHANNEL_VAD = 16 (周波数ビン更新に必要な振幅)
 - MIN_MSE_COUNT = 20, MIN_MSE_DIFF = 29, MSE_RESOLUTION = 5 (チャネル比較条件)
 - SUPGAIN_ERROR_PARAM_A = 3072, B = 1536, D = 256 (Q8 ゲイン)
