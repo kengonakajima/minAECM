@@ -17,7 +17,7 @@
 #define ALIGN8_END __attribute__((aligned(8)))
 #endif
 
-bool g_firstVAD; // VAD 初回検出フラグ
+bool g_firstVAD; // VAD 初回検出フラグ。検出済みならtrue
 uint16_t g_xHistory[PART_LEN1 * MAX_DELAY]; // 遠端スペクトル履歴（遅延候補ごと）
 int g_xHistoryPos; // 遠端スペクトル履歴の書き込みインデックス
 
@@ -57,7 +57,7 @@ int16_t g_farEnergyMax; // 遠端エネルギーの最大値トラッカ
 int16_t g_farEnergyMaxMin; // 遠端エネルギーのレンジ指標
 int16_t g_farEnergyVAD; // 遠端 VAD 用エネルギーしきい値
 int16_t g_farEnergyMSE; // MSE 判定用遠端エネルギー
-bool g_currentVADValue; // 近端 VAD の現在フラグ
+bool g_currentVAD; // 近端 VAD の現在のフラグ。声があるならtrue
 int16_t g_vadUpdateCount; // VAD 関連の更新カウンタ
 
 int16_t g_startupState; // 起動フェーズの状態
@@ -253,7 +253,7 @@ void InitAecm() {
   g_farEnergyVAD = FAR_ENERGY_MIN;  // 開始直後の誤検出（音声とみなさない）を防ぐ
                                         // 
   g_farEnergyMSE = 0;
-  g_currentVADValue = false;
+  g_currentVAD = false;
   g_vadUpdateCount = 0;
   g_firstVAD = true;
 
@@ -385,7 +385,7 @@ void UpdateChannel(const uint16_t* X_mag,
 
 
   // チャネルを保存するか復元するかを判定
-  if ((g_startupState == 0) && g_currentVADValue) {
+  if ((g_startupState == 0) && g_currentVAD) {
     // 起動中は毎ブロックチャネルを保存し、
     // 推定エコーも再計算する
     StoreAdaptiveChannel(X_mag, S_mag);
@@ -565,12 +565,12 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
 
     if (g_farLogEnergy > g_farEnergyVAD) {
       if ((g_startupState == 0) | (g_farEnergyMaxMin > FAR_ENERGY_DIFF)) {
-        g_currentVADValue = true;
+        g_currentVAD = true;
       }
     } else {
-      g_currentVADValue = false;
+      g_currentVAD = false;
     }
-    if (g_currentVADValue && g_firstVAD) {
+    if (g_currentVAD && g_firstVAD) {
       g_firstVAD = false;
       if (g_echoAdaptLogEnergy[0] > g_nearLogEnergy[0]) {
         for (int i = 0; i < PART_LEN1; i++) {
@@ -584,7 +584,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
 
   // 遠端エネルギーの変動に基づき NLMS のステップサイズ μ を算出
   int16_t mu = MU_MAX;
-  if (!g_currentVADValue) {
+  if (!g_currentVAD) {
     mu = 0;
   } else if (g_startupState > 0) {
     if (g_farEnergyMin >= g_farEnergyMax) {
@@ -613,7 +613,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     int16_t tmp16no1;
     int16_t dE = 0;
 
-    if (!g_currentVADValue) {
+    if (!g_currentVAD) {
       supGain = 0;
     } else {
       tmp16no1 = (g_nearLogEnergy[0] - g_echoStoredLogEnergy[0] - ENERGY_DEV_OFFSET);

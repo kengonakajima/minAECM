@@ -61,7 +61,7 @@
     ただし起動完了後は `g_farEnergyVAD` を (g_farLogEnergy + offset) に 1/64 ステップで追随させ、1024 ブロック毎に固定更新する。
   - MSE 判定用しきい値: `g_farEnergyMSE = g_farEnergyVAD + 256`。
   - VAD 判定
-      g_currentVADValue = true if (g_farLogEnergy > g_farEnergyVAD) and (g_startupState == 0 or g_farEnergyMax - g_farEnergyMin > FAR_ENERGY_DIFF),
+      g_currentVAD = true if (g_farLogEnergy > g_farEnergyVAD) and (g_startupState == 0 or g_farEnergyMax - g_farEnergyMin > FAR_ENERGY_DIFF),
       otherwise false.
   - 初回 VAD (g_firstVAD) で `L_echoAdaptLogEnergy > L_near` の場合、適応チャネルを 1/8 に減衰し誤検出を抑制。
 
@@ -146,7 +146,7 @@
 - g_farEnergyMin, g_farEnergyMax: 遠端エネルギー範囲トラッカ
 - g_farEnergyVAD: VAD 用対数表現エネルギー閾値
 - g_farEnergyMSE: MSE 判定用対数表現エネルギー基準
-- g_currentVADValue: 遠端 VAD フラグ
+- g_currentVAD: 遠端 VAD フラグ
 - g_supGain: 抑圧ゲインチューニング値
 - G_mask[k]: 最終周波数マスク
 - E_freq[k]: 抑圧後スペクトル
