@@ -466,13 +466,14 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   memcpy(g_xBuf + PART_LEN, x_block, sizeof(int16_t) * PART_LEN);
   memcpy(g_yBuf + PART_LEN, y_block, sizeof(int16_t) * PART_LEN);
 
-  // 遠端信号 X(k) = FFT{x(n)} を算出し（|X| と Σ|X| を求める）
+  // Step 1. 遠端信号 X(k) = FFT{x(n)} を算出し（|X| と Σ|X| を求める）
   uint32_t X_mag_sum = 0;
   TimeToFrequencyDomain(g_xBuf, Y_freq, X_mag, &X_mag_sum);
 
-  // 近端信号 Y(k) = FFT{y(n)} を算出し（|Y| と Σ|Y| を求める）
+  // Step 2. 近端信号 Y(k) = FFT{y(n)} を算出し（|Y| と Σ|Y| を求める）
   uint32_t Y_mag_sum = 0;
   TimeToFrequencyDomain(g_yBuf, Y_freq, Y_mag, &Y_mag_sum);
+  
   g_dfaNoisyQDomainOld = g_dfaNoisyQDomain;
   g_dfaNoisyQDomain = 0;
 
@@ -484,9 +485,8 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     g_xHistoryPos = 0;
   }
   memcpy(&(g_xHistory[g_xHistoryPos * PART_LEN1]), X_mag, sizeof(uint16_t) * PART_LEN1);
-  AddFarSpectrum(X_mag); // 遅延推定のために、遠端信号を記録
 
-  int delay = DelayEstimatorProcess(Y_mag); // このdelayが4だったら4ブロック遅れ
+  int delay = DelayEstimatorProcess(Y_mag,X_mag); // このdelayが4だったら4ブロック遅れ
   if (delay == -1) {
     return -1;
   } else if (delay == -2) {

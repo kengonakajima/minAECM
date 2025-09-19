@@ -74,26 +74,11 @@ void InitBinaryDelayEstimator();
 int ProcessBinarySpectrum(uint32_t binary_near_spectrum);
 
 
-// `factor` で指定した 2^-factor のステップで `mean_value` を再帰的に更新する。
-// バイナリ遅延推定器および固定小数点ラッパで内部的に使用される関数。
-
-//
-// 入力:
-//    - new_value             : 平均値を更新するための新しい値。
-//    - factor                : 右シフト回数で表すステップ幅。
-//
-// 入出力:
-//    - mean_value            : 平均値へのポインタ。
-//
-void MeanEstimator(int32_t new_value, int factor, int32_t* mean_value);
-
 // 遠端側の単一インスタンス遅延推定器状態を初期化する。
 void InitDelayEstimatorFarend();
-// 新しい遠端スペクトルを遅延推定器のグローバル履歴へ投入する。
-void AddFarSpectrum(const uint16_t* far_spectrum);
 // 近端側の単一インスタンス遅延推定器状態を初期化する。
 void InitDelayEstimator();
 // 最新の近端スペクトルを処理し、推定された遅延を返す。
-int DelayEstimatorProcess(const uint16_t* near_spectrum);
+int DelayEstimatorProcess(const uint16_t* near_spectrum, const uint16_t* far_spectrum);
 
  

@@ -286,6 +286,20 @@ void InitBinaryDelayEstimator() {
 }
 
 
+void MeanEstimator(int32_t new_value,
+                   int factor,
+                   int32_t* mean_value) {
+  int32_t diff = new_value - *mean_value;
+
+  // mean_new = mean_value + ((new_value - mean_value) >> factor);
+  if (diff < 0) {
+    diff = -((-diff) >> factor);
+  } else {
+    diff = (diff >> factor);
+  }
+  *mean_value += diff;
+}
+
 
 int ProcessBinarySpectrum(uint32_t binary_near_spectrum) {
   BinaryDelayEstimator& estimator = g_delay_instance.binary_handle;
@@ -440,19 +454,6 @@ int ProcessBinarySpectrum(uint32_t binary_near_spectrum) {
 
 
 
-void MeanEstimator(int32_t new_value,
-                   int factor,
-                   int32_t* mean_value) {
-  int32_t diff = new_value - *mean_value;
-
-  // mean_new = mean_value + ((new_value - mean_value) >> factor);
-  if (diff < 0) {
-    diff = -((-diff) >> factor);
-  } else {
-    diff = (diff >> factor);
-  }
-  *mean_value += diff;
-}
 
 static uint32_t BinarySpectrum(const uint16_t* spectrum,
                                SpectrumType* threshold_spectrum,
@@ -500,8 +501,8 @@ void InitDelayEstimator() {
   g_delay_instance.near_spectrum_initialized = 0;
 }
 
-int DelayEstimatorProcess(const uint16_t* near_spectrum) {
+int DelayEstimatorProcess(const uint16_t* near_spectrum, const uint16_t* far_spectrum) {
+  AddFarSpectrum(far_spectrum);
   const uint32_t binary_spectrum = BinarySpectrum( near_spectrum, g_delay_instance.mean_near_spectrum, &(g_delay_instance.near_spectrum_initialized));
-
   return ProcessBinarySpectrum(binary_spectrum);
 }
