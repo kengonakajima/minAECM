@@ -17,7 +17,7 @@
 #define ALIGN8_END __attribute__((aligned(8)))
 #endif
 
-int g_firstVAD; // VAD 初回検出フラグ
+bool g_firstVAD; // VAD 初回検出フラグ
 uint16_t g_xHistory[PART_LEN1 * MAX_DELAY]; // 遠端スペクトル履歴（遅延候補ごと）
 int g_xHistoryPos; // 遠端スペクトル履歴の書き込みインデックス
 
@@ -255,7 +255,7 @@ void InitAecm() {
   g_farEnergyMSE = 0;
   g_currentVADValue = false;
   g_vadUpdateCount = 0;
-  g_firstVAD = 1;
+  g_firstVAD = true;
 
   g_startupState = 0;
   g_supGain = SUPGAIN_DEFAULT;
@@ -571,13 +571,13 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       g_currentVADValue = false;
     }
     if (g_currentVADValue && g_firstVAD) {
-      g_firstVAD = 0;
+      g_firstVAD = false;
       if (g_echoAdaptLogEnergy[0] > g_nearLogEnergy[0]) {
         for (int i = 0; i < PART_LEN1; i++) {
           g_HAdapt16[i] >>= 3;
         }
         g_echoAdaptLogEnergy[0] -= (3 << 8);
-        g_firstVAD = 1;
+        g_firstVAD = true;
       }
     }
   }
