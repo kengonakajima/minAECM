@@ -484,7 +484,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     g_xHistoryPos = 0;
   }
   memcpy(&(g_xHistory[g_xHistoryPos * PART_LEN1]), X_mag, sizeof(uint16_t) * PART_LEN1);
-  AddFarSpectrum(X_mag);
+  AddFarSpectrum(X_mag); // 遅延推定のために、遠端信号を記録
 
   int delay = DelayEstimatorProcess(Y_mag); // このdelayが4だったら4ブロック遅れ
   if (delay == -1) {

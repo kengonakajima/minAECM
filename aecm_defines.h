@@ -12,7 +12,7 @@
 #define PART_LEN2 (PART_LEN << 1) /* パーティション長の 2 倍 */
 #define PART_LEN4 (PART_LEN << 2) /* パーティション長の 4 倍 */
 #define FAR_BUF_LEN PART_LEN4     /* 遠端バッファの長さ */
-#define MAX_DELAY 100
+#define MAX_DELAY 100 // 推定可能な最大の遅延。単位はブロック
 
 /* アプリ統合向けの公開定数 */
 #define AECM_SAMPLE_RATE_HZ 16000
@@ -23,7 +23,7 @@
 #define CONV_LEN2 (CONV_LEN << 1) /* 起動時に使用する 2 倍長 */
 
 /* エネルギー関連の定数 */
-#define MAX_LOG_LEN 64            /* ログエネルギー履歴の長さ */
+#define MAX_LOG_LEN 64            /* 対数エネルギー履歴の長さ */
 #define FAR_ENERGY_MIN 1025       /* 遠端エネルギーの下限（少なくとも 2） */
 #define FAR_ENERGY_DIFF 929       /* 最大値と最小値の許容差 */
 #define ENERGY_DEV_OFFSET 0       /* エネルギー誤差のオフセット（Q8） */
