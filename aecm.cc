@@ -486,7 +486,8 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   }
   memcpy(&(g_xHistory[g_xHistoryPos * PART_LEN1]), X_mag, sizeof(uint16_t) * PART_LEN1);
 
-  int delay = DelayEstimatorProcess(Y_mag,X_mag); // このdelayが4だったら4ブロック遅れ
+  // Step 3. 2値スペクトル履歴からブロック単位の遅延を推定する。
+  int delay = DelayEstimatorProcess(Y_mag,X_mag);
   if (delay == -1) {
     return -1;
   } else if (delay == -2) {
