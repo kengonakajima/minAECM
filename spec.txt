@@ -1,0 +1,171 @@
+== 1. 概要 ==
+本ドキュメントは `ProcessBlock` を中心とした AECM (Acoustic Echo Cancellation Module) の現行実装仕様を整理したものである。16 kHz サンプリング、ブロック長 N = 64 サンプル固定のフレームワークに基づき、遠端信号 x(n) と近端信号 y(n) からエコー抑圧出力 e(n) を生成する。処理の主な構成要素は以下の通りである。
+  (1) 周波数領域でのフレーム化と遅延推定
+  (2) 対数表現エネルギー履歴を用いた遠端 VAD と閾値制御
+  (3) 片方向収束制約を持つ NLMS チャネル推定
+  (4) MSE ベースのチャネル保存・復元ロジック
+  (5) 抑圧ゲイン制御と Wiener+NLP マスクによるスペクトル減衰
+  (6) IFFT とオーバーラップアドによる時間領域復元
+
+== 2. 信号モデルと主要パラメータ ==
+- サンプリング周波数: Fs = 16 kHz (`AECM_SAMPLE_RATE_HZ`)
+- ブロック長: N = 64 (`FRAME_LEN = PART_LEN`)
+- FFT ユニークビン数: N1 = N + 1 = 65 (`PART_LEN1`)
+- 遅延バッファ長: MAX_DELAY = 100 ブロック
+- ブロック時刻 m における遠端フレーム: x_m[n], 0 <= n < N
+- ブロック時刻 m における近端フレーム: y_m[n]
+- 出力: e_m[n]
+- 周波数領域表現: X_m[k], Y_m[k] (実数部と虚数部を持つ複素スペクトル)
+- 振幅スペクトル: |X_m[k]|, |Y_m[k]| (以下 X_mag[k], Y_mag[k])
+- 推定エコー振幅: S_adapt[k], S_stored[k]
+- 対数表現エネルギー: L_far, L_near, L_echo_adapt[i], L_echo_stored[i]
+
+== 3. 処理フロー ==
+3.1 ブロック入力とバッファ更新
+  - 近端・遠端のリングバッファ `g_xBuf`, `g_yBuf` に N サンプルずつ追記し、1 ブロック分のシフトを行う。
+
+3.2 周波数変換 (TimeToFrequencyDomain)
+  - 遠端/近端双方について √ハニング窓を適用し FFT を実行。
+  - 各ビンの振幅と総和を算出:
+      E_X = sum_{k=0}^{N1-1} |X_mag[k]|,
+      E_Y = sum_{k=0}^{N1-1} |Y_mag[k]|.
+
+3.3 遅延推定 (DelayEstimatorProcess)
+  - 2値スペクトル法により周波数ドメインで遅延 d を推定 (単位: ブロック)。
+  - 遠端振幅履歴 `g_xHistory` から d ブロック分戻った |X| を `X_mag_aligned` として読み出す。
+  - d = -2 (-1) の場合は 0 (エラー) として扱う。
+
+3.4 対数表現エネルギー更新
+  - `LogOfEnergyInQ8` により Q8 固定小数で対数表現エネルギーを更新。内部的には
+      L_x = L_base + 256 * (log2(E_X) - q_x) + frac(E_X)
+    の形で、32bit 整数から指数部と仮数部を抽出している。
+  - 近端履歴: `g_nearLogEnergy[0] <- L_near = LogOfEnergyInQ8(E_Y, q_y)`。
+  - 適応・保存チャネル出力エネルギー
+      E_S_adapt = sum_{k} g_HAdapt16[k] * X_mag_aligned[k],
+      E_S_stored = sum_{k} S_mag[k],
+    から `g_echoAdaptLogEnergy[0]`, `g_echoStoredLogEnergy[0]` を更新。
+  - 遠端対数表現エネルギー最新値: `g_farLogEnergy <- LogOfEnergyInQ8(sum_k X_mag_aligned[k], 0)`。
+
+3.5 遠端エネルギー平滑化と VAD 閾値
+  - 非対称 IIR フィルタ (AsymFilt) により
+      g_farEnergyMin <- AsymFilt(g_farEnergyMin, L_far, a_min, b_min),
+      g_farEnergyMax <- AsymFilt(g_farEnergyMax, L_far, a_max, b_max)
+    を更新。AsymFilt は
+      AsymFilt(z, x, a, b) = z - (z - x)/2^b  (z > x),
+                              z + (x - z)/2^a  (z <= x)
+    で定義され、上昇と下降で時間定数が異なる。
+  - 閾値候補
+      Δ = max(0, 2560 - g_farEnergyMin),
+      offset = FAR_ENERGY_VAD_REGION + (Δ * FAR_ENERGY_VAD_REGION) / 512,
+      g_farEnergyVAD <- g_farEnergyMin + offset,
+    ただし起動完了後は `g_farEnergyVAD` を (g_farLogEnergy + offset) に 1/64 ステップで追随させ、1024 ブロック毎に固定更新する。
+  - MSE 判定用しきい値: `g_farEnergyMSE = g_farEnergyVAD + 256`。
+  - VAD 判定
+      g_currentVADValue = true if (g_farLogEnergy > g_farEnergyVAD) and (g_startupState == 0 or g_farEnergyMax - g_farEnergyMin > FAR_ENERGY_DIFF),
+      otherwise false.
+  - 初回 VAD (g_firstVAD) で `L_echoAdaptLogEnergy > L_near` の場合、適応チャネルを 1/8 に減衰し誤検出を抑制。
+
+3.6 NLMS ステップサイズ μ
+  - VAD=0 の場合: μ = 0 (学習停止)。
+  - それ以外: μ_shift = MU_MIN - 1 - MU_DIFF * (L_far - g_farEnergyMin) / max(g_farEnergyMax - g_farEnergyMin, 1).
+    μ_shift が MU_MAX 未満なら MU_MAX にクリップ。
+    実際の NLMS ゲインは 2^{-μ_shift}。
+
+3.7 チャネル更新 (UpdateChannel)
+  - 各ビンについて残差
+      r[k] = Y_mag[k] - g_HAdapt[k] * X_mag_aligned[k]
+    を推定し、|X| が `CHANNEL_VAD` を上回る場合のみ NLMS 更新を実施。
+  - 固定小数点 Q ドメインに応じてシフトしながら
+      g_HAdapt32[k] <- max(0, g_HAdapt32[k] + ΔH[k])
+    を実施 (負の利得は禁止)。
+  - `g_HAdapt16[k]` は 16bit へ射影され、`S_mag[k] = g_HStored[k] * X_mag_aligned[k]` を並行計算。
+
+3.8 チャネル保存・復元ロジック
+  - 起動フェーズ (g_startupState == 0) かつ VAD=1 では、毎ブロック `StoreAdaptiveChannel` を実行。
+  - それ以外では `g_farLogEnergy >= g_farEnergyMSE` のブロックを数え `g_mseChannelCount` に蓄積。閾値に達すると過去 `MIN_MSE_COUNT` = 20 個分の対数表現エネルギー差から
+      mseStored = sum_i |g_echoStoredLogEnergy[i] - g_nearLogEnergy[i]|,
+      mseAdapt  = sum_i |g_echoAdaptLogEnergy[i] - g_nearLogEnergy[i]|
+    を算出。
+  - 条件
+      mseStored * 2^{-MSE_RESOLUTION} < MIN_MSE_DIFF * mseAdapt
+      かつ過去値も同方向
+    を満たすと `ResetAdaptiveChannel`。
+  - 逆に
+      MIN_MSE_DIFF * mseStored > mseAdapt * 2^{MSE_RESOLUTION}
+      かつ mseAdapt, 過去値 < g_mseThreshold
+    の場合は `StoreAdaptiveChannel` で保存側を更新し、`g_mseThreshold` を指数的に追随させる。
+
+3.9 抑圧ゲイン制御 (supGain)
+  - VAD=0: G_gain = 0。
+  - VAD=1 の場合、エネルギー差
+      dE = |g_nearLogEnergy[0] - g_echoStoredLogEnergy[0] - ENERGY_DEV_OFFSET|
+    に基づき
+      if dE < SUPGAIN_EPC_DT:
+        supGain = A - (A - B) * dE / SUPGAIN_EPC_DT,
+      else if dE < ENERGY_DEV_TOL:
+        supGain = D + (B - D) * (ENERGY_DEV_TOL - dE)/(ENERGY_DEV_TOL - SUPGAIN_EPC_DT),
+      else:
+        supGain = D,
+    (A=SUPGAIN_ERROR_PARAM_A, B=SUPGAIN_ERROR_PARAM_B, D=SUPGAIN_ERROR_PARAM_D)。
+  - `g_supGain` は一次平滑: `g_supGain <- g_supGain + (supGain - g_supGain)/16`。
+  - 出力ゲイン: `G_gain = g_supGain`。
+
+3.10 周波数マスク生成 (Wiener + NLP)
+  - 推定エコーの平滑化: `g_sMagSmooth[k] <- g_sMagSmooth[k] + (S_mag[k] - g_sMagSmooth[k]) * 50 / 256`。
+  - 近端振幅の平滑化: `g_yMagSmooth[k] <- g_yMagSmooth[k] + (Y_mag[k] - g_yMagSmooth[k]) / 16` (Q ドメイン整合処理を含む)。
+  - ゲイン適用後の推定エコー: `S_gain[k] = G_gain * g_sMagSmooth[k]` (固定小数点で飽和処理)。
+  - 基本 Wiener マスク:
+      G0[k] = 1 - S_gain[k] / (g_yMagSmooth[k] + 0.5 * g_yMagSmooth[k]),
+    を固定小数点で近似し、[0,1] にクリップ。数値的には `S_gain` に 0.5*Y 畳み込みを加えて除算している。
+  - Bypass フラグが有効な場合は `G_mask[k] = 1`。
+  - `G_mask[k]` を平方してスムージング (|G|^2)。
+  - 予備帯域 (k = 4...24) の平均値 `avgG` を計算し、高域 (k >= 24) は `G_mask[k] = min(G_mask[k], avgG)` で制限。
+  - NLP 処理:
+      if G_mask[k] > 1 -> 1, if G_mask[k] < 0.2 -> 0。
+      活性ビン数 numPosCoef < 3 の場合、`nlpGain = 0` (全帯域ミュート)。
+      BypassNlp が有効なら `nlpGain = 1`。
+      最終ゲイン: `G_mask[k] <- G_mask[k] * nlpGain`。
+  - エコー抑圧スペクトル: `E_freq[k] = G_mask[k] * Y_freq[k]` (各複素成分に14bit 右シフト付き乗算)。
+
+3.11 IFFT とオーバーラップアド
+  - `InverseFFTAndWindow` で時間波形に戻し、保存済みオーバーラップ `g_eOverlapBuf` と加算。
+  - クリッピングを行い `e_block[n]` を確定。
+  - バッファ後処理として `g_xBuf`, `g_yBuf` を 1 ブロック分前倒しシフト。
+
+== 4. 記号・変数対応一覧 ==
+- x_m[n], y_m[n], e_m[n]: 入出力ブロック (`ProcessBlock` 引数 `x_block`, `y_block`, `e_block`)
+- X_mag[k], Y_mag[k]: `X_mag`, `Y_mag`
+- X_mag_aligned[k]: `X_mag_aligned`
+- S_mag[k]: `S_mag`
+- g_HAdapt32[k], g_HAdapt16[k]: 適応チャネル係数 (32bit, 16bit)
+- g_HStored[k]: 保存チャネル係数
+- L_far: `g_farLogEnergy`
+- L_near: `g_nearLogEnergy[0]`
+- L_echo_adapt[i]: `g_echoAdaptLogEnergy[i]`
+- L_echo_stored[i]: `g_echoStoredLogEnergy[i]`
+- g_farEnergyMin, g_farEnergyMax: 遠端エネルギー範囲トラッカ
+- g_farEnergyVAD: VAD 用対数表現エネルギー閾値
+- g_farEnergyMSE: MSE 判定用対数表現エネルギー基準
+- g_currentVADValue: 遠端 VAD フラグ
+- g_supGain: 抑圧ゲインチューニング値
+- G_mask[k]: 最終周波数マスク
+- E_freq[k]: 抑圧後スペクトル
+
+== 5. 主な定数 (aecm_defines.h) ==
+- FAR_ENERGY_MIN = 1025 (対数表現エネルギー下限)
+- FAR_ENERGY_DIFF = 929 (VAD 判定のレンジ条件)
+- FAR_ENERGY_VAD_REGION = 230 (VAD オフセット計算用)
+- MU_MAX = 1, MU_MIN = 10, MU_DIFF = 9 (NLMS シフト量)
+- CHANNEL_VAD = 16 (周波数ビン更新に必要な振幅)
+- MIN_MSE_COUNT = 20, MIN_MSE_DIFF = 29, MSE_RESOLUTION = 5 (チャネル比較条件)
+- SUPGAIN_ERROR_PARAM_A = 3072, B = 1536, D = 256 (Q8 ゲイン)
+- SUPGAIN_EPC_DT = 200, ENERGY_DEV_TOL = 400 (ゲイン制御しきい値)
+- NLP_COMP_LOW = 0.2 (Q14 値 3277), NLP_COMP_HIGH = 1.0 (16384)
+
+== 6. 起動シーケンス ==
+- 初回 512 ブロック (CONV_LEN = 512) までは `g_startupState` が 0、さらに 512 ブロック経過で 1、以降 2。
+- `g_startupState` が 0 の間はチャネル保存・VAD 更新が高速モードになる。
+
+== 7. デバッグ・運用備考 ==
+- `g_bypass_wiener`, `g_bypass_nlp` の有効化でマスクを固定 1 にできる。
+- 100 ブロック毎に抑圧量 (`Suppression`) と状態 (`AECM`) が `stderr` へ出力される。

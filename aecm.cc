@@ -57,7 +57,7 @@ int16_t g_farEnergyMax; // 遠端エネルギーの最大値トラッカ
 int16_t g_farEnergyMaxMin; // 遠端エネルギーのレンジ指標
 int16_t g_farEnergyVAD; // 遠端 VAD 用エネルギーしきい値
 int16_t g_farEnergyMSE; // MSE 判定用遠端エネルギー
-int g_currentVADValue; // 近端 VAD の現在フラグ
+bool g_currentVADValue; // 近端 VAD の現在フラグ
 int16_t g_vadUpdateCount; // VAD 関連の更新カウンタ
 
 int16_t g_startupState; // 起動フェーズの状態
@@ -253,7 +253,7 @@ void InitAecm() {
   g_farEnergyVAD = FAR_ENERGY_MIN;  // 開始直後の誤検出（音声とみなさない）を防ぐ
                                         // 
   g_farEnergyMSE = 0;
-  g_currentVADValue = 0;
+  g_currentVADValue = false;
   g_vadUpdateCount = 0;
   g_firstVAD = 1;
 
@@ -385,7 +385,7 @@ void UpdateChannel(const uint16_t* X_mag,
 
 
   // チャネルを保存するか復元するかを判定
-  if ((g_startupState == 0) & (g_currentVADValue)) {
+  if ((g_startupState == 0) && g_currentVADValue) {
     // 起動中は毎ブロックチャネルを保存し、
     // 推定エコーも再計算する
     StoreAdaptiveChannel(X_mag, S_mag);
@@ -501,7 +501,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   }
   const uint16_t* X_mag_aligned = &(g_xHistory[buffer_position * PART_LEN1]);
 
-  // エネルギーの履歴（log |X|, log |Ŷ|）を更新して VAD/閾値に反映
+  // エネルギーの対数値の履歴（log |X|, log |Ŷ|）を更新して VAD/閾値に反映
   {
     uint32_t tmpFar = 0;  // 遠端スペクトル|X(k)|の総和
     uint32_t tmpAdapt = 0;  // 適応チャネル出力|S_hat_adapt(k)|の総和
@@ -565,10 +565,10 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
 
     if (g_farLogEnergy > g_farEnergyVAD) {
       if ((g_startupState == 0) | (g_farEnergyMaxMin > FAR_ENERGY_DIFF)) {
-        g_currentVADValue = 1;
+        g_currentVADValue = true;
       }
     } else {
-      g_currentVADValue = 0;
+      g_currentVADValue = false;
     }
     if (g_currentVADValue && g_firstVAD) {
       g_firstVAD = 0;
