@@ -444,15 +444,9 @@ void UpdateChannel(const uint16_t* X_mag,
   }
 }
 
+// blockは64サンプルの時間領域データ。符号付き線形PCM -32768 ~ 32767
+// x_block: 遠端, y_block: 近端, e_block: キャンセル済みの残差信号
 int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_block) {
-  // 周波数領域バッファ（Y(k) の複素成分）
-  ComplexInt16 Y_freq[PART_LEN2];
-  // |X(k)|, |Y(k)| の絶対値スペクトル
-  uint16_t X_mag[PART_LEN1];
-  uint16_t Y_mag[PART_LEN1];
-  // |Ŝ(k)|: 予測エコー振幅（チャネル通過後）
-  int32_t S_mag[PART_LEN1];
-
   // スタートアップ状態を判定する。段階は次の 3 つ:
   // (0) 最初の CONV_LEN ブロック
   // (1) さらに CONV_LEN ブロック
@@ -462,12 +456,16 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     g_startupState = (g_totCount >= CONV_LEN) + (g_totCount >= CONV_LEN2);
   }
 
+  // 1. ブロック入力とバッファ更新 x: x_block y: y_block
   // 近端/遠端の時間領域フレームをバッファへ蓄える
   memcpy(g_xBuf + PART_LEN, x_block, sizeof(int16_t) * PART_LEN);
   memcpy(g_yBuf + PART_LEN, y_block, sizeof(int16_t) * PART_LEN);
 
-  // Step 1. 遠端信号 X(k) = FFT{x(n)} を算出し（|X| と Σ|X| を求める）
-  uint32_t X_mag_sum = 0;
+  // 2. 時間領域から周波数領域に変換. Y_freqは捨てる。
+  ComplexInt16 Y_freq[PART_LEN2]; // Y の周波数領域表現
+  uint16_t X_mag[PART_LEN1]; // |X| Xの絶対値スペクトル
+  uint16_t Y_mag[PART_LEN1]; // |Y| Yの絶対値スペクトル
+  uint32_t X_mag_sum = 0; // sum(|X|) 遠端のエネルギー
   TimeToFrequencyDomain(g_xBuf, Y_freq, X_mag, &X_mag_sum);
 
   // Step 2. 近端信号 Y(k) = FFT{y(n)} を算出し（|Y| と Σ|Y| を求める）
@@ -502,40 +500,40 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   const uint16_t* X_mag_aligned = &(g_xHistory[buffer_position * PART_LEN1]);
 
   // エネルギーの対数値の履歴（log |X|, log |Ŷ|）を更新して VAD/閾値に反映
-  {
-    uint32_t tmpFar = 0;  // 遠端スペクトル|X(k)|の総和
-    uint32_t tmpAdapt = 0;  // 適応チャネル出力|S_hat_adapt(k)|の総和
-    uint32_t tmpStored = 0;  // 保存チャネル出力|S_hat_stored(k)|の総和
-    int16_t tmp16;
-    int16_t increase_max_shifts = 4;
-    int16_t decrease_max_shifts = 11;
-    int16_t increase_min_shifts = 11;
-    int16_t decrease_min_shifts = 3;
+  uint32_t tmpFar = 0;  // 遠端スペクトル|X(k)|の総和
+  uint32_t tmpAdapt = 0;  // 適応チャネル出力|S_hat_adapt(k)|の総和
+  uint32_t tmpStored = 0;  // 保存チャネル出力|S_hat_stored(k)|の総和
+  int16_t tmp16;
+  int16_t increase_max_shifts = 4;
+  int16_t decrease_max_shifts = 11;
+  int16_t increase_min_shifts = 11;
+  int16_t decrease_min_shifts = 3;
 
-    // 近端の対数エネルギー履歴を後ろに1つずらす
-    memmove(g_nearLogEnergy + 1, g_nearLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
-    g_nearLogEnergy[0] = LogOfEnergyInQ8(Y_mag_sum, g_dfaNoisyQDomain);
+  // 近端の対数エネルギー履歴を後ろに1つずらす
+  memmove(g_nearLogEnergy + 1, g_nearLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
+  g_nearLogEnergy[0] = LogOfEnergyInQ8(Y_mag_sum, g_dfaNoisyQDomain);
 
-    for (int i = 0; i < PART_LEN1; i++) {
+  int32_t S_mag[PART_LEN1]; // |Ŝ(k)|: 予測エコー振幅（チャネル通過後）    
+  for (int i = 0; i < PART_LEN1; i++) {
       S_mag[i] = MUL_16_U16(g_HStored[i], X_mag_aligned[i]); // 推定エコー信号Sを計算
       tmpFar += (uint32_t)X_mag_aligned[i]; // 遠端エネルギー総和
       tmpAdapt += g_HAdapt16[i] * X_mag_aligned[i];  // 学習中チャネルによるエコーエネルギー
       tmpStored += (uint32_t)S_mag[i]; // S_magのエネルギー
-    }
+  }
 
-    // 対数エネルギー履歴バッファを後ろに1つずらす
-    memmove(g_echoAdaptLogEnergy + 1, g_echoAdaptLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
-    memmove(g_echoStoredLogEnergy + 1, g_echoStoredLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
+  // 対数エネルギー履歴バッファを後ろに1つずらす
+  memmove(g_echoAdaptLogEnergy + 1, g_echoAdaptLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
+  memmove(g_echoStoredLogEnergy + 1, g_echoStoredLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
 
-    g_farLogEnergy = LogOfEnergyInQ8(tmpFar, 0);
-    g_echoAdaptLogEnergy[0] = LogOfEnergyInQ8(tmpAdapt, RESOLUTION_CHANNEL16);
-    g_echoStoredLogEnergy[0] = LogOfEnergyInQ8(tmpStored, RESOLUTION_CHANNEL16);
+  g_farLogEnergy = LogOfEnergyInQ8(tmpFar, 0);
+  g_echoAdaptLogEnergy[0] = LogOfEnergyInQ8(tmpAdapt, RESOLUTION_CHANNEL16);
+  g_echoStoredLogEnergy[0] = LogOfEnergyInQ8(tmpStored, RESOLUTION_CHANNEL16);
 
-    if (g_farLogEnergy > FAR_ENERGY_MIN) {
+  if (g_farLogEnergy > FAR_ENERGY_MIN) {
       if (g_startupState == 0) {
-        increase_max_shifts = 2;
-        decrease_min_shifts = 2;
-        increase_min_shifts = 8;
+          increase_max_shifts = 2;
+          decrease_min_shifts = 2;
+          increase_min_shifts = 8;
       }
 
       g_farEnergyMin = AsymFilt(g_farEnergyMin, g_farLogEnergy, increase_min_shifts, decrease_min_shifts);
@@ -544,42 +542,41 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
 
       tmp16 = 2560 - g_farEnergyMin;
       if (tmp16 > 0) {
-        tmp16 = static_cast<int16_t>((tmp16 * FAR_ENERGY_VAD_REGION) >> 9);
+          tmp16 = static_cast<int16_t>((tmp16 * FAR_ENERGY_VAD_REGION) >> 9);
       } else {
-        tmp16 = 0;
+          tmp16 = 0;
       }
       tmp16 += FAR_ENERGY_VAD_REGION;
 
       if ((g_startupState == 0) | (g_vadUpdateCount > 1024)) {
-        g_farEnergyVAD = g_farEnergyMin + tmp16;
+          g_farEnergyVAD = g_farEnergyMin + tmp16;
       } else {
-        if (g_farEnergyVAD > g_farLogEnergy) {
-          g_farEnergyVAD += (g_farLogEnergy + tmp16 - g_farEnergyVAD) >> 6;
-          g_vadUpdateCount = 0;
-        } else {
-          g_vadUpdateCount++;
-        }
+          if (g_farEnergyVAD > g_farLogEnergy) {
+              g_farEnergyVAD += (g_farLogEnergy + tmp16 - g_farEnergyVAD) >> 6;
+              g_vadUpdateCount = 0;
+          } else {
+              g_vadUpdateCount++;
+          }
       }
       g_farEnergyMSE = g_farEnergyVAD + (1 << 8);
-    }
+  }
 
-    if (g_farLogEnergy > g_farEnergyVAD) {
+  if (g_farLogEnergy > g_farEnergyVAD) {
       if ((g_startupState == 0) | (g_farEnergyMaxMin > FAR_ENERGY_DIFF)) {
-        g_currentVAD = true;
+          g_currentVAD = true;
       }
-    } else {
+  } else {
       g_currentVAD = false;
-    }
-    if (g_currentVAD && g_firstVAD) {
+  }
+  if (g_currentVAD && g_firstVAD) {
       g_firstVAD = false;
       if (g_echoAdaptLogEnergy[0] > g_nearLogEnergy[0]) {
-        for (int i = 0; i < PART_LEN1; i++) {
-          g_HAdapt16[i] >>= 3;
-        }
-        g_echoAdaptLogEnergy[0] -= (3 << 8);
-        g_firstVAD = true;
+          for (int i = 0; i < PART_LEN1; i++) {
+              g_HAdapt16[i] >>= 3;
+          }
+          g_echoAdaptLogEnergy[0] -= (3 << 8);
+          g_firstVAD = true;
       }
-    }
   }
 
   // 遠端エネルギーの変動に基づき NLMS のステップサイズ μ を算出
@@ -606,53 +603,49 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   // ここからチャネル推定アルゴリズム。NLMS 派生で、上で計算した
   // 可変ステップ長を用いて H_adapt を更新する。
   UpdateChannel(X_mag_aligned, Y_mag, mu, S_mag);
-  int16_t G_gain;
-  {
-    int32_t tmp32no1;
-    int16_t supGain = SUPGAIN_DEFAULT;
-    int16_t tmp16no1;
-    int16_t dE = 0;
+  int32_t tmp32no1;
+  int16_t supGain = SUPGAIN_DEFAULT;
+  int16_t tmp16no1;
+  int16_t dE = 0;
 
-    if (!g_currentVAD) {
+  if (!g_currentVAD) {
       supGain = 0;
-    } else {
+  } else {
       tmp16no1 = (g_nearLogEnergy[0] - g_echoStoredLogEnergy[0] - ENERGY_DEV_OFFSET);
       dE = ABS_W16(tmp16no1);
 
       if (dE < ENERGY_DEV_TOL) {
-        if (dE < SUPGAIN_EPC_DT) {
-          const int diffAB = SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
-          tmp32no1 = diffAB * dE;
-          tmp32no1 += (SUPGAIN_EPC_DT >> 1);
-          tmp16no1 = (int16_t)DivW32W16(tmp32no1, SUPGAIN_EPC_DT);
-          supGain = SUPGAIN_ERROR_PARAM_A - tmp16no1;
-        } else {
-          const int diffBD = SUPGAIN_ERROR_PARAM_B - SUPGAIN_ERROR_PARAM_D;
-          tmp32no1 = diffBD * (ENERGY_DEV_TOL - dE);
-          tmp32no1 += ((ENERGY_DEV_TOL - SUPGAIN_EPC_DT) >> 1);
-          tmp16no1 = (int16_t)DivW32W16(tmp32no1, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
-          supGain = SUPGAIN_ERROR_PARAM_D + tmp16no1;
-        }
+          if (dE < SUPGAIN_EPC_DT) {
+              const int diffAB = SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
+              tmp32no1 = diffAB * dE;
+              tmp32no1 += (SUPGAIN_EPC_DT >> 1);
+              tmp16no1 = (int16_t)DivW32W16(tmp32no1, SUPGAIN_EPC_DT);
+              supGain = SUPGAIN_ERROR_PARAM_A - tmp16no1;
+          } else {
+              const int diffBD = SUPGAIN_ERROR_PARAM_B - SUPGAIN_ERROR_PARAM_D;
+              tmp32no1 = diffBD * (ENERGY_DEV_TOL - dE);
+              tmp32no1 += ((ENERGY_DEV_TOL - SUPGAIN_EPC_DT) >> 1);
+              tmp16no1 = (int16_t)DivW32W16(tmp32no1, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
+              supGain = SUPGAIN_ERROR_PARAM_D + tmp16no1;
+          }
       } else {
-        supGain = SUPGAIN_ERROR_PARAM_D;
+          supGain = SUPGAIN_ERROR_PARAM_D;
       }
-    }
-
-    if (supGain > g_supGainOld) {
-      tmp16no1 = supGain;
-    } else {
-      tmp16no1 = g_supGainOld;
-    }
-    g_supGainOld = supGain;
-    if (tmp16no1 < g_supGain) {
-      g_supGain += (int16_t)((tmp16no1 - g_supGain) >> 4);
-    } else {
-      g_supGain += (int16_t)((tmp16no1 - g_supGain) >> 4);
-    }
-
-    G_gain = g_supGain;
-    // 抑圧ゲイン更新ここまで
   }
+
+  if (supGain > g_supGainOld) {
+      tmp16no1 = supGain;
+  } else {
+      tmp16no1 = g_supGainOld;
+  }
+  g_supGainOld = supGain;
+  if (tmp16no1 < g_supGain) {
+      g_supGain += (int16_t)((tmp16no1 - g_supGain) >> 4);
+  } else {
+      g_supGain += (int16_t)((tmp16no1 - g_supGain) >> 4);
+  }
+  // 抑圧ゲイン更新ここまで
+
 
   // Wiener/NLP 用の抑圧マスク G(k) を算出
   int16_t G_mask[PART_LEN1];
@@ -663,19 +656,19 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     g_sMagSmooth[i] += (int32_t)(((int64_t)tmp32no1 * 50) >> 8);
 
     int16_t zeros32 = NormW32(g_sMagSmooth[i]) + 1;
-    int16_t zeros16 = NormW16(G_gain) + 1;
+    int16_t zeros16 = NormW16(g_supGain) + 1;
     uint32_t S_magGained;
     int16_t resolutionDiff;
     if (zeros32 + zeros16 > 16) {
-      S_magGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], (uint16_t)G_gain);
+      S_magGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], (uint16_t)g_supGain);
       resolutionDiff = 14 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
     } else {
       int16_t tmp16no1 = 17 - zeros32 - zeros16;
       resolutionDiff = 14 + tmp16no1 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
       if (zeros32 > tmp16no1) {
-        S_magGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], G_gain >> tmp16no1);
+        S_magGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], g_supGain >> tmp16no1);
       } else {
-        S_magGained = (g_sMagSmooth[i] >> tmp16no1) * G_gain;
+        S_magGained = (g_sMagSmooth[i] >> tmp16no1) * g_supGain;
       }
     }
 
@@ -778,6 +771,8 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     double gain_normalized = static_cast<double>(G_mask[i]) / static_cast<double>(ONE_Q14);
     sum_gain += gain_normalized;
   }
+
+  // デバッグ出力
   double avg_gain = sum_gain / PART_LEN1;
   double suppression_db;
   if (avg_gain <= 0.0) avg_gain = 0.0;
@@ -786,18 +781,17 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   if (clamped_gain < kMinGain) clamped_gain = kMinGain;
   suppression_db = 20.0 * log10(clamped_gain);
 
-  {
-    static int dbg_sup_counter = 0;
-    static double best_gain = 1.0;
-    static double best_db = 0.0;
-    static int initialized = 0;
-    dbg_sup_counter++;
-    if (!initialized || suppression_db < best_db) {
+  static int dbg_sup_counter = 0;
+  static double best_gain = 1.0;
+  static double best_db = 0.0;
+  static int initialized = 0;
+  dbg_sup_counter++;
+  if (!initialized || suppression_db < best_db) {
       best_db = suppression_db;
       best_gain = clamped_gain;
       initialized = 1;
-    }
-    if (dbg_sup_counter % 100 == 0) {
+  }
+  if (dbg_sup_counter % 100 == 0) {
       fprintf(stderr,
               "[Suppression] window=%d avg_gain=%.3f (%.1f dB)%s%s\n",
               dbg_sup_counter,
@@ -806,8 +800,8 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
               g_bypass_wiener ? " wiener-off" : "",
               g_bypass_nlp ? " nlp-off" : "");
       initialized = 0;
-    }
   }
+
 
   int16_t fft[PART_LEN4 + 2];
   int16_t time_current[PART_LEN];
@@ -830,13 +824,13 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   memcpy(g_xBuf, g_xBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
   memcpy(g_yBuf, g_yBuf + PART_LEN, sizeof(int16_t) * PART_LEN);
 
-  {
-    static int dbg_ss_counter = 0;
-    dbg_ss_counter++;
-    if (dbg_ss_counter % 100 == 0) {
+
+  // デバッグ出力
+  static int dbg_ss_counter = 0;
+  dbg_ss_counter++;
+  if (dbg_ss_counter % 100 == 0) {
       fprintf(stderr, "[AECM] block=%d startupState=%d est_delay=%d\n",
               dbg_ss_counter, (int)g_startupState, delay);
-    }
   }
 
   return 0;
