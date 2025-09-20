@@ -472,12 +472,6 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   uint32_t Y_mag_sum = 0;
   TimeToFrequencyDomain(g_yBuf, Y_freq, Y_mag, &Y_mag_sum);
   
-  g_dfaNoisyQDomainOld = g_dfaNoisyQDomain;
-  g_dfaNoisyQDomain = 0;
-
-  g_dfaCleanQDomainOld = g_dfaNoisyQDomainOld;
-  g_dfaCleanQDomain = g_dfaNoisyQDomain;
-
   g_xHistoryPos++;
   if (g_xHistoryPos >= MAX_DELAY) {
     g_xHistoryPos = 0;
@@ -509,6 +503,12 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   int16_t increase_min_shifts = 11;
   int16_t decrease_min_shifts = 3;
 
+  g_dfaNoisyQDomainOld = g_dfaNoisyQDomain;
+  g_dfaNoisyQDomain = 0;
+
+  g_dfaCleanQDomainOld = g_dfaNoisyQDomainOld;
+  g_dfaCleanQDomain = g_dfaNoisyQDomain;
+  
   // 近端の対数エネルギー履歴を後ろに1つずらす
   memmove(g_nearLogEnergy + 1, g_nearLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
   g_nearLogEnergy[0] = LogOfEnergyInQ8(Y_mag_sum, g_dfaNoisyQDomain);
