@@ -59,7 +59,7 @@
       offset = FAR_ENERGY_VAD_REGION + (Δ * FAR_ENERGY_VAD_REGION) / 512,
       g_farEnergyVAD <- g_farEnergyMin + offset,
     ただし起動完了後は `g_farEnergyVAD` を (g_farLogEnergy + offset) に 1/64 ステップで追随させ、1024 ブロック毎に固定更新する。
-  - MSE 判定用しきい値: `g_farEnergyMSE = g_farEnergyVAD + 256`。
+  - MSE 判定用しきい値: `g_farEnergyMSEThres = g_farEnergyVAD + 256`。
     この値を上回るブロックのみが後段 (3.8 節) のチャネル比較対象となり、連続カウント `g_mseChannelCount` を進める。
   - VAD 判定
       g_currentVAD = true if (g_farLogEnergy > g_farEnergyVAD) and (g_startupState == 0 or g_farEnergyMax - g_farEnergyMin > FAR_ENERGY_DIFF),
@@ -83,7 +83,7 @@
 
 3.8 チャネル保存・復元ロジック
   - 起動フェーズ (g_startupState == 0) かつ VAD=1 では、毎ブロック `StoreAdaptiveChannel` を実行。
-  - それ以外では `g_farLogEnergy >= g_farEnergyMSE` のブロックを数え `g_mseChannelCount` に蓄積。閾値に達すると過去 `MIN_MSE_COUNT` = 20 個分の対数表現エネルギー差から
+  - それ以外では `g_farLogEnergy >= g_farEnergyMSEThres` のブロックを数え `g_mseChannelCount` に蓄積。閾値に達すると過去 `MIN_MSE_COUNT` = 20 個分の対数表現エネルギー差から
       mseStored = sum_i |g_echoStoredLogEnergy[i] - g_nearLogEnergy[i]|,
       mseAdapt  = sum_i |g_echoAdaptLogEnergy[i] - g_nearLogEnergy[i]|
     を算出。
@@ -146,7 +146,7 @@
 - L_echo_stored[i]: `g_echoStoredLogEnergy[i]`
 - g_farEnergyMin, g_farEnergyMax: 遠端エネルギー範囲トラッカ
 - g_farEnergyVAD: VAD 用対数表現エネルギー閾値
-- g_farEnergyMSE: MSE 判定用対数表現エネルギー基準
+- g_farEnergyMSEThres: MSE 判定用対数表現エネルギー閾値
 - g_currentVAD: 遠端 VAD フラグ
 - g_supGain: 抑圧ゲインチューニング値
 - G_mask[k]: 最終周波数マスク
