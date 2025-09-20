@@ -466,37 +466,35 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   uint16_t X_mag[PART_LEN1]; // |X| Xの絶対値スペクトル
   uint16_t Y_mag[PART_LEN1]; // |Y| Yの絶対値スペクトル
   uint32_t X_mag_sum = 0; // sum(|X|) 遠端のエネルギー
-  TimeToFrequencyDomain(g_xBuf, Y_freq, X_mag, &X_mag_sum);
-
-  // Step 2. 近端信号 Y(k) = FFT{y(n)} を算出し（|Y| と Σ|Y| を求める）
+  TimeToFrequencyDomain(g_xBuf, Y_freq, X_mag, &X_mag_sum); // |X|, sum(|X|) = FFT(x)
   uint32_t Y_mag_sum = 0;
-  TimeToFrequencyDomain(g_yBuf, Y_freq, Y_mag, &Y_mag_sum);
-  
+  TimeToFrequencyDomain(g_yBuf, Y_freq, Y_mag, &Y_mag_sum); // Y, |Y|, sum(|Y|) = FFT(y)
+
   g_xHistoryPos++;
   if (g_xHistoryPos >= MAX_DELAY) {
     g_xHistoryPos = 0;
   }
-  memcpy(&(g_xHistory[g_xHistoryPos * PART_LEN1]), X_mag, sizeof(uint16_t) * PART_LEN1);
+  memcpy(&(g_xHistory[g_xHistoryPos * PART_LEN1]), X_mag, sizeof(uint16_t) * PART_LEN1); // |X|を履歴に積む
 
-  // Step 3. 2値スペクトル履歴からブロック単位の遅延を推定する。
-  int delay = DelayEstimatorProcess(Y_mag,X_mag);
+  // 3. 2値スペクトル履歴からブロック単位の遅延を推定する。
+  int delay = DelayEstimatorProcess(Y_mag,X_mag); // delay : 整数値。単位はブロック
   if (delay == -1) {
     return -1;
   } else if (delay == -2) {
     delay = 0;  // 遅延が不明な場合は 0 と仮定する。
   }
 
-  // 推定した遅延に合わせて遠端スペクトルを整列
+  // 推定した遅延に合わせて遠端スペクトルを整列する。整列とは処理対象とするブロックを選ぶこと。
   int buffer_position = g_xHistoryPos - delay;
   if (buffer_position < 0) {
     buffer_position += MAX_DELAY;
   }
-  const uint16_t* X_mag_aligned = &(g_xHistory[buffer_position * PART_LEN1]);
+  const uint16_t* X_mag_aligned = &(g_xHistory[buffer_position * PART_LEN1]); // |X_aligned|
 
-  // エネルギーの対数値の履歴（log |X|, log |Ŷ|）を更新して VAD/閾値に反映
-  uint32_t tmpFar = 0;  // 遠端スペクトル|X(k)|の総和
-  uint32_t tmpAdapt = 0;  // 適応チャネル出力|S_hat_adapt(k)|の総和
-  uint32_t tmpStored = 0;  // 保存チャネル出力|S_hat_stored(k)|の総和
+  // 4. 対数表現エネルギー4種類の履歴を更新
+  uint32_t tmpFar = 0;  // 遠端スペクトル|X(k)|の総和、計算用
+  uint32_t tmpAdapt = 0;  // 適応チャネル出力|S_hat_adapt(k)|の総和、計算用
+  uint32_t tmpStored = 0;  // 保存チャネル出力|S_hat_stored(k)|の総和、計算用
   int16_t tmp16;
   int16_t increase_max_shifts = 4;
   int16_t decrease_max_shifts = 11;
@@ -526,20 +524,22 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   memmove(g_echoStoredLogEnergy + 1, g_echoStoredLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
 
   g_farLogEnergy = LogOfEnergyInQ8(tmpFar, 0);
-  g_echoAdaptLogEnergy[0] = LogOfEnergyInQ8(tmpAdapt, RESOLUTION_CHANNEL16);
-  g_echoStoredLogEnergy[0] = LogOfEnergyInQ8(tmpStored, RESOLUTION_CHANNEL16);
+  g_echoAdaptLogEnergy[0] = LogOfEnergyInQ8(tmpAdapt, RESOLUTION_CHANNEL16); // 後ろにずらしたので[0]に代入可能。
+  g_echoStoredLogEnergy[0] = LogOfEnergyInQ8(tmpStored, RESOLUTION_CHANNEL16); // 後ろにずらしたので[0]に代入可能。
 
+  // 5. 遠端のエネルギーを評価する
   if (g_farLogEnergy > FAR_ENERGY_MIN) {
       if (g_startupState == 0) {
           increase_max_shifts = 2;
           decrease_min_shifts = 2;
           increase_min_shifts = 8;
       }
-
+      // AsymFilt: 上昇は速く、下降は遅くする非対称フィルタ
       g_farEnergyMin = AsymFilt(g_farEnergyMin, g_farLogEnergy, increase_min_shifts, decrease_min_shifts);
       g_farEnergyMax = AsymFilt(g_farEnergyMax, g_farLogEnergy, increase_max_shifts, decrease_max_shifts);
       g_farEnergyMaxMin = g_farEnergyMax - g_farEnergyMin;
 
+      // VAD判定用の閾値 g_farEnergyVAD を更新する。
       tmp16 = 2560 - g_farEnergyMin;
       if (tmp16 > 0) {
           tmp16 = static_cast<int16_t>((tmp16 * FAR_ENERGY_VAD_REGION) >> 9);
@@ -548,27 +548,28 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       }
       tmp16 += FAR_ENERGY_VAD_REGION;
 
-      if ((g_startupState == 0) | (g_vadUpdateCount > 1024)) {
+      if ((g_startupState == 0) | (g_vadUpdateCount > 1024)) { // 起動直後と、長期間一定だったときはリセットする
           g_farEnergyVAD = g_farEnergyMin + tmp16;
       } else {
           if (g_farEnergyVAD > g_farLogEnergy) {
-              g_farEnergyVAD += (g_farLogEnergy + tmp16 - g_farEnergyVAD) >> 6;
+              g_farEnergyVAD += (g_farLogEnergy + tmp16 - g_farEnergyVAD) >> 6; // 遠端が閾値より小さいときはゆっくり更新する。カウンタはゆっくりにする用
               g_vadUpdateCount = 0;
           } else {
               g_vadUpdateCount++;
           }
       }
-      g_farEnergyMSE = g_farEnergyVAD + (1 << 8);
+      g_farEnergyMSE = g_farEnergyVAD + (1 << 8); // この値を後段8でHの昇格判定に使う。
   }
 
-  if (g_farLogEnergy > g_farEnergyVAD) {
+  // VADの結論を出す
+  if (g_farLogEnergy > g_farEnergyVAD) { 
       if ((g_startupState == 0) | (g_farEnergyMaxMin > FAR_ENERGY_DIFF)) {
-          g_currentVAD = true;
+          g_currentVAD = true; // 声がある
       }
   } else {
-      g_currentVAD = false;
+      g_currentVAD = false; // 声がない
   }
-  if (g_currentVAD && g_firstVAD) {
+  if (g_currentVAD && g_firstVAD) { // 最初に声が入ったか?
       g_firstVAD = false;
       if (g_echoAdaptLogEnergy[0] > g_nearLogEnergy[0]) {
           for (int i = 0; i < PART_LEN1; i++) {

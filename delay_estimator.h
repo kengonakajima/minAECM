@@ -35,17 +35,15 @@ typedef struct {
   BinaryDelayEstimatorFarend* farend;
 } BinaryDelayEstimator;
 
-typedef int32_t SpectrumType;
-
 typedef struct {
-  SpectrumType mean_far_spectrum[PART_LEN1];
+  int32_t mean_far_spectrum[PART_LEN1];
   int far_spectrum_initialized;
 
   BinaryDelayEstimatorFarend binary_farend;
 } DelayEstimatorFarend;
 
 typedef struct {
-  SpectrumType mean_near_spectrum[PART_LEN1];
+  int32_t mean_near_spectrum[PART_LEN1];
   int near_spectrum_initialized;
 
   BinaryDelayEstimator binary_handle;

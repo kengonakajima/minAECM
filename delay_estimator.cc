@@ -454,9 +454,9 @@ int ProcessBinarySpectrum(uint32_t binary_near_spectrum) {
 
 
 
-
+// |X|などのspectrumデータを、uint32_t に
 static uint32_t BinarySpectrum(const uint16_t* spectrum,
-                               SpectrumType* threshold_spectrum,
+                               int32_t* threshold_spectrum,
                                int* threshold_initialized) {
   uint32_t out = 0;
 
@@ -501,8 +501,9 @@ void InitDelayEstimator() {
   g_delay_instance.near_spectrum_initialized = 0;
 }
 
+// 3の遅延推定を行う入り口
 int DelayEstimatorProcess(const uint16_t* near_spectrum, const uint16_t* far_spectrum) {
-  AddFarSpectrum(far_spectrum);
+  AddFarSpectrum(far_spectrum); // 
   const uint32_t binary_spectrum = BinarySpectrum( near_spectrum, g_delay_instance.mean_near_spectrum, &(g_delay_instance.near_spectrum_initialized));
   return ProcessBinarySpectrum(binary_spectrum);
 }
