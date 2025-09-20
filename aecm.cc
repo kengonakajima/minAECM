@@ -56,7 +56,7 @@ int16_t g_farEnergyMin; // 遠端エネルギーの最小値トラッカ
 int16_t g_farEnergyMax; // 遠端エネルギーの最大値トラッカ
 int16_t g_farEnergyMaxMin; // 遠端エネルギーのレンジ指標
 int16_t g_farEnergyVAD; // 遠端 VAD 用エネルギーしきい値
-int16_t g_farEnergyMSE; // MSE 判定用遠端エネルギー
+int16_t g_farEnergyMSEThres; // MSE 判定をするための遠端エネルギー基準値
 bool g_currentVAD; // 近端 VAD の現在のフラグ。声があるならtrue
 int16_t g_vadUpdateCount; // VAD 関連の更新カウンタ
 
@@ -252,7 +252,7 @@ void InitAecm() {
   g_farEnergyMaxMin = 0;
   g_farEnergyVAD = FAR_ENERGY_MIN;  // 開始直後の誤検出（音声とみなさない）を防ぐ
                                         // 
-  g_farEnergyMSE = 0;
+  g_farEnergyMSEThres = 0;
   g_currentVAD = false;
   g_vadUpdateCount = 0;
   g_firstVAD = true;
@@ -390,7 +390,7 @@ void UpdateChannel(const uint16_t* X_mag,
     // 推定エコーも再計算する
     StoreAdaptiveChannel(X_mag, S_mag);
   } else {
-    if (g_farLogEnergy < g_farEnergyMSE) {
+    if (g_farLogEnergy < g_farEnergyMSEThres) {
       g_mseChannelCount = 0;
     } else {
       g_mseChannelCount++;
@@ -558,7 +558,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
               g_vadUpdateCount++;
           }
       }
-      g_farEnergyMSE = g_farEnergyVAD + (1 << 8); // この値を後段8でHの昇格判定に使う。
+      g_farEnergyMSEThres = g_farEnergyVAD + (1 << 8); // この値を後段8でHの昇格判定に使う。
   }
 
   // VADの結論を出す
@@ -580,13 +580,13 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       }
   }
 
-  // 遠端エネルギーの変動に基づき NLMS のステップサイズ μ を算出
+  // 6. NLMSステップサイズ μ の計算
   int16_t mu = MU_MAX;
-  if (!g_currentVAD) {
-    mu = 0;
+  if (!g_currentVAD) { 
+    mu = 0; // 声がないときは、全く学習しない。
   } else if (g_startupState > 0) {
-    if (g_farEnergyMin >= g_farEnergyMax) {
-      mu = MU_MIN;
+    if (g_farEnergyMin >= g_farEnergyMax) { // 初期化直後はこの値がブレることがある。そのときに混乱しないため
+      mu = MU_MIN; 
     } else {
       int16_t mu_tmp16 = g_farLogEnergy - g_farEnergyMin;
       int32_t mu_tmp32 = mu_tmp16 * MU_DIFF;
