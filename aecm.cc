@@ -357,7 +357,9 @@ void UpdateChannel(const uint16_t* X_mag,
         // residual_times_far が、 残差信号に|X|を掛けたものに対応する。
         // 周波数ビンに応じて正規化
         residual_times_far = DivW32W16(residual_times_far, i + 1);
-        // 適切な Q ドメインに揃える
+        // 適切な Q ドメインに揃える。
+        // shift2ResChanはシフト演算の量なので、 muを減算しているのは、1が最大の0.5で10が最小の1/1024であることに注意。
+        // つまり muの減算はμを掛けていることに相当している。
         shift2ResChan = shiftNum + shiftChFar - channel_product_q_domain - mu - ((30 - zerosFar) << 1);
         int32_t deltaH_q31;
         if (NormW32(residual_times_far) < shift2ResChan) {
