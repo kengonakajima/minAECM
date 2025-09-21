@@ -605,9 +605,11 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   g_totCount++;
 
   // 7. エコーチャネル更新
-  // NLMSに似た方法で、 muを用いて Hadaptを更新する
+  // NLM法で、 muを用いて Hadaptを更新する。関数内部に処理内容をコメントしている。
   UpdateChannel(X_mag_aligned, Y_mag, mu, S_mag);
 
+
+  // 8. チャネル保存と復元
   int16_t supGain = SUPGAIN_DEFAULT;
   int16_t supGain_interp_target;
   int16_t dE = 0;
@@ -619,6 +621,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       dE = ABS_W16(supGain_interp_target);
 
       if (dE < ENERGY_DEV_TOL) {
+          // エコーが優勢: 近端と推定エコーの差が小さい。
           if (dE < SUPGAIN_EPC_DT) {
               const int diffAB = SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
               int32_t sup_gain_numerator = diffAB * dE;
@@ -633,6 +636,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
               supGain = SUPGAIN_ERROR_PARAM_D + supGain_interp_target;
           }
       } else {
+          // 近端信号が強い: 抑圧を最小側へ。
           supGain = SUPGAIN_ERROR_PARAM_D;
       }
   }
@@ -644,8 +648,10 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   }
   g_supGainOld = supGain;
   if (supGain_interp_target < g_supGain) {
+      // 下降方向：滑らかに減衰させる。
       g_supGain += (int16_t)((supGain_interp_target - g_supGain) >> 4);
   } else {
+      // 上昇方向：同じ平滑係数でゆっくり追随。
       g_supGain += (int16_t)((supGain_interp_target - g_supGain) >> 4);
   }
   // 抑圧ゲイン更新ここまで
