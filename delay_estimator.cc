@@ -50,12 +50,10 @@ static const float kMinFractionWhenPossiblyNonCausal = 0.25f;
 
 // 32bit ワードに含まれるビット数を数えて返す。
 int BitCount(uint32_t u32) {
-  uint32_t tmp =
-      u32 - ((u32 >> 1) & 033333333333) - ((u32 >> 2) & 011111111111);
+  uint32_t tmp = u32 - ((u32 >> 1) & 033333333333) - ((u32 >> 2) & 011111111111);
   tmp = ((tmp + (tmp >> 3)) & 030707070707);
   tmp = (tmp + (tmp >> 6));
   tmp = (tmp + (tmp >> 12) + (tmp >> 24)) & 077;
-
   return ((int)tmp);
 }
 

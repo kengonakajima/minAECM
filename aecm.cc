@@ -496,10 +496,10 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   const uint16_t* X_mag_aligned = &(g_xHistory[buffer_position * PART_LEN1]); // |X_aligned|
 
   // 4. 対数表現エネルギー4種類の履歴を更新
-  uint32_t tmpFar = 0;  // 遠端スペクトル|X(k)|の総和、計算用
-  uint32_t tmpAdapt = 0;  // 適応チャネル出力|S_hat_adapt(k)|の総和、計算用
-  uint32_t tmpStored = 0;  // 保存チャネル出力|S_hat_stored(k)|の総和、計算用
-  int16_t tmp16;
+  uint32_t far_energy_sum = 0;    // 遠端スペクトル|X(k)|の総和
+  uint32_t adapt_energy_sum = 0;  // 適応チャネル出力|S_hat_adapt(k)|の総和
+  uint32_t stored_energy_sum = 0; // 保存チャネル出力|S_hat_stored(k)|の総和
+  int16_t vad_offset_q8;
   int16_t increase_max_shifts = 4;
   int16_t decrease_max_shifts = 11;
   int16_t increase_min_shifts = 11;
@@ -517,19 +517,19 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
 
   int32_t S_mag[PART_LEN1]; // |Ŝ(k)|: 予測エコー振幅（チャネル通過後）    
   for (int i = 0; i < PART_LEN1; i++) {
-      S_mag[i] = MUL_16_U16(g_HStored[i], X_mag_aligned[i]); // 推定エコー信号Sを計算
-      tmpFar += (uint32_t)X_mag_aligned[i]; // 遠端エネルギー総和
-      tmpAdapt += g_HAdapt16[i] * X_mag_aligned[i];  // 学習中チャネルによるエコーエネルギー
-      tmpStored += (uint32_t)S_mag[i]; // S_magのエネルギー
+      S_mag[i] = MUL_16_U16(g_HStored[i], X_mag_aligned[i]);  // 推定エコー信号Sを計算
+      far_energy_sum += (uint32_t)X_mag_aligned[i];            // 遠端エネルギー総和
+      adapt_energy_sum += g_HAdapt16[i] * X_mag_aligned[i];    // 適応チャネルによるエコーエネルギー
+      stored_energy_sum += (uint32_t)S_mag[i];                 // 保存チャネルのエネルギー
   }
 
   // 対数エネルギー履歴バッファを後ろに1つずらす
   memmove(g_echoAdaptLogEnergy + 1, g_echoAdaptLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
   memmove(g_echoStoredLogEnergy + 1, g_echoStoredLogEnergy, sizeof(int16_t) * (MAX_LOG_LEN - 1));
 
-  g_farLogEnergy = LogOfEnergyInQ8(tmpFar, 0);
-  g_echoAdaptLogEnergy[0] = LogOfEnergyInQ8(tmpAdapt, RESOLUTION_CHANNEL16); // 後ろにずらしたので[0]に代入可能。
-  g_echoStoredLogEnergy[0] = LogOfEnergyInQ8(tmpStored, RESOLUTION_CHANNEL16); // 後ろにずらしたので[0]に代入可能。
+  g_farLogEnergy = LogOfEnergyInQ8(far_energy_sum, 0);
+  g_echoAdaptLogEnergy[0] = LogOfEnergyInQ8(adapt_energy_sum, RESOLUTION_CHANNEL16);  // 後ろにずらしたので[0]に代入可能。
+  g_echoStoredLogEnergy[0] = LogOfEnergyInQ8(stored_energy_sum, RESOLUTION_CHANNEL16);  // 後ろにずらしたので[0]に代入可能。
 
   // 5. 遠端のエネルギーを評価する
   if (g_farLogEnergy > FAR_ENERGY_MIN) {
@@ -544,19 +544,19 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       g_farEnergyMaxMin = g_farEnergyMax - g_farEnergyMin;
 
       // VAD判定用の閾値 g_farEnergyVAD を更新する。
-      tmp16 = 2560 - g_farEnergyMin;
-      if (tmp16 > 0) {
-          tmp16 = static_cast<int16_t>((tmp16 * FAR_ENERGY_VAD_REGION) >> 9);
+      vad_offset_q8 = 2560 - g_farEnergyMin;
+      if (vad_offset_q8 > 0) {
+          vad_offset_q8 = static_cast<int16_t>((vad_offset_q8 * FAR_ENERGY_VAD_REGION) >> 9);
       } else {
-          tmp16 = 0;
+          vad_offset_q8 = 0;
       }
-      tmp16 += FAR_ENERGY_VAD_REGION;
+      vad_offset_q8 += FAR_ENERGY_VAD_REGION;
 
       if ((g_startupState == 0) | (g_vadUpdateCount > 1024)) { // 起動直後と、長期間一定だったときはリセットする
-          g_farEnergyVAD = g_farEnergyMin + tmp16;
+          g_farEnergyVAD = g_farEnergyMin + vad_offset_q8;
       } else {
           if (g_farEnergyVAD > g_farLogEnergy) {
-              g_farEnergyVAD += (g_farLogEnergy + tmp16 - g_farEnergyVAD) >> 6; // 遠端が閾値より小さいときはゆっくり更新する。カウンタはゆっくりにする用
+              g_farEnergyVAD += (g_farLogEnergy + vad_offset_q8 - g_farEnergyVAD) >> 6; // 遠端が閾値より小さいときはゆっくり更新する。カウンタはゆっくりにする用
               g_vadUpdateCount = 0;
           } else {
               g_vadUpdateCount++;
