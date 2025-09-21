@@ -287,7 +287,7 @@ void UpdateChannel(const uint16_t* X_mag,
 
   int16_t zerosFar, zerosNum, zerosCh, zerosDfa;
   int16_t shiftChFar, shiftNum, shift2ResChan;
-  int16_t tmp16no1;
+  int16_t dfa_shift_candidate;
   int16_t xfaQ, yMagQ;
 
   // NLMS ベースのチャネル推定で、
@@ -320,9 +320,9 @@ void UpdateChannel(const uint16_t* X_mag,
       } else {
         zerosDfa = 32;
       }
-      tmp16no1 = zerosDfa - 2 + g_dfaNoisyQDomain - RESOLUTION_CHANNEL32 + shiftChFar;
-      if (zerosNum > tmp16no1 + 1) {
-        xfaQ = tmp16no1;
+      dfa_shift_candidate = zerosDfa - 2 + g_dfaNoisyQDomain - RESOLUTION_CHANNEL32 + shiftChFar;
+      if (zerosNum > dfa_shift_candidate + 1) {
+        xfaQ = dfa_shift_candidate;
         yMagQ = zerosDfa - 2;
       } else {
         xfaQ = zerosNum - 2;
@@ -613,28 +613,28 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   UpdateChannel(X_mag_aligned, Y_mag, mu, S_mag);
 
   int16_t supGain = SUPGAIN_DEFAULT;
-  int16_t tmp16no1;
+  int16_t supGain_interp_target;
   int16_t dE = 0;
 
   if (!g_currentVAD) {
       supGain = 0;
   } else {
-      tmp16no1 = (g_nearLogEnergy[0] - g_echoStoredLogEnergy[0] - ENERGY_DEV_OFFSET);
-      dE = ABS_W16(tmp16no1);
+      supGain_interp_target = (g_nearLogEnergy[0] - g_echoStoredLogEnergy[0] - ENERGY_DEV_OFFSET);
+      dE = ABS_W16(supGain_interp_target);
 
       if (dE < ENERGY_DEV_TOL) {
           if (dE < SUPGAIN_EPC_DT) {
               const int diffAB = SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
               int32_t sup_gain_numerator = diffAB * dE;
               sup_gain_numerator += (SUPGAIN_EPC_DT >> 1);
-              tmp16no1 = (int16_t)DivW32W16(sup_gain_numerator, SUPGAIN_EPC_DT);
-              supGain = SUPGAIN_ERROR_PARAM_A - tmp16no1;
+              supGain_interp_target = (int16_t)DivW32W16(sup_gain_numerator, SUPGAIN_EPC_DT);
+              supGain = SUPGAIN_ERROR_PARAM_A - supGain_interp_target;
           } else {
               const int diffBD = SUPGAIN_ERROR_PARAM_B - SUPGAIN_ERROR_PARAM_D;
               int32_t sup_gain_numerator = diffBD * (ENERGY_DEV_TOL - dE);
               sup_gain_numerator += ((ENERGY_DEV_TOL - SUPGAIN_EPC_DT) >> 1);
-              tmp16no1 = (int16_t)DivW32W16(sup_gain_numerator, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
-              supGain = SUPGAIN_ERROR_PARAM_D + tmp16no1;
+              supGain_interp_target = (int16_t)DivW32W16(sup_gain_numerator, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
+              supGain = SUPGAIN_ERROR_PARAM_D + supGain_interp_target;
           }
       } else {
           supGain = SUPGAIN_ERROR_PARAM_D;
@@ -642,15 +642,15 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   }
 
   if (supGain > g_supGainOld) {
-      tmp16no1 = supGain;
+      supGain_interp_target = supGain;
   } else {
-      tmp16no1 = g_supGainOld;
+      supGain_interp_target = g_supGainOld;
   }
   g_supGainOld = supGain;
-  if (tmp16no1 < g_supGain) {
-      g_supGain += (int16_t)((tmp16no1 - g_supGain) >> 4);
+  if (supGain_interp_target < g_supGain) {
+      g_supGain += (int16_t)((supGain_interp_target - g_supGain) >> 4);
   } else {
-      g_supGain += (int16_t)((tmp16no1 - g_supGain) >> 4);
+      g_supGain += (int16_t)((supGain_interp_target - g_supGain) >> 4);
   }
   // 抑圧ゲイン更新ここまで
 
@@ -671,40 +671,40 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       S_magGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], (uint16_t)g_supGain);
       resolutionDiff = 14 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
     } else {
-      int16_t tmp16no1 = 17 - zeros32 - zeros16;
-      resolutionDiff = 14 + tmp16no1 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
-      if (zeros32 > tmp16no1) {
-        S_magGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], g_supGain >> tmp16no1);
-      } else {
-        S_magGained = (g_sMagSmooth[i] >> tmp16no1) * g_supGain;
-      }
+    int16_t gain_shift_candidate = 17 - zeros32 - zeros16;
+    resolutionDiff = 14 + gain_shift_candidate - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
+    if (zeros32 > gain_shift_candidate) {
+      S_magGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], g_supGain >> gain_shift_candidate);
+    } else {
+      S_magGained = (g_sMagSmooth[i] >> gain_shift_candidate) * g_supGain;
     }
+  }
 
     zeros16 = NormW16(g_yMagSmooth[i]);
     int16_t y_mag_q_domain_diff = g_dfaCleanQDomain - g_dfaCleanQDomainOld;
     int16_t qDomainDiff;
-    int16_t tmp16no1;
-    int16_t tmp16no2;
+    int16_t smoothed_near_mag_q15;
+    int16_t raw_near_mag_q15;
     if (zeros16 < y_mag_q_domain_diff && g_yMagSmooth[i]) {
-      tmp16no1 = g_yMagSmooth[i] * (1 << zeros16);
+      smoothed_near_mag_q15 = g_yMagSmooth[i] * (1 << zeros16);
       qDomainDiff = zeros16 - y_mag_q_domain_diff;
-      tmp16no2 = Y_mag[i] >> -qDomainDiff;
+      raw_near_mag_q15 = Y_mag[i] >> -qDomainDiff;
     } else {
-      tmp16no1 = y_mag_q_domain_diff < 0
+      smoothed_near_mag_q15 = y_mag_q_domain_diff < 0
                      ? g_yMagSmooth[i] >> -y_mag_q_domain_diff
                      : g_yMagSmooth[i] * (1 << y_mag_q_domain_diff);
       qDomainDiff = 0;
-      tmp16no2 = Y_mag[i];
+      raw_near_mag_q15 = Y_mag[i];
     }
-    int32_t near_mag_delta_q15 = (int32_t)(tmp16no2 - tmp16no1);
-    tmp16no2 = (int16_t)(near_mag_delta_q15 >> 4);
-    tmp16no2 += tmp16no1;
-    zeros16 = NormW16(tmp16no2);
-    if ((tmp16no2) & (-qDomainDiff > zeros16)) {
+    int32_t near_mag_delta_q15 = (int32_t)(raw_near_mag_q15 - smoothed_near_mag_q15);
+    raw_near_mag_q15 = (int16_t)(near_mag_delta_q15 >> 4);
+    raw_near_mag_q15 += smoothed_near_mag_q15;
+    zeros16 = NormW16(raw_near_mag_q15);
+    if ((raw_near_mag_q15) & (-qDomainDiff > zeros16)) {
       g_yMagSmooth[i] = WORD16_MAX;
     } else {
-      g_yMagSmooth[i] = qDomainDiff < 0 ? tmp16no2 * (1 << -qDomainDiff)
-                                             : tmp16no2 >> qDomainDiff;
+      g_yMagSmooth[i] = qDomainDiff < 0 ? raw_near_mag_q15 * (1 << -qDomainDiff)
+                                             : raw_near_mag_q15 >> qDomainDiff;
     }
 
     if (S_magGained == 0) {
@@ -713,9 +713,9 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       G_mask[i] = 0;
     } else {
       S_magGained += (uint32_t)(g_yMagSmooth[i] >> 1);
-      uint32_t tmpU32 = DivU32U16(S_magGained, (uint16_t)g_yMagSmooth[i]);
+      uint32_t echo_ratio_q14 = DivU32U16(S_magGained, (uint16_t)g_yMagSmooth[i]);
 
-      int32_t ratio_q14 = (int32_t)SHIFT_W32(tmpU32, resolutionDiff);
+      int32_t ratio_q14 = (int32_t)SHIFT_W32(echo_ratio_q14, resolutionDiff);
       if (ratio_q14 > ONE_Q14) {
         G_mask[i] = 0;
       } else if (ratio_q14 < 0) {
@@ -823,8 +823,8 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
                       time_overlap);
 
   for (int i = 0; i < PART_LEN; ++i) {
-    int32_t tmp32 = (int32_t)time_current[i] + g_eOverlapBuf[i];
-    e_block[i] = (int16_t)SAT(WORD16_MAX, tmp32, WORD16_MIN);
+    int32_t overlap_sum = (int32_t)time_current[i] + g_eOverlapBuf[i];
+    e_block[i] = (int16_t)SAT(WORD16_MAX, overlap_sum, WORD16_MIN);
     g_eOverlapBuf[i] = time_overlap[i];
   }
 
