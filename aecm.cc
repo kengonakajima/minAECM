@@ -621,20 +621,12 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       dE = ABS_W16(supGain_interp_target);
 
       if (dE < ENERGY_DEV_TOL) {
-          // エコーが優勢: 近端と推定エコーの差が小さい。
-          if (dE < SUPGAIN_EPC_DT) {
-              const int diffAB = SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
-              int32_t sup_gain_numerator = diffAB * dE;
-              sup_gain_numerator += (SUPGAIN_EPC_DT >> 1);
-              supGain_interp_target = (int16_t)DivW32W16(sup_gain_numerator, SUPGAIN_EPC_DT);
-              supGain = SUPGAIN_ERROR_PARAM_A - supGain_interp_target;
-          } else {
-              const int diffBD = SUPGAIN_ERROR_PARAM_B - SUPGAIN_ERROR_PARAM_D;
-              int32_t sup_gain_numerator = diffBD * (ENERGY_DEV_TOL - dE);
-              sup_gain_numerator += ((ENERGY_DEV_TOL - SUPGAIN_EPC_DT) >> 1);
-              supGain_interp_target = (int16_t)DivW32W16(sup_gain_numerator, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
-              supGain = SUPGAIN_ERROR_PARAM_D + supGain_interp_target;
-          }
+          // エコーが優勢: A(最大)→D(最小) を直線的に補間する。
+          const int diffAD = SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_D;
+          int32_t sup_gain_numerator = diffAD * dE;
+          sup_gain_numerator += (ENERGY_DEV_TOL >> 1); // 四捨五入
+          supGain_interp_target = (int16_t)DivW32W16(sup_gain_numerator, ENERGY_DEV_TOL);
+          supGain = SUPGAIN_ERROR_PARAM_A - supGain_interp_target;
       } else {
           // 近端信号が強い: 抑圧を最小側へ。
           supGain = SUPGAIN_ERROR_PARAM_D;
