@@ -288,12 +288,14 @@ void UpdateChannel(const uint16_t* X_mag,
   int16_t zerosFar, zerosNum, zerosCh, zerosDfa;
   int16_t shiftChFar, shiftNum, shift2ResChan;
   int16_t dfa_shift_candidate;
-  int16_t xfaQ, yMagQ;
+  int16_t channel_product_q_domain, near_mag_q_domain;
 
-  // NLMS ベースのチャネル推定で、
-  // 上で計算した可変ステップ長を使用する。
-  if (mu) {
-    for (int i = 0; i < PART_LEN1; i++) {
+  // 7. エコーチャネル更新。 NLMS法で計算する。
+  // 更新するのはHadaptで、以下の式を実行する。
+  // ΔH = 2^{-μ} · (|Y| - Hadapt · |X|) · |X|
+  // H = H + ΔH
+  if (mu) { // muが0のときは全く学習しない。
+    for (int i = 0; i < PART_LEN1; i++) { // 周波数ビンごとに
       // オーバーフロー防止のためチャネルと遠端の正規化量を算出
       zerosCh = NormU32(g_HAdapt32[i]);
       zerosFar = NormU32((uint32_t)X_mag[i]);
@@ -322,29 +324,19 @@ void UpdateChannel(const uint16_t* X_mag,
       }
       dfa_shift_candidate = zerosDfa - 2 + g_dfaNoisyQDomain - RESOLUTION_CHANNEL32 + shiftChFar;
       if (zerosNum > dfa_shift_candidate + 1) {
-        xfaQ = dfa_shift_candidate;
-        yMagQ = zerosDfa - 2;
+        channel_product_q_domain = dfa_shift_candidate;
+        near_mag_q_domain = zerosDfa - 2;
       } else {
-        xfaQ = zerosNum - 2;
-        yMagQ = RESOLUTION_CHANNEL32 - g_dfaNoisyQDomain - shiftChFar + xfaQ;
+        channel_product_q_domain = zerosNum - 2;
+        near_mag_q_domain = RESOLUTION_CHANNEL32 - g_dfaNoisyQDomain - shiftChFar  + channel_product_q_domain;
       }
       // 同じ Q ドメインに揃えて加算
-      channel_far_product_q0 = SHIFT_W32(channel_far_product_q0, xfaQ);
-      near_mag_q0 = SHIFT_W32((uint32_t)Y_mag[i], yMagQ);
+      channel_far_product_q0 = SHIFT_W32(channel_far_product_q0, channel_product_q_domain);
+      near_mag_q0 = SHIFT_W32((uint32_t)Y_mag[i], near_mag_q_domain);
+      // residual = |Y| - Hadapt · |X| これが残差信号
       int32_t residual_q31 = (int32_t)near_mag_q0 - (int32_t)channel_far_product_q0;
       zerosNum = NormW32(residual_q31);
-      if (residual_q31 && (X_mag[i] > CHANNEL_VAD)) {
-        //
-        // 更新が必要なケース
-        //
-        // 以下の計算を行いたい：
-        //
-        // residual = Y_mag[i] - (H_adapt[i] * X_mag[i])
-        // tmp32norm = (i + 1)
-        // aecm->channelAdapt[i] += (2^mu) * residual
-        //                        / (tmp32norm * X_mag[i])
-        //
-
+      if (residual_q31 && (X_mag[i] > CHANNEL_VAD)) {        
         // 乗算でオーバーフローしないようにする。
         int32_t residual_times_far;
         if (zerosNum + zerosFar > 31) {
@@ -362,17 +354,19 @@ void UpdateChannel(const uint16_t* X_mag,
             residual_times_far = -((-residual_q31 >> shiftNum) * X_mag[i]);
           }
         }
+        // residual_times_far が、 残差信号に|X|を掛けたものに対応する。
         // 周波数ビンに応じて正規化
         residual_times_far = DivW32W16(residual_times_far, i + 1);
         // 適切な Q ドメインに揃える
-        shift2ResChan = shiftNum + shiftChFar - xfaQ - mu - ((30 - zerosFar) << 1);
-        int32_t gradient_q31;
+        shift2ResChan = shiftNum + shiftChFar - channel_product_q_domain - mu - ((30 - zerosFar) << 1);
+        int32_t deltaH_q31;
         if (NormW32(residual_times_far) < shift2ResChan) {
-          gradient_q31 = WORD32_MAX;
+          deltaH_q31 = WORD32_MAX;
         } else {
-          gradient_q31 = SHIFT_W32(residual_times_far, shift2ResChan);
+          deltaH_q31 = SHIFT_W32(residual_times_far, shift2ResChan);
         }
-        g_HAdapt32[i] = AddSatW32(g_HAdapt32[i], gradient_q31);
+        // ここまでで、ΔHが求まった。ので、Hadaptに加算する。 H = H + ΔH に対応している。
+        g_HAdapt32[i] = AddSatW32(g_HAdapt32[i], deltaH_q31);
         if (g_HAdapt32[i] < 0) {
           // チャネル利得が負にならないよう強制
           g_HAdapt32[i] = 0;

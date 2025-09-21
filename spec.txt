@@ -41,10 +41,10 @@
     の形で、32bit 整数から指数部と仮数部を抽出している。
   - 近端履歴: `g_nearLogEnergy[0] <- L_near = LogOfEnergyInQ8(E_Y, q_y)`。
   - 適応・保存チャネル出力エネルギー
-      E_S_adapt = sum_{k} g_HAdapt16[k] * X_mag_aligned[k],
-      E_S_stored = sum_{k} S_mag[k],
-    から `g_echoAdaptLogEnergy[0]`, `g_echoStoredLogEnergy[0]` を更新。
-  - 遠端対数表現エネルギー最新値: `g_farLogEnergy <- LogOfEnergyInQ8(sum_k X_mag_aligned[k], 0)`。
+      far_energy_sum = sum_{k} X_mag_aligned[k],
+      adapt_energy_sum = sum_{k} g_HAdapt16[k] * X_mag_aligned[k],
+      stored_energy_sum = sum_{k} S_mag[k],
+    を用い、`LogOfEnergyInQ8` で `g_farLogEnergy`, `g_echoAdaptLogEnergy[0]`, `g_echoStoredLogEnergy[0]` を更新する。
 
 3.5 遠端エネルギー平滑化と VAD 閾値
   - 非対称 IIR フィルタ (AsymFilt) により
@@ -56,8 +56,8 @@
     で定義され、上昇と下降で時間定数が異なる。
   - 閾値候補
       Δ = max(0, 2560 - g_farEnergyMin),
-      offset = FAR_ENERGY_VAD_REGION + (Δ * FAR_ENERGY_VAD_REGION) / 512,
-      g_farEnergyVAD <- g_farEnergyMin + offset,
+      vad_offset_q8 = FAR_ENERGY_VAD_REGION + (Δ * FAR_ENERGY_VAD_REGION) / 512,
+      g_farEnergyVAD <- g_farEnergyMin + vad_offset_q8,
     ただし起動完了後は `g_farEnergyVAD` を (g_farLogEnergy + offset) に 1/64 ステップで追随させ、1024 ブロック毎に固定更新する。
   - MSE 判定用しきい値: `g_farEnergyMSEThres = g_farEnergyVAD + 256`。
     この値を上回るブロックのみが後段 (3.8 節) のチャネル比較対象となり、連続カウント `g_mseChannelCount` を進める。
@@ -82,8 +82,8 @@
     
     ここで ΔH[k] は以下の NLMS に準じた式で求める。
       ΔH[k] = 2^{-μ} · (Y_mag[k] - H_adapt[k] · X_mag[k]) · X_mag[k] / (k + 1)
-    固定小数演算では、残差と遠端振幅の積、(k+1) での正規化、ステップサイズ 2^{-μ} を
-    シフトで段階的に適用し、最終的に RESOLUTION_CHANNEL32 の Q に合わせる。
+    固定小数演算では residual_q31・residual_times_far・gradient_q31 などの中間値を
+    シフトで段階的に正規化し、最終的に RESOLUTION_CHANNEL32 の Q に合わせる。
 
   - `g_HAdapt16[k]` は 16bit へ射影され、`S_mag[k] = g_HStored[k] * X_mag_aligned[k]` を並行計算。
 
@@ -106,7 +106,7 @@
   - VAD=0: G_gain = 0。
   - VAD=1 の場合、エネルギー差
       dE = |g_nearLogEnergy[0] - g_echoStoredLogEnergy[0] - ENERGY_DEV_OFFSET|
-    に基づき
+    に基づき、`supGain_interp_target` を 2 段階の線形補間で算出する。
       if dE < SUPGAIN_EPC_DT:
         supGain = A - (A - B) * dE / SUPGAIN_EPC_DT,
       else if dE < ENERGY_DEV_TOL:
@@ -114,7 +114,7 @@
       else:
         supGain = D,
     (A=SUPGAIN_ERROR_PARAM_A, B=SUPGAIN_ERROR_PARAM_B, D=SUPGAIN_ERROR_PARAM_D)。
-  - `g_supGain` は一次平滑: `g_supGain <- g_supGain + (supGain - g_supGain)/16`。
+  - `g_supGain` は `supGain_interp_target` に向けて一次平滑: `g_supGain <- g_supGain + (supGain_interp_target - g_supGain)/16`。
   - 出力ゲイン: `G_gain = g_supGain`。
 
 3.10 周波数マスク生成 (Wiener + NLP)
