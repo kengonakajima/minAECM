@@ -319,9 +319,9 @@ void ComplexBitReverse(int16_t* __restrict complex_data, int stages) {
   (void)stages;
   int32_t* ptr = reinterpret_cast<int32_t*>(complex_data);
   for (int m = 0; m < 112; m += 2) {
-    int32_t tmp = ptr[kBitReverseIndex7[m]];
+    int32_t swapped_pair = ptr[kBitReverseIndex7[m]];
     ptr[kBitReverseIndex7[m]] = ptr[kBitReverseIndex7[m + 1]];
-    ptr[kBitReverseIndex7[m + 1]] = tmp;
+    ptr[kBitReverseIndex7[m + 1]] = swapped_pair;
   }
 }
 
@@ -410,8 +410,8 @@ int16_t NormW32(int32_t a) {
   if (a == 0) {
     return 0;
   }
-  int32_t tmp = a < 0 ? ~a : a;
-  return (int16_t)(CountLeadingZeros32((uint32_t)tmp) - 1);
+  int32_t magnitude = a < 0 ? ~a : a;
+  return (int16_t)(CountLeadingZeros32((uint32_t)magnitude) - 1);
 }
 
 // 符号なし32ビット値を正規化するシフト量を返す。
@@ -427,8 +427,8 @@ int16_t NormW16(int16_t a) {
     return 0;
   }
   int32_t a32 = a;
-  int32_t tmp = a < 0 ? ~a32 : a32;
-  return (int16_t)(CountLeadingZeros32((uint32_t)tmp) - 17);
+  int32_t magnitude = a < 0 ? ~a32 : a32;
+  return (int16_t)(CountLeadingZeros32((uint32_t)magnitude) - 17);
 }
 
 // 16ビットの内積を1項分計算して累積値へ加える。
@@ -564,13 +564,13 @@ int ComplexIFFT(int16_t frfi[], int stages, int mode) {
     int shift = 0;
     int32_t round2 = 8192;
 
-    int32_t tmp32 = MaxAbsValueW16(frfi, 2 * n);
-    if (tmp32 > 13573) {
+    int32_t max_abs_value = MaxAbsValueW16(frfi, 2 * n);
+    if (max_abs_value > 13573) {
       ++shift;
       ++scale;
       round2 <<= 1;
     }
-    if (tmp32 > 27146) {
+    if (max_abs_value > 27146) {
       ++shift;
       ++scale;
       round2 <<= 1;
@@ -671,12 +671,12 @@ void InverseFFTAndWindow(int16_t* fft,
   for (int i = 0; i < part_len; ++i) {
     ifft_out[i] = static_cast<int16_t>(
         MUL_16_16_RSFT_WITH_ROUND(ifft_out[i], sqrt_hanning[i], 14));
-    int32_t tmp32 = SHIFT_W32(static_cast<int32_t>(ifft_out[i]), outCFFT);
-    current_block[i] = static_cast<int16_t>(SAT(WORD16_MAX, tmp32, WORD16_MIN));
+    int32_t windowed_sample_q31 = SHIFT_W32(static_cast<int32_t>(ifft_out[i]), outCFFT);
+    current_block[i] = static_cast<int16_t>(SAT(WORD16_MAX, windowed_sample_q31, WORD16_MIN));
 
-    tmp32 = (ifft_out[part_len + i] * sqrt_hanning[part_len - i]) >> 14;
-    tmp32 = SHIFT_W32(tmp32, outCFFT);
-    overlap_block[i] = static_cast<int16_t>(SAT(WORD16_MAX, tmp32, WORD16_MIN));
+    windowed_sample_q31 = (ifft_out[part_len + i] * sqrt_hanning[part_len - i]) >> 14;
+    windowed_sample_q31 = SHIFT_W32(windowed_sample_q31, outCFFT);
+    overlap_block[i] = static_cast<int16_t>(SAT(WORD16_MAX, windowed_sample_q31, WORD16_MIN));
   }
 }
 
