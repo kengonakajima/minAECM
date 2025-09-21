@@ -758,16 +758,17 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     }
   }
 
-  // 11. NLP
+  // 最終出力を計算するがこのループの中に、 11と12が含まれる。
   ComplexInt16 E_freq[PART_LEN2]; 
   for (int i = 0; i < PART_LEN1; i++) { // ビンごとに
+    // 11. NLP
     if (G_mask[i] > NLP_COMP_HIGH) { // 1を越えないようにする
       G_mask[i] = ONE_Q14;
-    } else if (G_mask[i] < NLP_COMP_LOW) { // 0.2以下だったら0にする
+    } else if (G_mask[i] < NLP_COMP_LOW) { // 0.2以下だったら0にする(非線形)
       G_mask[i] = 0;
     }
 
-    // G_maskで非0の係数が3個未満だったらそのビンはバッサリ0にする
+    // G_maskで非0の係数が3個未満だったらそのビンはバッサリ0にする(非線形)
     int16_t nlpGain = (numPosCoef < 3) ? 0 : ONE_Q14; 
     if (g_bypass_nlp) { 
       nlpGain = ONE_Q14; // パススルーのテストを素路時はnlpGainはいつも1にする
@@ -779,7 +780,10 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     } else {
       G_mask[i] = (int16_t)((G_mask[i] * nlpGain) >> 14);
     }
-    // Eは、エコーキャンセラの最終出力の誤差信号の周波数表現。これはスペクトルではなく位相を含むので複素数の配列
+    
+    // 12. エコー抑圧済み信号を生成
+    // MUL_16_16 はかけ算をする関数。 G_mask と Y_freqを掛けている。つまり E = G_mask * Y
+    // Eは、エコーキャンセラの最終出力の誤差信号の周波数表現。これはスペクトルではなく位相を含むので複素数の配列。
     E_freq[i].real = (int16_t)(MUL_16_16_RSFT_WITH_ROUND(Y_freq[i].real, G_mask[i], 14));
     E_freq[i].imag = (int16_t)(MUL_16_16_RSFT_WITH_ROUND(Y_freq[i].imag, G_mask[i], 14));
 
@@ -819,6 +823,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   }
 
 
+  // 13. 出力
   int16_t fft[PART_LEN4 + 2];
   int16_t time_current[PART_LEN];
   int16_t time_overlap[PART_LEN];
