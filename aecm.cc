@@ -380,10 +380,9 @@ void UpdateChannel(const uint16_t* X_mag,
   // 適応チャネル更新ここまで
 
 
-  // チャネルを保存するか復元するかを判定
+  // 8. チャネル保存・復元
   if ((g_startupState == 0) && g_currentVAD) {
-    // 起動中は毎ブロックチャネルを保存し、
-    // 推定エコーも再計算する
+    // 起動中は、毎ブロックチャネルを保存し、推定エコーも再計算する。
     StoreAdaptiveChannel(X_mag, S_mag);
   } else {
     if (g_farLogEnergy < g_farEnergyMSEThres) {
@@ -421,7 +420,6 @@ void UpdateChannel(const uint16_t* X_mag,
                  (mseAdapt < g_mseThreshold) &
                  (g_mseAdaptOld < g_mseThreshold)) {
         // 適応チャネルの方が連続して保存チャネルより低い誤差なら、
-        // 
         // 適応チャネルを保存版として採用する。
         StoreAdaptiveChannel(X_mag, S_mag);
 
@@ -609,7 +607,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   UpdateChannel(X_mag_aligned, Y_mag, mu, S_mag);
 
 
-  // 8. チャネル保存と復元
+  // 9. 抑圧ゲイン制御
   int16_t supGain = SUPGAIN_DEFAULT;
   int16_t supGain_interp_target;
   int16_t dE = 0;
@@ -617,6 +615,8 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   if (!g_currentVAD) {
       supGain = 0;
   } else {
+      // 近端と推定エコーの対数エネルギー差をとり、抑圧ゲインをどれだけ下げるか判断する。
+      // dE が近端と推定エコーのエネルギーの差。
       supGain_interp_target = (g_nearLogEnergy[0] - g_echoStoredLogEnergy[0] - ENERGY_DEV_OFFSET);
       dE = ABS_W16(supGain_interp_target);
 
@@ -649,7 +649,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   // 抑圧ゲイン更新ここまで
 
 
-  // Wiener/NLP 用の抑圧マスク G(k) を算出
+  // 10. 周波数マスク生成  
   int16_t G_mask[PART_LEN1];
   int16_t numPosCoef = 0;
   double sum_gain = 0.0;
@@ -665,15 +665,14 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       S_magGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], (uint16_t)g_supGain);
       resolutionDiff = 14 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
     } else {
-    int16_t gain_shift_candidate = 17 - zeros32 - zeros16;
-    resolutionDiff = 14 + gain_shift_candidate - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
-    if (zeros32 > gain_shift_candidate) {
-      S_magGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], g_supGain >> gain_shift_candidate);
-    } else {
-      S_magGained = (g_sMagSmooth[i] >> gain_shift_candidate) * g_supGain;
+      int16_t gain_shift_candidate = 17 - zeros32 - zeros16;
+      resolutionDiff = 14 + gain_shift_candidate - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
+      if (zeros32 > gain_shift_candidate) {
+        S_magGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], g_supGain >> gain_shift_candidate);
+      } else {
+        S_magGained = (g_sMagSmooth[i] >> gain_shift_candidate) * g_supGain;
+      }
     }
-  }
-
     zeros16 = NormW16(g_yMagSmooth[i]);
     int16_t y_mag_q_domain_diff = g_dfaCleanQDomain - g_dfaCleanQDomainOld;
     int16_t qDomainDiff;
