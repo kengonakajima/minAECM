@@ -13,7 +13,7 @@ int ProcessBlock(const int16_t* farend,
                  int16_t* out);
 
 // デバッグ向け制御（0:有効, 非0:バイパス）。
-void SetBypassWiener(int enable);
+void SetBypassSupMask(int enable);
 void SetBypassNlp(int enable);
 
 #endif  // AECM_H_

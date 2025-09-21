@@ -75,12 +75,12 @@ static const ALIGN8_BEG int16_t kSqrtHanning[] ALIGN8_END = {
     14384, 14571, 14749, 14918, 15079, 15231, 15373, 15506, 15631, 15746, 15851,
     15947, 16034, 16111, 16179, 16237, 16286, 16325, 16354, 16373, 16384};
 
-// 近似版の振幅計算は使わず、sqrtベースのみを使用
-static bool g_bypass_wiener = false;
+
+static bool g_bypass_supmask = false;
 static bool g_bypass_nlp = false;
 
-void SetBypassWiener(int enable) {
-  g_bypass_wiener = (enable != 0);
+void SetBypassSupMask(int enable) {
+  g_bypass_supmask = (enable != 0);
 }
 
 void SetBypassNlp(int enable) {
@@ -730,7 +730,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
         numPosCoef++; // G_maskの、0ではない係数を数えておく
     }
   }
-  if (g_bypass_wiener) {
+  if (g_bypass_supmask) {
     for (int i = 0; i < PART_LEN1; ++i) {
       G_mask[i] = ONE_Q14;
     }
@@ -759,27 +759,31 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   }
 
   // 11. NLP
-  ComplexInt16 E_freq[PART_LEN2];
-  for (int i = 0; i < PART_LEN1; i++) {
-    if (G_mask[i] > NLP_COMP_HIGH) {
+  ComplexInt16 E_freq[PART_LEN2]; 
+  for (int i = 0; i < PART_LEN1; i++) { // ビンごとに
+    if (G_mask[i] > NLP_COMP_HIGH) { // 1を越えないようにする
       G_mask[i] = ONE_Q14;
-    } else if (G_mask[i] < NLP_COMP_LOW) {
+    } else if (G_mask[i] < NLP_COMP_LOW) { // 0.2以下だったら0にする
       G_mask[i] = 0;
     }
 
-    int16_t nlpGain = (numPosCoef < 3) ? 0 : ONE_Q14;
-    if (g_bypass_nlp) {
-      nlpGain = ONE_Q14;
+    // G_maskで非0の係数が3個未満だったらそのビンはバッサリ0にする
+    int16_t nlpGain = (numPosCoef < 3) ? 0 : ONE_Q14; 
+    if (g_bypass_nlp) { 
+      nlpGain = ONE_Q14; // パススルーのテストを素路時はnlpGainはいつも1にする
     }
 
+    // 抑圧マスクとNLPゲインを掛け合わせ、実際に適用する抑圧ゲインを確定する。
     if ((G_mask[i] == ONE_Q14) && (nlpGain == ONE_Q14)) {
       G_mask[i] = ONE_Q14;
     } else {
       G_mask[i] = (int16_t)((G_mask[i] * nlpGain) >> 14);
     }
-
+    // Eは、エコーキャンセラの最終出力の誤差信号の周波数表現。これはスペクトルではなく位相を含むので複素数の配列
     E_freq[i].real = (int16_t)(MUL_16_16_RSFT_WITH_ROUND(Y_freq[i].real, G_mask[i], 14));
     E_freq[i].imag = (int16_t)(MUL_16_16_RSFT_WITH_ROUND(Y_freq[i].imag, G_mask[i], 14));
+
+    // デバッグ出力用の計測
     double gain_normalized = static_cast<double>(G_mask[i]) / static_cast<double>(ONE_Q14);
     sum_gain += gain_normalized;
   }
@@ -809,7 +813,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
               dbg_sup_counter,
               best_gain,
               best_db,
-              g_bypass_wiener ? " wiener-off" : "",
+              g_bypass_supmask ? " supmask-off" : "",
               g_bypass_nlp ? " nlp-off" : "");
       initialized = 0;
   }

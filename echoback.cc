@@ -206,7 +206,7 @@ int main(int argc, char** argv){
   // AECM 初期化
   if (!s.passthrough) {
     InitAecm();
-    SetBypassWiener(s.bypass_wiener ? 1 : 0);
+    SetBypassSupMask(s.bypass_wiener ? 1 : 0);
     SetBypassNlp(s.bypass_nlp ? 1 : 0);
   }
   while (Pa_IsStreamActive(stream)==1) {
