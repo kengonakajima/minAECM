@@ -19,3 +19,20 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
+
+## コンパイル
+- Apple Silicon のmac
+- macOS Sequoia 以降
+- Xcode 26.0のコマンドラインツール
+
+以上をインストールした状態で、
+レポジトリトップで make
+すればビルドできます。
+
+以下のようにしてエコーバックサンプルを起動できます。
+
+```
+./echoback --input-delay-ms 50   # 人工的に50msの遅延を設定してエコーバック
+./echoback --passthrough   # AECをオフにしてパススルーする。ハウリングします
+```
+
