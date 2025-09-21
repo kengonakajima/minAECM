@@ -703,6 +703,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       g_yMagSmooth[i] = qDomainDiff < 0 ? raw_near_mag_q15 * (1 << -qDomainDiff)
                                              : raw_near_mag_q15 >> qDomainDiff;
     }
+    // ここまでで、|Y_smooth|が計算できた。固定小数の計算を正しくやるために、かなり長いコードになっている
 
     // 推定エコー比率を計算し、帯域ごとのマスク値 G(k) を決定
     if (S_magGained == 0) {
@@ -710,23 +711,23 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     } else if (g_yMagSmooth[i] == 0) {
       G_mask[i] = 0;
     } else {
-      S_magGained += (uint32_t)(g_yMagSmooth[i] >> 1);
+      S_magGained += (uint32_t)(g_yMagSmooth[i] >> 1); // |S_gained|を計算
       uint32_t echo_ratio_q14 = DivU32U16(S_magGained, (uint16_t)g_yMagSmooth[i]);
 
-      int32_t ratio_q14 = (int32_t)SHIFT_W32(echo_ratio_q14, resolutionDiff);
+      int32_t ratio_q14 = (int32_t)SHIFT_W32(echo_ratio_q14, resolutionDiff); //  |S_gained|  /  |Y_smooth|  に相当
       if (ratio_q14 > ONE_Q14) {
         G_mask[i] = 0;
       } else if (ratio_q14 < 0) {
         G_mask[i] = ONE_Q14;
       } else {
-        G_mask[i] = ONE_Q14 - (int16_t)ratio_q14;
-        if (G_mask[i] < 0) {
+        G_mask[i] = ONE_Q14 - (int16_t)ratio_q14; // 1 からratioを引いている
+        if (G_mask[i] < 0) { // 負にならないようにする
           G_mask[i] = 0;
         }
       }
     }
     if (G_mask[i]) {
-      numPosCoef++;
+        numPosCoef++; // G_maskの、0ではない係数を数えておく
     }
   }
   if (g_bypass_wiener) {
@@ -735,10 +736,14 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     }
     numPosCoef = PART_LEN1;
   }
+  // 抑圧マスクを 2 乗して、強いエコー帯域の減衰をさらに強調する。
+  // この部分を削除してもキャンセルはできるが、キャンセルが効き始める前のハウリングがひどくなる。  
   for (int i = 0; i < PART_LEN1; i++) {
     G_mask[i] = (int16_t)((G_mask[i] * G_mask[i]) >> 14);
   }
 
+  // 中域帯域の平均ゲインを求め、残りの帯域が過剰に開かないよう上限値として使う。
+  // この部分を削除してもキャンセルはできるが、キャンセルが効き始める前のハウリングがひどくなる。
   const int kMinPrefBand = 4;
   const int kMaxPrefBand = 24;
   int32_t avgG32 = 0;
@@ -753,6 +758,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     }
   }
 
+  // 11. NLP
   ComplexInt16 E_freq[PART_LEN2];
   for (int i = 0; i < PART_LEN1; i++) {
     if (G_mask[i] > NLP_COMP_HIGH) {
