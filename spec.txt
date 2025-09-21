@@ -79,6 +79,12 @@
   - 固定小数点 Q ドメインに応じてシフトしながら
       g_HAdapt32[k] <- max(0, g_HAdapt32[k] + ΔH[k])
     を実施 (負の利得は禁止)。
+    
+    ここで ΔH[k] は以下の NLMS に準じた式で求める。
+      ΔH[k] = 2^{-μ} · (Y_mag[k] - H_adapt[k] · X_mag[k]) · X_mag[k] / (k + 1)
+    固定小数演算では、残差と遠端振幅の積、(k+1) での正規化、ステップサイズ 2^{-μ} を
+    シフトで段階的に適用し、最終的に RESOLUTION_CHANNEL32 の Q に合わせる。
+
   - `g_HAdapt16[k]` は 16bit へ射影され、`S_mag[k] = g_HStored[k] * X_mag_aligned[k]` を並行計算。
 
 3.8 チャネル保存・復元ロジック

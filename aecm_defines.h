@@ -30,11 +30,6 @@
 #define ENERGY_DEV_TOL 400        /* エネルギー推定の許容誤差（Q8） */
 #define FAR_ENERGY_VAD_REGION 230 /* 遠端 VAD の許容範囲 */
 
-/* ステップサイズ関連の定数 */
-#define MU_MIN 10 /* 遠端エネルギーに依存する最小ステップ（2^-MU_MIN） */
-#define MU_MAX 1  /* 遠端エネルギーに依存する最大ステップ（2^-MU_MAX） */
-#define MU_DIFF 9 /* MU_MIN と MU_MAX の差 */
-
 /* チャネル関連の定数 */
 #define MIN_MSE_COUNT 20 /* チャネル比較に必要な遠端エネルギー十分な連続ブロック数の最小値 */
 #define MIN_MSE_DIFF 29  /* 適応/保存チャネルを比較して保存更新を許可する比率（Q-MSE_RESOLUTION で 0.8） */

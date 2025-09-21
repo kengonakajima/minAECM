@@ -281,8 +281,7 @@ void UpdateChannel(const uint16_t* X_mag,
                               const uint16_t* const Y_mag,
                               const int16_t mu,
                               int32_t* S_mag) {
-  uint32_t tmpU32no1, tmpU32no2;
-  int32_t tmp32no1, tmp32no2;
+  uint32_t channel_far_product_q0, near_mag_q0;
   int32_t mseStored;
   int32_t mseAdapt;
 
@@ -300,7 +299,7 @@ void UpdateChannel(const uint16_t* X_mag,
       zerosFar = NormU32((uint32_t)X_mag[i]);
       if (zerosCh + zerosFar > 31) {
         // 乗算しても安全な状態
-        tmpU32no1 = UMUL_32_16(g_HAdapt32[i], X_mag[i]);
+        channel_far_product_q0 = UMUL_32_16(g_HAdapt32[i], X_mag[i]);
         shiftChFar = 0;
       } else {
         // 乗算前にシフトダウンが必要
@@ -311,11 +310,11 @@ void UpdateChannel(const uint16_t* X_mag,
           uint32_t shifted = (shiftChFar >= 32)
                                   ? 0u
                                   : (uint32_t)(g_HAdapt32[i] >> shiftChFar);
-          tmpU32no1 = shifted * X_mag[i];
+          channel_far_product_q0 = shifted * X_mag[i];
         }
       }
       // 分子の Q ドメインを決定
-      zerosNum = NormU32(tmpU32no1);
+      zerosNum = NormU32(channel_far_product_q0);
       if (Y_mag[i]) {
         zerosDfa = NormU32((uint32_t)Y_mag[i]);
       } else {
@@ -330,49 +329,50 @@ void UpdateChannel(const uint16_t* X_mag,
         yMagQ = RESOLUTION_CHANNEL32 - g_dfaNoisyQDomain - shiftChFar + xfaQ;
       }
       // 同じ Q ドメインに揃えて加算
-      tmpU32no1 = SHIFT_W32(tmpU32no1, xfaQ);
-      tmpU32no2 = SHIFT_W32((uint32_t)Y_mag[i], yMagQ);
-      tmp32no1 = (int32_t)tmpU32no2 - (int32_t)tmpU32no1;
-      zerosNum = NormW32(tmp32no1);
-      if (tmp32no1 && (X_mag[i] > CHANNEL_VAD)) {
+      channel_far_product_q0 = SHIFT_W32(channel_far_product_q0, xfaQ);
+      near_mag_q0 = SHIFT_W32((uint32_t)Y_mag[i], yMagQ);
+      int32_t residual_q31 = (int32_t)near_mag_q0 - (int32_t)channel_far_product_q0;
+      zerosNum = NormW32(residual_q31);
+      if (residual_q31 && (X_mag[i] > CHANNEL_VAD)) {
         //
         // 更新が必要なケース
         //
         // 以下の計算を行いたい：
         //
-        // tmp32no1 = Y_mag[i] - (aecm->channelAdapt[i] * X_mag[i])
+        // residual = Y_mag[i] - (H_adapt[i] * X_mag[i])
         // tmp32norm = (i + 1)
-        // aecm->channelAdapt[i] += (2^mu) * tmp32no1
+        // aecm->channelAdapt[i] += (2^mu) * residual
         //                        / (tmp32norm * X_mag[i])
         //
 
         // 乗算でオーバーフローしないようにする。
+        int32_t residual_times_far;
         if (zerosNum + zerosFar > 31) {
-          if (tmp32no1 > 0) {
-            tmp32no2 = (int32_t)UMUL_32_16(tmp32no1, X_mag[i]);
+          if (residual_q31 > 0) {
+            residual_times_far = (int32_t)UMUL_32_16(residual_q31, X_mag[i]);
           } else {
-            tmp32no2 = -(int32_t)UMUL_32_16(-tmp32no1, X_mag[i]);
+            residual_times_far = -(int32_t)UMUL_32_16(-residual_q31, X_mag[i]);
           }
           shiftNum = 0;
         } else {
           shiftNum = 32 - (zerosNum + zerosFar);
-          if (tmp32no1 > 0) {
-            tmp32no2 = (tmp32no1 >> shiftNum) * X_mag[i];
+          if (residual_q31 > 0) {
+            residual_times_far = (residual_q31 >> shiftNum) * X_mag[i];
           } else {
-            tmp32no2 = -((-tmp32no1 >> shiftNum) * X_mag[i]);
+            residual_times_far = -((-residual_q31 >> shiftNum) * X_mag[i]);
           }
         }
         // 周波数ビンに応じて正規化
-        tmp32no2 = DivW32W16(tmp32no2, i + 1);
+        residual_times_far = DivW32W16(residual_times_far, i + 1);
         // 適切な Q ドメインに揃える
-        shift2ResChan =
-            shiftNum + shiftChFar - xfaQ - mu - ((30 - zerosFar) << 1);
-        if (NormW32(tmp32no2) < shift2ResChan) {
-          tmp32no2 = WORD32_MAX;
+        shift2ResChan = shiftNum + shiftChFar - xfaQ - mu - ((30 - zerosFar) << 1);
+        int32_t gradient_q31;
+        if (NormW32(residual_times_far) < shift2ResChan) {
+          gradient_q31 = WORD32_MAX;
         } else {
-          tmp32no2 = SHIFT_W32(tmp32no2, shift2ResChan);
+          gradient_q31 = SHIFT_W32(residual_times_far, shift2ResChan);
         }
-        g_HAdapt32[i] = AddSatW32(g_HAdapt32[i], tmp32no2);
+        g_HAdapt32[i] = AddSatW32(g_HAdapt32[i], gradient_q31);
         if (g_HAdapt32[i] < 0) {
           // チャネル利得が負にならないよう強制
           g_HAdapt32[i] = 0;
@@ -403,13 +403,17 @@ void UpdateChannel(const uint16_t* X_mag,
       mseStored = 0;
       mseAdapt = 0;
       for (int i = 0; i < MIN_MSE_COUNT; i++) {
-        tmp32no1 = ((int32_t)g_echoStoredLogEnergy[i] - (int32_t)g_nearLogEnergy[i]);
-        tmp32no2 = ABS_W32(tmp32no1);
-        mseStored += tmp32no2;
+        int32_t stored_error_q8 =
+            static_cast<int32_t>(g_echoStoredLogEnergy[i]) -
+            static_cast<int32_t>(g_nearLogEnergy[i]);
+        int32_t stored_error_abs_q8 = ABS_W32(stored_error_q8);
+        mseStored += stored_error_abs_q8;
 
-        tmp32no1 = ((int32_t)g_echoAdaptLogEnergy[i] - (int32_t)g_nearLogEnergy[i]);
-        tmp32no2 = ABS_W32(tmp32no1);
-        mseAdapt += tmp32no2;
+        int32_t adapt_error_q8 =
+            static_cast<int32_t>(g_echoAdaptLogEnergy[i]) -
+            static_cast<int32_t>(g_nearLogEnergy[i]);
+        int32_t adapt_error_abs_q8 = ABS_W32(adapt_error_q8);
+        mseAdapt += adapt_error_abs_q8;
       }
       if (((mseStored << MSE_RESOLUTION) < (MIN_MSE_DIFF * mseAdapt)) &
           ((g_mseStoredOld << MSE_RESOLUTION) <
@@ -581,6 +585,9 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   }
 
   // 6. NLMSステップサイズ μ の計算
+  const int MU_MIN = 10;  // 遠端エネルギーに依存する最小ステップ（2^-MU_MIN） 
+  const int MU_MAX = 1;   // 遠端エネルギーに依存する最大ステップ（2^-MU_MAX） 
+  const int MU_DIFF = 9;  // MU_MIN と MU_MAX の差   
   int16_t mu = MU_MAX;
   if (!g_currentVAD) { 
     mu = 0; // 声がないときは、全く学習しない。
@@ -601,10 +608,10 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   // 処理済みブロック数をインクリメント
   g_totCount++;
 
-  // ここからチャネル推定アルゴリズム。NLMS 派生で、上で計算した
-  // 可変ステップ長を用いて H_adapt を更新する。
+  // 7. エコーチャネル更新
+  // NLMSに似た方法で、 muを用いて Hadaptを更新する
   UpdateChannel(X_mag_aligned, Y_mag, mu, S_mag);
-  int32_t tmp32no1;
+
   int16_t supGain = SUPGAIN_DEFAULT;
   int16_t tmp16no1;
   int16_t dE = 0;
@@ -618,15 +625,15 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       if (dE < ENERGY_DEV_TOL) {
           if (dE < SUPGAIN_EPC_DT) {
               const int diffAB = SUPGAIN_ERROR_PARAM_A - SUPGAIN_ERROR_PARAM_B;
-              tmp32no1 = diffAB * dE;
-              tmp32no1 += (SUPGAIN_EPC_DT >> 1);
-              tmp16no1 = (int16_t)DivW32W16(tmp32no1, SUPGAIN_EPC_DT);
+              int32_t sup_gain_numerator = diffAB * dE;
+              sup_gain_numerator += (SUPGAIN_EPC_DT >> 1);
+              tmp16no1 = (int16_t)DivW32W16(sup_gain_numerator, SUPGAIN_EPC_DT);
               supGain = SUPGAIN_ERROR_PARAM_A - tmp16no1;
           } else {
               const int diffBD = SUPGAIN_ERROR_PARAM_B - SUPGAIN_ERROR_PARAM_D;
-              tmp32no1 = diffBD * (ENERGY_DEV_TOL - dE);
-              tmp32no1 += ((ENERGY_DEV_TOL - SUPGAIN_EPC_DT) >> 1);
-              tmp16no1 = (int16_t)DivW32W16(tmp32no1, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
+              int32_t sup_gain_numerator = diffBD * (ENERGY_DEV_TOL - dE);
+              sup_gain_numerator += ((ENERGY_DEV_TOL - SUPGAIN_EPC_DT) >> 1);
+              tmp16no1 = (int16_t)DivW32W16(sup_gain_numerator, (ENERGY_DEV_TOL - SUPGAIN_EPC_DT));
               supGain = SUPGAIN_ERROR_PARAM_D + tmp16no1;
           }
       } else {
@@ -653,8 +660,8 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   int16_t numPosCoef = 0;
   double sum_gain = 0.0;
   for (int i = 0; i < PART_LEN1; i++) {
-    int32_t tmp32no1 = S_mag[i] - g_sMagSmooth[i];
-    g_sMagSmooth[i] += (int32_t)(((int64_t)tmp32no1 * 50) >> 8);
+    int32_t smooth_error_q31 = S_mag[i] - g_sMagSmooth[i];
+    g_sMagSmooth[i] += (int32_t)(((int64_t)smooth_error_q31 * 50) >> 8);
 
     int16_t zeros32 = NormW32(g_sMagSmooth[i]) + 1;
     int16_t zeros16 = NormW16(g_supGain) + 1;
@@ -689,8 +696,8 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       qDomainDiff = 0;
       tmp16no2 = Y_mag[i];
     }
-    tmp32no1 = (int32_t)(tmp16no2 - tmp16no1);
-    tmp16no2 = (int16_t)(tmp32no1 >> 4);
+    int32_t near_mag_delta_q15 = (int32_t)(tmp16no2 - tmp16no1);
+    tmp16no2 = (int16_t)(near_mag_delta_q15 >> 4);
     tmp16no2 += tmp16no1;
     zeros16 = NormW16(tmp16no2);
     if ((tmp16no2) & (-qDomainDiff > zeros16)) {
@@ -708,13 +715,13 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       S_magGained += (uint32_t)(g_yMagSmooth[i] >> 1);
       uint32_t tmpU32 = DivU32U16(S_magGained, (uint16_t)g_yMagSmooth[i]);
 
-      tmp32no1 = (int32_t)SHIFT_W32(tmpU32, resolutionDiff);
-      if (tmp32no1 > ONE_Q14) {
+      int32_t ratio_q14 = (int32_t)SHIFT_W32(tmpU32, resolutionDiff);
+      if (ratio_q14 > ONE_Q14) {
         G_mask[i] = 0;
-      } else if (tmp32no1 < 0) {
+      } else if (ratio_q14 < 0) {
         G_mask[i] = ONE_Q14;
       } else {
-        G_mask[i] = ONE_Q14 - (int16_t)tmp32no1;
+        G_mask[i] = ONE_Q14 - (int16_t)ratio_q14;
         if (G_mask[i] < 0) {
           G_mask[i] = 0;
         }
