@@ -654,33 +654,36 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   int16_t numPosCoef = 0;
   double sum_gain = 0.0;
   for (int i = 0; i < PART_LEN1; i++) {
+    // 推定エコー振幅を更新・平滑化して、最新の抑圧対象エネルギーを取得
     int32_t smooth_error_q31 = S_mag[i] - g_sMagSmooth[i];
     g_sMagSmooth[i] += (int32_t)(((int64_t)smooth_error_q31 * 50) >> 8);
 
-    int16_t zeros32 = NormW32(g_sMagSmooth[i]) + 1;
-    int16_t zeros16 = NormW16(g_supGain) + 1;
+    // エコー推定量と抑圧ゲインのビット幅を調べ、整数演算用のスケーリングを決定
+    int16_t smooth_echo_leading_zeros = NormW32(g_sMagSmooth[i]) + 1;
+    int16_t sup_gain_leading_zeros = NormW16(g_supGain) + 1;
     uint32_t S_magGained;
     int16_t resolutionDiff;
-    if (zeros32 + zeros16 > 16) {
+    if (smooth_echo_leading_zeros + sup_gain_leading_zeros > 16) {
       S_magGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], (uint16_t)g_supGain);
       resolutionDiff = 14 - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
     } else {
-      int16_t gain_shift_candidate = 17 - zeros32 - zeros16;
+      int16_t gain_shift_candidate = 17 - smooth_echo_leading_zeros - sup_gain_leading_zeros;
       resolutionDiff = 14 + gain_shift_candidate - RESOLUTION_CHANNEL16 - RESOLUTION_SUPGAIN;
-      if (zeros32 > gain_shift_candidate) {
+      if (smooth_echo_leading_zeros > gain_shift_candidate) {
         S_magGained = UMUL_32_16((uint32_t)g_sMagSmooth[i], g_supGain >> gain_shift_candidate);
       } else {
         S_magGained = (g_sMagSmooth[i] >> gain_shift_candidate) * g_supGain;
       }
     }
-    zeros16 = NormW16(g_yMagSmooth[i]);
+    // 近端スペクトルの Q ドメインを最新状態にそろえる
+    int16_t smoothed_near_leading_zeros = NormW16(g_yMagSmooth[i]);
     int16_t y_mag_q_domain_diff = g_dfaCleanQDomain - g_dfaCleanQDomainOld;
     int16_t qDomainDiff;
     int16_t smoothed_near_mag_q15;
     int16_t raw_near_mag_q15;
-    if (zeros16 < y_mag_q_domain_diff && g_yMagSmooth[i]) {
-      smoothed_near_mag_q15 = g_yMagSmooth[i] * (1 << zeros16);
-      qDomainDiff = zeros16 - y_mag_q_domain_diff;
+    if (smoothed_near_leading_zeros < y_mag_q_domain_diff && g_yMagSmooth[i]) {
+      smoothed_near_mag_q15 = g_yMagSmooth[i] * (1 << smoothed_near_leading_zeros);
+      qDomainDiff = smoothed_near_leading_zeros - y_mag_q_domain_diff;
       raw_near_mag_q15 = Y_mag[i] >> -qDomainDiff;
     } else {
       smoothed_near_mag_q15 = y_mag_q_domain_diff < 0
@@ -689,17 +692,19 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       qDomainDiff = 0;
       raw_near_mag_q15 = Y_mag[i];
     }
+    // 近端振幅をスムージングしつつ、過剰なスケールにならないよう制限
     int32_t near_mag_delta_q15 = (int32_t)(raw_near_mag_q15 - smoothed_near_mag_q15);
     raw_near_mag_q15 = (int16_t)(near_mag_delta_q15 >> 4);
     raw_near_mag_q15 += smoothed_near_mag_q15;
-    zeros16 = NormW16(raw_near_mag_q15);
-    if ((raw_near_mag_q15) & (-qDomainDiff > zeros16)) {
+    int16_t raw_near_leading_zeros = NormW16(raw_near_mag_q15);
+    if ((raw_near_mag_q15) & (-qDomainDiff > raw_near_leading_zeros)) {
       g_yMagSmooth[i] = WORD16_MAX;
     } else {
       g_yMagSmooth[i] = qDomainDiff < 0 ? raw_near_mag_q15 * (1 << -qDomainDiff)
                                              : raw_near_mag_q15 >> qDomainDiff;
     }
 
+    // 推定エコー比率を計算し、帯域ごとのマスク値 G(k) を決定
     if (S_magGained == 0) {
       G_mask[i] = ONE_Q14;
     } else if (g_yMagSmooth[i] == 0) {
