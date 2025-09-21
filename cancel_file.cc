@@ -49,18 +49,18 @@ int main(int argc, char** argv){
     std::fprintf(stderr, "Failed to read 16k-mono wavs\n");
     return 1;
   }
-  size_t N = std::min(x.samples.size(), y.samples.size()) / (size_t)AECM_BLOCK_SIZE;
+  size_t N = std::min(x.samples.size(), y.samples.size()) / (size_t)BLOCK_LEN;
   InitAecm();
   std::vector<int16_t> processed;
-  processed.resize(N * AECM_BLOCK_SIZE);
+  processed.resize(N * BLOCK_LEN);
   for (size_t n=0;n<N;n++){
     // Farend/render と Nearend/capture を同一ブロックで処理
-    ProcessBlock(&x.samples[n * AECM_BLOCK_SIZE],
-                 &y.samples[n * AECM_BLOCK_SIZE],
-                 &processed[n * AECM_BLOCK_SIZE]);
+    ProcessBlock(&x.samples[n * BLOCK_LEN],
+                 &y.samples[n * BLOCK_LEN],
+                 &processed[n * BLOCK_LEN]);
   }
   // Save processed signal as processed.wav (PCM16 mono 16kHz)
-  const uint32_t sr = AECM_SAMPLE_RATE_HZ;
+  const uint32_t sr = SAMPLE_RATE_HZ;
   const uint16_t ch = 1;
   const uint16_t bps = 16;
   const uint32_t data_bytes = static_cast<uint32_t>(processed.size() * sizeof(int16_t));

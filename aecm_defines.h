@@ -1,11 +1,11 @@
-/* AECM_DYNAMIC_Q を無効化（教育用に定数Qで簡略化） */
-/* #define AECM_DYNAMIC_Q */
+// AECM_DYNAMIC_Q を無効化（教育用に定数Qで簡略化） 
 
-/* アルゴリズム関連の定数 */
+
+// アルゴリズム関連の定数 
 // 教育用にフレームとパーティションを一致させる: 64サンプル固定
-#define FRAME_LEN 64 /* フレーム長（PART_LEN と同じ） */
+#define BLOCK_LEN 64  // ブロック長（PART_LEN と同じ） 
 
-#define PART_LEN 64      /* パーティション長 */
+#define PART_LEN 64      // パーティション長。ブロック単位
 #define PART_LEN_SHIFT 7 /* PART_LEN*2 を表すビットシフト量 */
 
 #define PART_LEN1 (PART_LEN + 1)  /* FFT のユニークな係数数 */
@@ -14,9 +14,10 @@
 #define FAR_BUF_LEN PART_LEN4     /* 遠端バッファの長さ */
 #define MAX_DELAY 100 // 推定可能な最大の遅延。単位はブロック
 
+
 /* アプリ統合向けの公開定数 */
-#define AECM_SAMPLE_RATE_HZ 16000
-#define AECM_BLOCK_SIZE FRAME_LEN  /* FRAME_LEN (64) と同じ */
+#define SAMPLE_RATE_HZ 16000
+
 
 /* カウンタ関連の定数 */
 #define CONV_LEN 512              /* 起動時に用いる収束ブロック数 */

@@ -69,19 +69,19 @@ inline void enqueue_capture_sample(State& s, int16_t sample) {
 
 void process_available_blocks(State& s){
   // Run as many 64-sample blocks as possible
-  while (s.rec_dev.size() >= (size_t)AECM_BLOCK_SIZE) {
-    std::vector<int16_t> near_blk(AECM_BLOCK_SIZE), far_blk(AECM_BLOCK_SIZE), out_blk(AECM_BLOCK_SIZE);
+  while (s.rec_dev.size() >= (size_t)BLOCK_LEN) {
+    std::vector<int16_t> near_blk(BLOCK_LEN), far_blk(BLOCK_LEN), out_blk(BLOCK_LEN);
     // 1) pop near block
-    pop_samples(s.rec_dev, near_blk.data(), AECM_BLOCK_SIZE);
+    pop_samples(s.rec_dev, near_blk.data(), BLOCK_LEN);
     // 2) pop far block（スピーカへ送る信号 = 参照）
-    if (s.jitter.size() >= (size_t)AECM_BLOCK_SIZE) {
-      pop_samples(s.jitter, far_blk.data(), AECM_BLOCK_SIZE);
+    if (s.jitter.size() >= (size_t)BLOCK_LEN) {
+      pop_samples(s.jitter, far_blk.data(), BLOCK_LEN);
     } else {
-      std::memset(far_blk.data(), 0, AECM_BLOCK_SIZE * sizeof(int16_t));
+      std::memset(far_blk.data(), 0, BLOCK_LEN * sizeof(int16_t));
     }
 
     if (s.passthrough) {
-      std::memcpy(out_blk.data(), near_blk.data(), AECM_BLOCK_SIZE * sizeof(int16_t));
+      std::memcpy(out_blk.data(), near_blk.data(), BLOCK_LEN * sizeof(int16_t));
     } else {
       // AECM: Far/Near ブロックを同時に処理
       ProcessBlock(far_blk.data(),
@@ -90,10 +90,10 @@ void process_available_blocks(State& s){
     }
 
     // ローカル・ループバック: 処理後の出力を蓄積して、次々回以降の far にする
-    push_block(s.jitter, out_blk.data(), AECM_BLOCK_SIZE);
+    push_block(s.jitter, out_blk.data(), BLOCK_LEN);
 
     // 今回のスピーカ出力は `far_blk`
-    push_block(s.out_dev, far_blk.data(), AECM_BLOCK_SIZE);
+    push_block(s.out_dev, far_blk.data(), BLOCK_LEN);
   }
 }
 
@@ -143,16 +143,16 @@ int main(int argc, char** argv){
       std::string value = arg.substr(strlen("--input-delay-ms="));
       long long delay_ms = std::stoll(value);
       size_t raw_samples = static_cast<size_t>(
-          (delay_ms * static_cast<long long>(AECM_SAMPLE_RATE_HZ) + 999) / 1000);
-      const size_t block = static_cast<size_t>(AECM_BLOCK_SIZE);
+          (delay_ms * static_cast<long long>(SAMPLE_RATE_HZ) + 999) / 1000);
+      const size_t block = static_cast<size_t>(BLOCK_LEN);
       size_t delay_blocks = (raw_samples + block / 2) / block;
       s.delay_target_samples = delay_blocks * block;
     } else if (arg == "--input-delay-ms" && i + 1 < argc) {
       std::string value(argv[++i] ? argv[i] : "0");
       long long delay_ms = std::stoll(value);
       size_t raw_samples = static_cast<size_t>(
-          (delay_ms * static_cast<long long>(AECM_SAMPLE_RATE_HZ) + 999) / 1000);
-      const size_t block = static_cast<size_t>(AECM_BLOCK_SIZE);
+          (delay_ms * static_cast<long long>(SAMPLE_RATE_HZ) + 999) / 1000);
+      const size_t block = static_cast<size_t>(BLOCK_LEN);
       size_t delay_blocks = (raw_samples + block / 2) / block;
       s.delay_target_samples = delay_blocks * block;
     } else if (arg == "--help" || arg == "-h") {
@@ -176,9 +176,9 @@ int main(int argc, char** argv){
 
   if (s.delay_target_samples > 0) {
     double delay_ms = static_cast<double>(s.delay_target_samples) * 1000.0 /
-                      static_cast<double>(AECM_SAMPLE_RATE_HZ);
+                      static_cast<double>(SAMPLE_RATE_HZ);
     double blocks = static_cast<double>(s.delay_target_samples) /
-                    static_cast<double>(AECM_BLOCK_SIZE);
+                    static_cast<double>(BLOCK_LEN);
     std::fprintf(stderr, "capture delay: %.1f ms (%.0f samples, %.1f blocks)\n",
                  delay_ms,
                  static_cast<double>(s.delay_target_samples),
@@ -197,7 +197,7 @@ int main(int argc, char** argv){
   outP.channelCount = 1; outP.sampleFormat = paInt16;
   outP.suggestedLatency = Pa_GetDeviceInfo(outP.device)->defaultLowOutputLatency;
 
-  err = Pa_OpenStream(&stream, &inP, &outP, AECM_SAMPLE_RATE_HZ, AECM_BLOCK_SIZE, paClipOff, pa_callback, &s);
+  err = Pa_OpenStream(&stream, &inP, &outP, SAMPLE_RATE_HZ, BLOCK_LEN, paClipOff, pa_callback, &s);
   if (err!=paNoError){ std::fprintf(stderr, "Pa_OpenStream error %s\n", Pa_GetErrorText(err)); Pa_Terminate(); return 1; }
   err = Pa_StartStream(stream);
   if (err!=paNoError){ std::fprintf(stderr, "Pa_StartStream error %s\n", Pa_GetErrorText(err)); Pa_CloseStream(stream); Pa_Terminate(); return 1; }
