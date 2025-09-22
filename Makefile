@@ -23,6 +23,16 @@ CFLAGS=-g -O3 -mmacosx-version-min=10.13 \
   -ffunction-sections -fdata-sections $(WARN_C)
 LDFLAGS=-Wl,-dead_strip
 
+# Emscripten (WASM) build configuration
+EMCC=emcc
+EMCPPFLAGS=-I.
+EMCXXFLAGS=-O3 -std=c++17 -s MODULARIZE=1 -s ENVIRONMENT=node -s ALLOW_MEMORY_GROWTH=1 -s ASSERTIONS=0 \
+  -s EXPORT_ES6=0 -s NO_EXIT_RUNTIME=1
+EMLDFLAGS=-s EXPORTED_RUNTIME_METHODS='["ccall","cwrap"]' \
+  -s EXPORTED_FUNCTIONS='["_malloc","_free","_aecm_create","_aecm_destroy","_aecm_reset","_aecm_process","_aecm_set_bypass_supmask","_aecm_set_bypass_nlp","_aecm_get_last_delay_blocks"]'
+WASM_SRCS=wasm/aecm_wasm.cc aecm.cc delay_estimator.cc util.cc
+WASM_OUT=dist/aecm_wasm.js
+
 # C 実装も C++ としてビルドし、リンク指定子を単純化
 %.o: %.c
 	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++ -c $< -o $@
@@ -74,6 +84,14 @@ cancel_file: cancel_file.cc libaecm.a
 	$(CXX) -o cancel_file $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) \
 		cancel_file.cc libaecm.a
 
+wasm: $(WASM_OUT)
+
+$(WASM_OUT): $(WASM_SRCS) aecm.h aecm_defines.h | dist
+	EM_CACHE="$(CURDIR)/dist/emcache" $(EMCC) $(EMCPPFLAGS) $(EMCXXFLAGS) $(WASM_SRCS) -o $(WASM_OUT) $(EMLDFLAGS)
+
+dist:
+	mkdir -p dist
+
 .PHONY: clean wasm
 clean:
 	# Object files and primary libraries (keep prebuilt libportaudio.a)
@@ -88,3 +106,4 @@ clean:
 	# Debug symbol bundles and temp files
 	rm -rf *.dSYM
 	rm -f *.tmp
+	rm -rf dist

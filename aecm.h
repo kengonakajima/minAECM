@@ -11,6 +11,7 @@ void InitAecm();
 int ProcessBlock(const int16_t* farend,
                  const int16_t* nearend,
                  int16_t* out);
+int GetLastEstimatedDelay();
 
 // デバッグ向け制御（0:有効, 非0:バイパス）。
 void SetBypassSupMask(int enable);

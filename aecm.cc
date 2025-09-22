@@ -21,6 +21,9 @@ bool g_firstVAD; // VAD 初回検出フラグ。検出済みならtrue
 uint16_t g_xHistory[PART_LEN1 * MAX_DELAY]; // 遠端スペクトル履歴（遅延候補ごと）
 int g_xHistoryPos; // 遠端スペクトル履歴の書き込みインデックス
 
+// 直近の遅延推定結果を保持する。単位は 64 サンプル（1 ブロック）。
+static int g_last_estimated_delay_blocks = -2;
+
 
 uint32_t g_totCount; // 処理済みブロック数のカウンタ
 
@@ -222,6 +225,8 @@ void InitAecm() {
   memset(g_xBuf, 0, sizeof(g_xBuf));
   memset(g_yBuf, 0, sizeof(g_yBuf));
   memset(g_eOverlapBuf, 0, sizeof(g_eOverlapBuf));
+
+  g_last_estimated_delay_blocks = -2;
 
   g_totCount = 0;
 
@@ -477,9 +482,13 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   // 3. 2値スペクトル履歴からブロック単位の遅延を推定する。
   int delay = DelayEstimatorProcess(Y_mag,X_mag); // delay : 整数値。単位はブロック
   if (delay == -1) {
+    g_last_estimated_delay_blocks = -1;
     return -1;
   } else if (delay == -2) {
+    g_last_estimated_delay_blocks = -2;
     delay = 0;  // 遅延が不明な場合は 0 と仮定する。
+  } else {
+    g_last_estimated_delay_blocks = delay;
   }
 
   // 推定した遅延に合わせて遠端スペクトルを整列する。整列とは処理対象とするブロックを選ぶこと。
@@ -855,4 +864,8 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   }
 
   return 0;
+}
+
+int GetLastEstimatedDelay() {
+  return g_last_estimated_delay_blocks;
 }
