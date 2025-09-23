@@ -5,3 +5,4 @@ echoback
 *.dSYM
 libaecm.a
 *.map
+dist/emcache

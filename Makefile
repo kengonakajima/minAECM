@@ -64,20 +64,16 @@ libaecm.a : $(AECM_OBJS)
 	$(RANLIB) libaecm.a
 
 
-PORTAUDIO_HOME?=$(HOME)/portaudio
-PA_FALLBACK_INCDIR1=/opt/homebrew/opt/portaudio/include
-PA_FALLBACK_INCDIR2=/usr/local/include
-PA_FALLBACK_LIBDIR1=/opt/homebrew/opt/portaudio/lib
-PA_FALLBACK_LIBDIR2=/usr/local/lib
+PA_DIR=pa
+PA_INC_DIR=$(PA_DIR)/include
+PA_LIB=$(PA_DIR)/libportaudio.a
 
 # Echoback: AECM を用いたローカル・エコーバック
-echoback: echoback.cc libaecm.a libportaudio.a
+echoback: echoback.cc libaecm.a $(PA_LIB)
 	$(CXX) -o echoback $(CXXFLAGS) $(CPPFLAGS) $(LDFLAGS) \
-		-I$(PORTAUDIO_HOME)/include -I$(PA_FALLBACK_INCDIR1) -I$(PA_FALLBACK_INCDIR2) -I$(PORTAUDIO_HOME) \
+		-I$(PA_INC_DIR) \
 		echoback.cc libaecm.a \
-		-L$(PORTAUDIO_HOME) -L$(PORTAUDIO_HOME)/lib -L$(PA_FALLBACK_LIBDIR1) -L$(PA_FALLBACK_LIBDIR2) \
-		-Wl,-rpath,$(PORTAUDIO_HOME) -Wl,-rpath,$(PORTAUDIO_HOME)/lib -Wl,-rpath,$(PA_FALLBACK_LIBDIR1) -Wl,-rpath,$(PA_FALLBACK_LIBDIR2) \
-		./libportaudio.a -framework CoreAudio -framework AudioToolbox -framework AudioUnit -framework CoreServices 
+		$(PA_LIB) -framework CoreAudio -framework AudioToolbox -framework AudioUnit -framework CoreServices 
 
 # Offline comparator (no PortAudio)
 cancel_file: cancel_file.cc libaecm.a
@@ -94,7 +90,7 @@ dist:
 
 .PHONY: clean wasm
 clean:
-	# Object files and primary libraries (keep prebuilt libportaudio.a)
+	# Object files and primary libraries (keep prebuilt pa/libportaudio.a)
 	rm -f *.o libaecm.a libaec3.a libaec3_*.a
 	# Also remove nested object files in subdirectories
 	find common_audio -name "*.o" -print -delete 2>/dev/null || true
