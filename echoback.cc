@@ -17,6 +17,8 @@
 #include <string>
 #include <vector>
 
+constexpr long long kDefaultLoopbackDelayMs = 150;
+
 #include "aecm.h"
 #include "aecm_defines.h"
 
@@ -162,6 +164,8 @@ int pa_callback(const void* inputBuffer,
 int main(int argc, char** argv){
   State s;
   // 16k/64サンプル固定
+
+  s.loopback_delay_target_samples = ms_to_aligned_samples(kDefaultLoopbackDelayMs);
 
   // 引数パース
   for (int i = 1; i < argc; ++i) {
