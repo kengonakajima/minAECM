@@ -662,6 +662,11 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   int16_t G_mask[PART_LEN1];
   int16_t numPosCoef = 0;
   double sum_gain = 0.0;
+  double mask_removed_block = 0.0;
+  double nlp_removed_block = 0.0;
+  double freq_input_block = 0.0;
+  double actual_after_block = 0.0;
+  double min_final_gain = 1.0;
   for (int i = 0; i < PART_LEN1; i++) {
     // 推定エコー振幅を更新・平滑化して、最新の抑圧対象エネルギーを取得
     int32_t smooth_error_q31 = S_mag[i] - g_sMagSmooth[i];
@@ -783,6 +788,7 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       nlpGain = ONE_Q14; // パススルーのテストを素路時はnlpGainはいつも1にする
     }
 
+    int16_t sup_gain_q14 = G_mask[i];
     // 抑圧マスクとNLPゲインを掛け合わせ、実際に適用する抑圧ゲインを確定する。
     if ((G_mask[i] == ONE_Q14) && (nlpGain == ONE_Q14)) {
       G_mask[i] = ONE_Q14;
@@ -799,7 +805,33 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     // デバッグ出力用の計測
     double gain_normalized = static_cast<double>(G_mask[i]) / static_cast<double>(ONE_Q14);
     sum_gain += gain_normalized;
+
+    double sup_gain = static_cast<double>(sup_gain_q14) / static_cast<double>(ONE_Q14);
+    double final_gain = gain_normalized;
+    double y_real = static_cast<double>(Y_freq[i].real);
+    double y_imag = static_cast<double>(Y_freq[i].imag);
+    double mag_sq = y_real * y_real + y_imag * y_imag;
+    freq_input_block += mag_sq;
+
+    double energy_after_sup = mag_sq * sup_gain * sup_gain;
+    double energy_after_final = mag_sq * final_gain * final_gain;
+    double removed_sup = mag_sq - energy_after_sup;
+    double removed_nlp = energy_after_sup - energy_after_final;
+    if (removed_sup < 0.0) {
+      removed_sup = 0.0;
+    }
+    if (removed_nlp < 0.0) {
+      removed_nlp = 0.0;
+    }
+    mask_removed_block += removed_sup;
+    nlp_removed_block += removed_nlp;
+    actual_after_block += energy_after_final;
+    if (final_gain < min_final_gain) {
+      min_final_gain = final_gain;
+    }
   }
+
+  double switch_after_block = freq_input_block * min_final_gain * min_final_gain;
 
   // デバッグ出力
   double avg_gain = sum_gain / PART_LEN1;
@@ -814,6 +846,12 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
   static double best_gain = 1.0;
   static double best_db = 0.0;
   static int initialized = 0;
+  static int pending_suppression_log = 0;
+  static double suppression_freq_input_energy = 0.0;
+  static double suppression_freq_mask_removed = 0.0;
+  static double suppression_freq_nlp_removed = 0.0;
+  static double suppression_freq_actual_energy = 0.0;
+  static double suppression_freq_switch_energy = 0.0;
   dbg_sup_counter++;
   if (!initialized || suppression_db < best_db) {
       best_db = suppression_db;
@@ -821,15 +859,14 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
       initialized = 1;
   }
   if (dbg_sup_counter % 100 == 0) {
-      fprintf(stderr,
-              "[Suppression] window=%d avg_gain=%.3f (%.1f dB)%s%s\n",
-              dbg_sup_counter,
-              best_gain,
-              best_db,
-              g_bypass_supmask ? " supmask-off" : "",
-              g_bypass_nlp ? " nlp-off" : "");
-      initialized = 0;
+      pending_suppression_log = 1;
   }
+
+  suppression_freq_input_energy += freq_input_block;
+  suppression_freq_mask_removed += mask_removed_block;
+  suppression_freq_nlp_removed += nlp_removed_block;
+  suppression_freq_actual_energy += actual_after_block;
+  suppression_freq_switch_energy += switch_after_block;
 
 
   // 13. 出力
@@ -848,6 +885,72 @@ int ProcessBlock(const int16_t* x_block, const int16_t* y_block, int16_t* e_bloc
     int32_t overlap_sum = (int32_t)time_current[i] + g_eOverlapBuf[i];
     e_block[i] = (int16_t)SAT(WORD16_MAX, overlap_sum, WORD16_MIN);
     g_eOverlapBuf[i] = time_overlap[i];
+  }
+
+  // サプレッサ適用前後のブロックエネルギーを測定
+  int64_t input_energy_block = 0;
+  int64_t output_energy_block = 0;
+  for (int i = 0; i < PART_LEN; ++i) {
+    int32_t y_val = y_block[i];
+    int32_t e_val = e_block[i];
+    input_energy_block += (int64_t)y_val * y_val;
+    output_energy_block += (int64_t)e_val * e_val;
+  }
+
+  static double suppression_input_energy = 0.0;
+  static double suppression_output_energy = 0.0;
+  suppression_input_energy += static_cast<double>(input_energy_block);
+  suppression_output_energy += static_cast<double>(output_energy_block);
+
+  if (pending_suppression_log) {
+      double total_input_energy = suppression_input_energy;
+      double total_output_energy = suppression_output_energy;
+      double removed_energy = total_input_energy - total_output_energy;
+      if (removed_energy < 0.0) {
+        removed_energy = 0.0;
+      }
+      double removal_ratio = 0.0;
+      if (total_input_energy > 0.0) {
+        removal_ratio = (removed_energy / total_input_energy) * 100.0;
+      }
+      double freq_total_input = suppression_freq_input_energy;
+      double freq_mask_removed = suppression_freq_mask_removed;
+      double freq_nlp_removed = suppression_freq_nlp_removed;
+      double freq_mask_ratio = 0.0;
+      double freq_nlp_ratio = 0.0;
+      double survival_actual = 0.0;
+      double survival_switch = 0.0;
+      if (freq_total_input > 0.0) {
+        freq_mask_ratio = (freq_mask_removed / freq_total_input) * 100.0;
+        freq_nlp_ratio = (freq_nlp_removed / freq_total_input) * 100.0;
+        survival_actual = (suppression_freq_actual_energy / freq_total_input) * 100.0;
+        survival_switch = (suppression_freq_switch_energy / freq_total_input) * 100.0;
+      }
+      fprintf(stderr,
+              "[Suppression] window=%d avg_gain=%.3f (%.1f dB) removed=%.2e (%.1f%%) mask=%.2e (%.1f%%) nlp=%.2e (%.1f%%) survival=%.1f%% switch=%.1f%%%s%s\n",
+              dbg_sup_counter,
+              best_gain,
+              best_db,
+              removed_energy,
+              removal_ratio,
+              freq_mask_removed,
+              freq_mask_ratio,
+              freq_nlp_removed,
+              freq_nlp_ratio,
+              survival_actual,
+              survival_switch,
+              g_bypass_supmask ? " supmask-off" : "",
+              g_bypass_nlp ? " nlp-off" : "");
+
+      suppression_input_energy = 0.0;
+      suppression_output_energy = 0.0;
+      suppression_freq_input_energy = 0.0;
+      suppression_freq_mask_removed = 0.0;
+      suppression_freq_nlp_removed = 0.0;
+      suppression_freq_actual_energy = 0.0;
+      suppression_freq_switch_energy = 0.0;
+      pending_suppression_log = 0;
+      initialized = 0;
   }
 
   // 次ブロックで使用するため、最新フレームの後半を先頭へシフト
